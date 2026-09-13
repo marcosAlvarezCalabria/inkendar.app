@@ -80,8 +80,7 @@ suite("Supabase Auth SSR integration", () => {
       throw new Error(`Auth smoke ${identity.role}: direct sign-in request failed`);
     }
     if (signedIn.error) {
-      const category = signedIn.error.code === "invalid_credentials" ? "invalid-credentials" : "other";
-      throw new Error(`Auth smoke ${identity.role}: direct sign-in was rejected (${category})`);
+      throw new Error(`Auth smoke ${identity.role}: direct sign-in was rejected (${authErrorCategory(signedIn.error)})`);
     }
     if (!signedIn.data.session) {
       throw new Error(`Auth smoke ${identity.role}: direct sign-in returned no session`);
@@ -284,6 +283,21 @@ async function cleanup(admin: SupabaseClient, studioIds: string[], userIds: stri
     if (deleted.error) failures.push(deleted.error);
   }
   if (failures.length > 0) throw new AggregateError(failures, "Auth smoke cleanup failed");
+}
+
+function authErrorCategory(error: { code?: string; message: string }): string {
+  const value = `${error.code ?? ""} ${error.message}`.toLowerCase();
+  const categories: ReadonlyArray<readonly [string, string]> = [
+    ["invalid credential", "invalid-credentials"],
+    ["email not confirmed", "email-unconfirmed"],
+    ["email address is invalid", "email-invalid"],
+    ["email provider", "email-provider-disabled"],
+    ["signup", "signup-disabled"],
+    ["rate limit", "rate-limited"],
+    ["database error", "database-error"],
+    ["unexpected_failure", "unexpected-failure"],
+  ];
+  return categories.find(([pattern]) => value.includes(pattern))?.[1] ?? "unclassified";
 }
 
 function required(name: string): string {
