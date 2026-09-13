@@ -77,8 +77,14 @@ suite("Supabase Auth SSR integration", () => {
     } catch {
       throw new Error(`Auth smoke ${identity.role}: direct sign-in request failed`);
     }
-    if (signedIn.error || !signedIn.data.session || signedIn.data.user?.id !== identity.userId) {
-      throw new Error(`Auth smoke ${identity.role}: direct sign-in did not create the expected session`);
+    if (signedIn.error) {
+      throw new Error(`Auth smoke ${identity.role}: direct sign-in was rejected`);
+    }
+    if (!signedIn.data.session) {
+      throw new Error(`Auth smoke ${identity.role}: direct sign-in returned no session`);
+    }
+    if (signedIn.data.user?.id !== identity.userId) {
+      throw new Error(`Auth smoke ${identity.role}: direct sign-in returned another identity`);
     }
 
     const memberships = await client.from("membership").select("studio_id,user_id");
@@ -150,6 +156,9 @@ async function provision(
     email_confirm: true,
   });
   if (created.error) throw created.error;
+  if (created.data.user?.id !== identity.userId) {
+    throw new Error(`Auth smoke ${identity.role}: admin createUser returned another identity`);
+  }
   createdUsers.push(identity.userId);
 
   const studio = await admin.from("studio").insert({ id: identity.studioId, name: `Auth Smoke ${identity.role}` });
