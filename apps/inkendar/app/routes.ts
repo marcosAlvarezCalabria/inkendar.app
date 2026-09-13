@@ -6,5 +6,7 @@ export default [
   route("logout", "routes/logout.tsx"),
   route("app", "routes/app.tsx"),
   route("app/owner", "routes/owner.tsx"),
+  route("app/owner/customers", "routes/owner-customers.tsx"),
+  route("app/owner/cases", "routes/owner-cases.tsx"),
   route("app/artist", "routes/artist.tsx"),
 ] satisfies RouteConfig;

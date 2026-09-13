@@ -25,7 +25,13 @@ export default function OwnerShell() {
         <div><p className="eyebrow">Inkendar · Owner</p><h1>Hola, {displayName}</h1></div>
         <Form method="post" action="/logout"><button className="secondary" type="submit">Cerrar sesión</button></Form>
       </header>
-      <section className="shell-panel"><h2>Panel del estudio</h2><p>Tu espacio operativo está listo para los siguientes slices.</p></section>
+      <section className="shell-panel">
+        <h2>Panel del estudio</h2>
+        <nav className="owner-nav" aria-label="Operación del estudio">
+          <a href="/app/owner/customers">Gestionar clientes</a>
+          <a href="/app/owner/cases">Gestionar casos de tatuaje</a>
+        </nav>
+      </section>
     </main>
   );
 }

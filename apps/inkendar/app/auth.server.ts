@@ -101,6 +101,10 @@ export function safeReturnPath(value: string | null, role: AccessRole): string {
   }
 }
 
+export function isTrustedMutationRequest(request: Request): boolean {
+  return isTrustedMutation(request, defaultTrustedOrigin(request));
+}
+
 export const authHandlers = createAuthHandlers();
 
 async function currentAccessOrDenied(context: AuthRequestContext): Promise<AuthorizedAccess | null> {

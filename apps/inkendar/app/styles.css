@@ -161,3 +161,48 @@ button.secondary {
     width: 100%;
   }
 }
+
+.section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+a {
+  color: #efc184;
+}
+
+.owner-nav,
+.records,
+.record-form,
+.record-form label {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.owner-nav {
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+
+.record-form {
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  align-items: end;
+}
+
+.record-form label {
+  color: #f5f0e8;
+  font-weight: 650;
+}
+
+.record-form input,
+.record-form select,
+.record-form textarea {
+  min-height: 3rem;
+  border: 1px solid #625448;
+  border-radius: 0.4rem;
+  padding: 0.7rem 0.8rem;
+  color: #f5f0e8;
+  background: #17130f;
+  font: inherit;
+}

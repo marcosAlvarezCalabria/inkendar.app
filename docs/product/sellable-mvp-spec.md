@@ -2,7 +2,7 @@
 
 _Estado: especificación viva y fuente de verdad para alcance, comportamiento y progreso_
 
-_Versión: 1.4.1_
+_Versión: 1.5.0_
 
 _Última actualización: 2026-09-13_
 
@@ -46,6 +46,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | Facebook Messenger | `CONNECTED` | Falta la prueba bidireccional final. |
 | Operación dentro de Inkendar | `PLANNED` | Chatwoot todavía no está oculto detrás del futuro panel. |
 | PWA y autenticación | `PASS` | Login email/password, cookies SSR, guards, logout y shells OWNER/ARTIST pasaron `npm run check` con 75 pruebas y un smoke Auth/RLS real con ambos roles en el job `database` del [run 34762663413](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34762663413). El service worker continúa fuera del slice y la suspensión explícita de accesos sigue pendiente. |
+| Clientes y casos de tatuaje | `IN_PROGRESS` | Dominio, aplicación, adaptador Supabase, UI SSR OWNER, migración y 36 aserciones pgTAP están implementados; `npm run check` pasó con 97 pruebas. Falta ejecutar migración y pgTAP contra Supabase/Postgres real. |
 | Alta manual gestionada | `PASS` | El CLI de servidor, Auth Admin, compensación y RPC idempotentes pasaron 32 pruebas enfocadas, `npm run check` con 38 pruebas y 21 aserciones pgTAP dentro del job `database` [run 34756137292](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34756137292). No incluye login, sesión ni UI de autenticación. |
 | Flujo de entrega y CI | `PASS` | El PR [#2](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/2) se integró por squash con `validate` y `database` verdes; ambos checks son obligatorios en `main`, cuya ejecución [34753177240](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34753177240) terminó correctamente. |
 | Memoria de agentes | `PASS` | Engram 1.20.0 guarda y recupera memoria del proyecto `inkendar.app`; Codex MCP está configurado y requiere reinicio para cargarlo en nuevos chats. |
@@ -82,6 +83,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | 2026-09-13 | DEC-022 | `ACCEPTED` | La identidad inicial usa `auth.users` y tablas tenant-scoped `user_profile`, `membership` y `artist_profile`; los únicos roles son `OWNER` y `ARTIST`, y Postgres RLS aplica el aislamiento mediante helpers privados con `search_path` vacío. | Hacer que el owner administre solo su estudio, limitar al artista a lectura propia y evitar escalación o recursión en políticas antes de conectar UI o Supabase Cloud. |
 | 2026-09-13 | DEC-023 | `ACCEPTED` | El alta inicial es una operación gestionada mediante CLI de servidor, Supabase Admin detrás de puertos y RPC transaccionales idempotentes exclusivas de `service_role`; los roles son fijos, un fallo confirmado compensa Auth y un resultado ambiguo conserva la identidad para recuperación segura. | Provisionar pilotos sin superficie pública ni secretos versionados y hacer explícita la recuperación ante la falta de una transacción distribuida entre Auth y Postgres. |
 | 2026-09-13 | DEC-024 | `ACCEPTED` | La sesión PWA usa `@supabase/ssr` y cookies en loaders/actions; `auth.getUser()` verifica la identidad y la aplicación exige una membership coherente bajo RLS antes de exponer un shell por rol. | Mantener tokens y autorización fuera del bundle y fallar cerrado ante identidades ambiguas. |
+| 2026-09-13 | DEC-025 | `ACCEPTED` | El modelo operativo mínimo usa `customer` con estado `ACTIVE` / `ARCHIVED` y `tattoo_case` con estado `OPEN` / `ARCHIVED`; solo OWNER accede, el artista asignado es opcional y no se borran filas en este slice. | Registrar clientes y casos sin anticipar booking ni un workflow complejo, conservando retirada explícita y aislamiento tenant mediante RLS y FKs compuestas. |
 
 La arquitectura técnica está en [Arquitectura de aplicación](../architecture/application-architecture.md) y el proceso de entrega en [Flujo de desarrollo, revisión e integración](../development/delivery-workflow.md).
 
@@ -89,6 +91,7 @@ La arquitectura técnica está en [Arquitectura de aplicación](../architecture/
 
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
+| 2026-09-13 | 1.5.0 | Se implementó el slice owner de clientes y casos con estados mínimos, formularios SSR privados, aislamiento RLS y relaciones tenant compuestas; la prueba Postgres real queda pendiente. | Habilitar el contexto operativo básico sin introducir Chatwoot, archivos, calendario, booking, notificaciones ni acceso del artista. |
 | 2026-09-13 | 1.4.1 | La autenticación PWA pasó a `PASS` tras verificar en CI el registro público cerrado y el recorrido Auth/RLS/cookies/guards/logout de OWNER y ARTIST en dos tenants. | Cerrar el slice con evidencia real del proveedor y del aislamiento sin declarar implementados el service worker ni la suspensión explícita de accesos. |
 | 2026-09-13 | 1.4.0 | Se implementaron login, cookies SSR, guards, logout y shells por rol; el smoke real quedó en CI pendiente de evidencia verde. | Habilitar acceso básico sin confundir implementación con validación extremo a extremo. |
 | 2026-09-13 | 1.3.2 | El alta manual gestionada pasó a `PASS` tras verificar migraciones limpias, seed y 59 aserciones pgTAP en CI. | Cerrar el slice con evidencia real de Supabase/Postgres sin declarar completas la autenticación, la sesión ni su UI. |
