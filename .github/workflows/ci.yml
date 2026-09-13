@@ -56,3 +56,10 @@ jobs:
 
       - name: Test database policies
         run: npm run db:test
+
+      - name: Test authenticated PWA against local Supabase
+        shell: bash
+        run: |
+          eval "$(npx supabase status -o env)"
+          INKENDAR_AUTH_INTEGRATION=1 SUPABASE_URL="$API_URL" SUPABASE_ANON_KEY="$ANON_KEY" \
+            SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" npm run test:auth:integration

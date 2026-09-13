@@ -22,6 +22,7 @@
     "onboard": "tsx scripts/manual-onboarding.ts",
     "start": "npm run start --workspace @inkendar/app",
     "test": "vitest run",
+    "test:auth:integration": "vitest run packages/infrastructure/src/supabase-auth.integration.test.ts",
     "test:watch": "vitest",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },

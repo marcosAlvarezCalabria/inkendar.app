@@ -64,6 +64,10 @@ Auth y Postgres no comparten una transacción. Las RPC serializan por identidad 
 
 Este módulo provisiona identidades y filas coherentes, pero no implementa login, sesión, recuperación de contraseña, invitaciones ni UI de autenticación.
 
+### Acceso autenticado a la PWA
+
+React Router compone un adaptador por petición con `@supabase/ssr`, clave pública y cookies HTTP. Aplicación depende de puertos de sesión y lectura de membership; infraestructura usa `auth.getUser()` y consulta perfiles con el mismo cliente sujeto a RLS. Dominio acepta únicamente una membership coherente con identidad, tenant y perfiles. Los loaders protegen cada shell, devuelven `private, no-store` y no serializan tokens ni la membership completa. `service_role` se limita al alta manual y a la prueba de integración aislada.
+
 ## 2. Alternativas consideradas
 
 ### A. Monolito modular TypeScript — aceptada
@@ -205,7 +209,7 @@ El mecanismo concreto puede comenzar con funciones programadas sobre la platafor
 ## 9. Despliegue inicial
 
 - `inkendar.es`: landing comercial independiente, sin datos de estudios.
-- `app.inkendar.es`: PWA y API/BFF de la plataforma.
+- `app.inkendar.es`: PWA y API/BFF de la plataforma. Este origen es el valor confiable por defecto para mutaciones de autenticación; un proxy o dominio alternativo debe fijar explícitamente `INKENDAR_APP_ORIGIN` y no se confía en cabeceras de host reenviadas por el cliente.
 - dominio del estudio: web creada por Incamdi o web existente conectada al feed público.
 - Supabase Cloud Pro: un proyecto de producción multi-tenant.
 - Desarrollo: Supabase local o proyecto gratuito separado.

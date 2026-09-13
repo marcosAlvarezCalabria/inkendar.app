@@ -4,7 +4,7 @@ PWA y backend de Inkendar para operar conversaciones, casos de tatuaje, propuest
 
 ## Estado
 
-La base técnica ejecutable está en construcción. El repositorio contiene React Router full-stack, el esquema de identidad aislado por RLS y el alta manual gestionada de estudios, owners y artistas. La provisión no equivale a un login: sesión, UI de autenticación, service worker e integraciones siguen pendientes.
+La base técnica ejecutable está en construcción. El repositorio contiene React Router full-stack, identidad aislada por RLS, alta manual y acceso PWA con login, cookies SSR, guards, logout y shells separados por rol. El smoke real de Auth/RLS/logout se ejecuta en el job `database`; el service worker y las integraciones operativas siguen pendientes.
 
 ## Requisitos
 
@@ -25,6 +25,9 @@ npm run check
 ```
 
 Ese comando ejecuta lint, comprobación de tipos de todos los workspaces, pruebas y build de producción. El artefacto resultante separa `apps/inkendar/build/client` y `apps/inkendar/build/server` y se puede ejecutar con `npm start`.
+
+En producción, `app.inkendar.es` es el origen canónico por defecto para las acciones de login y logout. Si el despliegue usa otro origen o termina TLS en un proxy, configura `INKENDAR_APP_ORIGIN` con el origen externo exacto (por ejemplo, `https://app.inkendar.es`, sin ruta ni barra final). La aplicación no deriva esta decisión de `Host`, `Forwarded` ni `X-Forwarded-*`.
+
 ## Alta manual gestionada
 
 El alta se ejecuta solo desde un entorno de servidor autorizado. Configura `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e `INKENDAR_ONBOARDING_PASSWORD` como variables de entorno; no guardes sus valores en el repositorio ni pases la contraseña como argumento.
