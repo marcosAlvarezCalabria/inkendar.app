@@ -19,6 +19,7 @@
     "check": "npm run lint && npm run typecheck && npm run test && npm run build",
     "dev": "npm run dev --workspace @inkendar/app",
     "lint": "eslint .",
+    "onboard": "tsx scripts/manual-onboarding.ts",
     "start": "npm run start --workspace @inkendar/app",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -29,6 +30,7 @@
     "@types/node": "^24.13.4",
     "eslint": "^10.10.0",
     "supabase": "2.117.0",
+    "tsx": "^4.23.13",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.0",
     "vitest": "^5.0.0"

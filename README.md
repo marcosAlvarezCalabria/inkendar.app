@@ -4,7 +4,7 @@ PWA y backend de Inkendar para operar conversaciones, casos de tatuaje, propuest
 
 ## Estado
 
-La base técnica ejecutable está en construcción. El repositorio contiene una aplicación React Router full-stack con renderizado de servidor, manifiesto PWA, workspaces para los límites del monolito modular y CI. Todavía no implementa autenticación, persistencia, integraciones ni comportamiento de producto.
+La base técnica ejecutable está en construcción. El repositorio contiene React Router full-stack, el esquema de identidad aislado por RLS y el alta manual gestionada de estudios, owners y artistas. La provisión no equivale a un login: sesión, UI de autenticación, service worker e integraciones siguen pendientes.
 
 ## Requisitos
 
@@ -25,6 +25,26 @@ npm run check
 ```
 
 Ese comando ejecuta lint, comprobación de tipos de todos los workspaces, pruebas y build de producción. El artefacto resultante separa `apps/inkendar/build/client` y `apps/inkendar/build/server` y se puede ejecutar con `npm start`.
+## Alta manual gestionada
+
+El alta se ejecuta solo desde un entorno de servidor autorizado. Configura `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e `INKENDAR_ONBOARDING_PASSWORD` como variables de entorno; no guardes sus valores en el repositorio ni pases la contraseña como argumento.
+
+```bash
+npm run onboard -- create-studio-owner \
+  --studio-name "Studio Example" \
+  --display-name "Owner Example" \
+  --email "owner@example.test"
+
+npm run onboard -- add-artist \
+  --studio-id "00000000-0000-4000-8000-000000000000" \
+  --display-name "Artist Example" \
+  --email "artist@example.test"
+```
+
+Los comandos fijan `OWNER` y `ARTIST` respectivamente; no existe una opción de rol. El segundo comando solo admite un UUID y la transacción rechaza estudios inexistentes. Si Postgres falla después de crear Auth, el caso de uso intenta eliminar esa identidad; un fallo de compensación devuelve `PROVISIONING_COMPENSATION_FAILED` para intervención operativa.
+
+Este CLI usa credenciales privilegiadas. No se importa desde rutas HTTP ni se distribuye al navegador.
+
 
 ## Estructura
 
