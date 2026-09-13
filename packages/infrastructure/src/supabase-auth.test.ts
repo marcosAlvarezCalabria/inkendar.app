@@ -8,39 +8,52 @@ import {
 } from "./supabase-auth.js";
 
 const userId = "10000000-0000-4000-8000-000000000001";
+const studioId = "20000000-0000-4000-8000-000000000001";
+const profileId = "30000000-0000-4000-8000-000000000001";
+const membershipId = "40000000-0000-4000-8000-000000000001";
+type MembershipTable = "artist_profile" | "membership" | "user_profile";
 
-function client(): SupabaseAuthClient {
+function client(
+  role: "OWNER" | "ARTIST" = "ARTIST",
+  failingTable?: MembershipTable,
+): SupabaseAuthClient {
+  const rows: Record<MembershipTable, ReadonlyArray<Record<string, string>>> = {
+    membership: [
+      {
+        id: membershipId,
+        role,
+        studio_id: studioId,
+        user_id: userId,
+        user_profile_id: profileId,
+      },
+    ],
+    user_profile: [
+      {
+        id: profileId,
+        display_name: role === "OWNER" ? "Owner" : "Artist",
+        studio_id: studioId,
+        user_id: userId,
+      },
+    ],
+    artist_profile:
+      role === "ARTIST"
+        ? [{ membership_id: membershipId, studio_id: studioId, user_id: userId }]
+        : [],
+  };
+
   return {
     auth: {
       getUser: vi.fn(async () => ({ data: { user: { id: userId } }, error: null })),
       signInWithPassword: vi.fn(async () => ({ data: { user: { id: userId } }, error: null })),
       signOut: vi.fn(async () => ({ error: null })),
     },
-    from: vi.fn(() => ({
+    from: vi.fn((table: MembershipTable) => ({
       select: vi.fn(() => ({
-        eq: vi.fn(async () => ({
-          data: [
-            {
-              id: "40000000-0000-4000-8000-000000000001",
-              role: "ARTIST",
-              studio_id: "20000000-0000-4000-8000-000000000001",
-              user_id: userId,
-              user_profile: {
-                id: "30000000-0000-4000-8000-000000000001",
-                display_name: "Artist",
-                studio_id: "20000000-0000-4000-8000-000000000001",
-                user_id: userId,
-              },
-              artist_profile: [
-                {
-                  membership_id: "40000000-0000-4000-8000-000000000001",
-                  studio_id: "20000000-0000-4000-8000-000000000001",
-                  user_id: userId,
-                },
-              ],
-            },
-          ],
-          error: null,
+        match: vi.fn(async (filters: Readonly<Record<string, string>>) => ({
+          data: rows[table].filter((row) =>
+            Object.entries(filters).every(([column, value]) => row[column] === value),
+          ),
+          error: table === failingTable ? new Error("provider detail must stay private") : null,
         })),
       })),
     })),
@@ -54,19 +67,46 @@ describe("Supabase authentication adapter", () => {
     );
   });
 
-  it("uses Auth for the session and maps RLS-scoped membership data", async () => {
+  it("uses Auth and maps an artist through explicit tenant-scoped reads", async () => {
     const supabase = client();
     const adapter = new SupabaseAuthenticationAdapter(supabase);
 
     await expect(adapter.signInWithPassword({ email: "artist@example.com", password: "private-password" })).resolves.toEqual({ userId });
     await expect(adapter.getAuthenticatedUser()).resolves.toEqual({ userId });
-    await expect(adapter.findForUser(userId)).resolves.toMatchObject([
-      { membership: { role: "ARTIST", studioId: "20000000-0000-4000-8000-000000000001" } },
+    await expect(adapter.findForUser(userId)).resolves.toEqual([
+      {
+        membership: { id: membershipId, role: "ARTIST", studioId, userId },
+        userProfile: { id: profileId, displayName: "Artist", studioId, userId },
+        artistProfile: { membershipId, studioId, userId },
+      },
     ]);
     await adapter.signOut();
 
     expect(supabase.auth.signOut).toHaveBeenCalledWith({ scope: "local" });
-    expect(supabase.from).toHaveBeenCalledWith("membership");
+    expect(supabase.from).toHaveBeenNthCalledWith(1, "membership");
+    expect(supabase.from).toHaveBeenNthCalledWith(2, "user_profile");
+    expect(supabase.from).toHaveBeenNthCalledWith(3, "artist_profile");
+  });
+
+  it("maps an owner without an artist profile through the same tenant-scoped reads", async () => {
+    const adapter = new SupabaseAuthenticationAdapter(client("OWNER"));
+
+    await expect(adapter.findForUser(userId)).resolves.toEqual([
+      {
+        membership: { id: membershipId, role: "OWNER", studioId, userId },
+        userProfile: { id: profileId, displayName: "Owner", studioId, userId },
+        artistProfile: null,
+      },
+    ]);
+  });
+
+  it("sanitizes profile lookup failures", async () => {
+    const adapter = new SupabaseAuthenticationAdapter(client("ARTIST", "user_profile"));
+
+    const error = await adapter.findForUser(userId).catch((caught: unknown) => caught);
+
+    expect(String(error)).toBe("Error: Supabase membership lookup failed");
+    expect(String(error)).not.toContain("provider detail");
   });
 
   it("does not expose provider errors or submitted secrets", async () => {

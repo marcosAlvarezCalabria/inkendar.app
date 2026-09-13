@@ -5,6 +5,7 @@ import type { AccessRole, IdentityAccessRecord } from "@inkendar/domain";
 
 type AuthResult = Promise<{ data: { user: { id: string } | null }; error: unknown }>;
 type QueryResult = Promise<{ data: unknown; error: unknown }>;
+type MembershipTable = "artist_profile" | "membership" | "user_profile";
 
 export interface SupabaseAuthClient {
   auth: {
@@ -12,8 +13,8 @@ export interface SupabaseAuthClient {
     signInWithPassword(credentials: LoginCredentials): AuthResult;
     signOut(options: { scope: "local" }): Promise<{ error: unknown }>;
   };
-  from(table: "membership"): {
-    select(columns: string): { eq(column: "user_id", value: string): QueryResult };
+  from(table: MembershipTable): {
+    select(columns: string): { match(filters: Readonly<Record<string, string>>): QueryResult };
   };
 }
 
@@ -54,14 +55,46 @@ export class SupabaseAuthenticationAdapter implements AuthSessionPort, Membershi
   async findForUser(userId: string): Promise<readonly IdentityAccessRecord[]> {
     const { data, error } = await this.client
       .from("membership")
-      .select(
-        "id,studio_id,user_id,role,user_profile:user_profile!membership_profile_same_studio_user_fk(id,studio_id,user_id,display_name),artist_profile:artist_profile!artist_profile_membership_same_studio_user_role_fk(membership_id,studio_id,user_id)",
-      )
-      .eq("user_id", userId);
+      .select("id,studio_id,user_id,user_profile_id,role")
+      .match({ user_id: userId });
     if (error || !Array.isArray(data)) {
       throw new Error("Supabase membership lookup failed");
     }
-    return data.map(mapMembershipRecord);
+    return await Promise.all(data.map((membership) => this.findProfilesForMembership(userId, membership)));
+  }
+
+  private async findProfilesForMembership(userId: string, value: unknown): Promise<IdentityAccessRecord> {
+    const membership = object(value);
+    const membershipId = string(membership.id);
+    const profileId = string(membership.user_profile_id);
+    const studioId = string(membership.studio_id);
+    const membershipUserId = string(membership.user_id);
+
+    if (!membershipId || !profileId || !studioId || membershipUserId !== userId) {
+      return mapMembershipRecord(membership, null, []);
+    }
+
+    const [profileResult, artistResult] = await Promise.all([
+      this.client
+        .from("user_profile")
+        .select("id,studio_id,user_id,display_name")
+        .match({ id: profileId, studio_id: studioId, user_id: userId }),
+      this.client
+        .from("artist_profile")
+        .select("membership_id,studio_id,user_id")
+        .match({ membership_id: membershipId, studio_id: studioId, user_id: userId }),
+    ]);
+
+    if (
+      profileResult.error ||
+      artistResult.error ||
+      !Array.isArray(profileResult.data) ||
+      !Array.isArray(artistResult.data)
+    ) {
+      throw new Error("Supabase membership lookup failed");
+    }
+
+    return mapMembershipRecord(membership, profileResult.data, artistResult.data);
   }
 }
 
@@ -119,7 +152,11 @@ function requiredEnvironment(environment: Record<string, string | undefined>, na
   return value;
 }
 
-function mapMembershipRecord(value: unknown): IdentityAccessRecord {
+function mapMembershipRecord(
+  value: unknown,
+  userProfile: unknown,
+  artistProfile: unknown,
+): IdentityAccessRecord {
   const row = object(value);
   const membership = {
     id: string(row.id),
@@ -127,8 +164,8 @@ function mapMembershipRecord(value: unknown): IdentityAccessRecord {
     studioId: string(row.studio_id),
     userId: string(row.user_id),
   };
-  const profile = nullableObject(row.user_profile);
-  const artists = Array.isArray(row.artist_profile) ? row.artist_profile : [];
+  const profile = nullableObject(userProfile);
+  const artists = Array.isArray(artistProfile) ? artistProfile : [];
   const artist = artists.length === 1 ? object(artists[0]) : null;
   return {
     membership,
