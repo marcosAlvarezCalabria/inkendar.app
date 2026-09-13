@@ -13,6 +13,9 @@
   ],
   "scripts": {
     "build": "npm run build --workspace @inkendar/app",
+    "db:reset": "supabase db reset --local",
+    "db:start": "supabase start",
+    "db:test": "supabase test db --local",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build",
     "dev": "npm run dev --workspace @inkendar/app",
     "lint": "eslint .",
@@ -25,6 +28,7 @@
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.13.4",
     "eslint": "^10.10.0",
+    "supabase": "2.117.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.0",
     "vitest": "^5.0.0"
