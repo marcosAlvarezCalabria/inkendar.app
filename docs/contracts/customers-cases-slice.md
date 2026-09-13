@@ -95,5 +95,5 @@ And no incluye datos personales en URL, logs ni caché persistente
 - GREEN de dominio y aplicación: 12/12 pruebas enfocadas pasaron.
 - RED de infraestructura y handlers SSR: 2 suites fallaron porque los adaptadores aún no existían; después, 22/22 pruebas enfocadas del slice pasaron en 5 suites.
 - Validación completa: `npm run check` pasó lint, tipos, 97 pruebas (1 integración condicionada omitida) y build cliente/SSR.
-- Persistencia preparada: la migración `202609130003_customers_cases.sql` y 36 aserciones pgTAP cubren esquema, restricciones, owner CRUD, ARTIST, anon y cross-tenant.
-- Limitación: Supabase local no quedó disponible. `npm run db:test` recibió `ECONNREFUSED 127.0.0.1:54322` y `npm run db:start` no produjo estado después de 90 segundos, por lo que el estado continúa `IN_PROGRESS` hasta ejecutar Postgres real en CI.
+- Persistencia preparada: la migración `202609130003_customers_cases.sql` y 58 aserciones pgTAP cubren esquema, FKs compuestas, todos los índices del slice, unicidad parcial, ausencia de `DELETE`, owner CRUD de clientes y casos, ARTIST, anon y aislamiento cross-tenant de cliente y artista.
+- Limitación: Supabase local no quedó disponible. El último `npm run db:test` recibió `ECONNREFUSED 127.0.0.1:54322`; el diagnóstico de CI detectó y permitió corregir las dos aserciones de FK compuesta y el INSERT cross-tenant, pero pgTAP debe volver a ejecutarse sobre Postgres real antes de declarar la persistencia aprobada. El estado continúa `IN_PROGRESS`.
