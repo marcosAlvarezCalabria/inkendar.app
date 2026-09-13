@@ -2,7 +2,7 @@
 
 _Estado: especificación viva y fuente de verdad para alcance, comportamiento y progreso_
 
-_Versión: 1.3.0_
+_Versión: 1.3.2_
 
 _Última actualización: 2026-09-13_
 
@@ -45,7 +45,8 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | Instagram en Chatwoot | `PASS` | Recepción y respuesta por el canal original verificadas. |
 | Facebook Messenger | `CONNECTED` | Falta la prueba bidireccional final. |
 | Operación dentro de Inkendar | `PLANNED` | Chatwoot todavía no está oculto detrás del futuro panel. |
-| PWA y autenticación | `IN_PROGRESS` | Existe el shell React Router SSR. El alta manual con Auth Admin, compensación y puertos/adaptadores tiene 21 pruebas enfocadas y `npm run check` verde; el pgTAP de provisión queda pendiente del job `database`. Login, sesión, UI, service worker y política de caché siguen pendientes. |
+| PWA y autenticación | `IN_PROGRESS` | Existe el shell React Router SSR. Login, sesión, UI, service worker y política de caché siguen pendientes. |
+| Alta manual gestionada | `PASS` | El CLI de servidor, Auth Admin, compensación y RPC idempotentes pasaron 32 pruebas enfocadas, `npm run check` con 38 pruebas y 21 aserciones pgTAP dentro del job `database` [run 34756137292](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34756137292). No incluye login, sesión ni UI de autenticación. |
 | Flujo de entrega y CI | `PASS` | El PR [#2](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/2) se integró por squash con `validate` y `database` verdes; ambos checks son obligatorios en `main`, cuya ejecución [34753177240](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34753177240) terminó correctamente. |
 | Memoria de agentes | `PASS` | Engram 1.20.0 guarda y recupera memoria del proyecto `inkendar.app`; Codex MCP está configurado y requiere reinicio para cargarlo en nuevos chats. |
 | Supabase y aislamiento multi-tenant | `PASS` | La migración, el seed sintético y las 38 aserciones pgTAP pasaron contra Supabase/Postgres real en GitHub Actions [run 34752758528](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34752758528). |
@@ -87,6 +88,7 @@ La arquitectura técnica está en [Arquitectura de aplicación](../architecture/
 
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
+| 2026-09-13 | 1.3.2 | El alta manual gestionada pasó a `PASS` tras verificar migraciones limpias, seed y 59 aserciones pgTAP en CI. | Cerrar el slice con evidencia real de Supabase/Postgres sin declarar completas la autenticación, la sesión ni su UI. |
 | 2026-09-13 | 1.3.1 | El alta manual converge tras una respuesta RPC perdida, evita duplicados y conserva Auth cuando el resultado de persistencia sigue siendo ambiguo. | Impedir que la compensación elimine una identidad vinculada a una transacción ya confirmada. |
 | 2026-09-13 | 1.3.0 | Se implementó el CLI y el núcleo del alta manual gestionada, con compensación Auth/DB y pruebas de aplicación e infraestructura; la integración pgTAP queda pendiente del job `database`. | Habilitar la provisión operada de estudios, owners y artistas sin declarar login ni autoservicio disponibles. |
 | 2026-09-13 | 1.2.2 | El flujo de entrega pasó a `PASS` tras integrar el primer slice con los checks `validate` y `database` requeridos. | Registrar evidencia de PR, protección de `main` y CI posterior al merge sin confundir el estado técnico con trabajo funcional pendiente. |

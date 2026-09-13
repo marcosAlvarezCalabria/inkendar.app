@@ -1,6 +1,6 @@
 # Contrato del slice: alta manual gestionada
 
-_Estado: IN_PROGRESS_
+_Estado: DONE_
 
 _Última actualización: 2026-09-13_
 
@@ -103,6 +103,6 @@ But service_role puede ejecutarlas para el alta inicial
 - RED de infraestructura: las suites del adaptador y del CLI fallaron porque sus módulos todavía no existían.
 - GREEN enfocado: 32/32 pruebas de aplicación, compensación, adaptador y CLI pasaron, incluidas respuesta perdida o incompleta, reintento convergente y conservación de Auth ante ambigüedad persistente.
 - GREEN completo: `npm run check` pasó lint, tipos de todos los workspaces, 38/38 pruebas y build cliente/SSR.
-- Persistencia preparada: `202609130002_manual_onboarding.sql` contiene dos operaciones transaccionales, serializadas e idempotentes con roles fijos, `search_path` vacío y ejecución limitada a `service_role`; `manual_onboarding.test.sql` contiene 21 aserciones para grants, coherencia, reintento sin duplicados, referencias y rollback.
-- Limitación local: `npm run db:test` no conectó porque Postgres local rechazó la conexión en `127.0.0.1:54322`. La ejecución pgTAP queda pendiente del job reproducible `database`; por ello este contrato permanece `IN_PROGRESS`.
+- Persistencia verificada: el job `database` de GitHub Actions [run 34756137292](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34756137292) aplicó desde cero `202609130001_identity_isolation.sql` y `202609130002_manual_onboarding.sql`, cargó el seed sintético y pasó 59 aserciones pgTAP: 38 de aislamiento y 21 de alta manual.
+- Limitación local: `npm run db:start` no terminó en el intento acotado de 60 segundos. La ejecución reproducible contra Supabase/Postgres real en CI aporta la evidencia de persistencia de este slice.
 - Esta evidencia cubre provisión manual. No implementa ni completa login, sesión o UI de autenticación.
