@@ -2,7 +2,7 @@
 
 _Estado: especificación viva y fuente de verdad para alcance, comportamiento y progreso_
 
-_Versión: 1.2.2_
+_Versión: 1.3.0_
 
 _Última actualización: 2026-09-13_
 
@@ -45,7 +45,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | Instagram en Chatwoot | `PASS` | Recepción y respuesta por el canal original verificadas. |
 | Facebook Messenger | `CONNECTED` | Falta la prueba bidireccional final. |
 | Operación dentro de Inkendar | `PLANNED` | Chatwoot todavía no está oculto detrás del futuro panel. |
-| PWA y autenticación | `IN_PROGRESS` | Existe el shell React Router SSR y el manifiesto web en la rama de base; autenticación, service worker y política de caché siguen pendientes. |
+| PWA y autenticación | `IN_PROGRESS` | Existe el shell React Router SSR. El alta manual con Auth Admin, compensación y puertos/adaptadores tiene 21 pruebas enfocadas y `npm run check` verde; el pgTAP de provisión queda pendiente del job `database`. Login, sesión, UI, service worker y política de caché siguen pendientes. |
 | Flujo de entrega y CI | `PASS` | El PR [#2](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/2) se integró por squash con `validate` y `database` verdes; ambos checks son obligatorios en `main`, cuya ejecución [34753177240](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34753177240) terminó correctamente. |
 | Memoria de agentes | `PASS` | Engram 1.20.0 guarda y recupera memoria del proyecto `inkendar.app`; Codex MCP está configurado y requiere reinicio para cargarlo en nuevos chats. |
 | Supabase y aislamiento multi-tenant | `PASS` | La migración, el seed sintético y las 38 aserciones pgTAP pasaron contra Supabase/Postgres real en GitHub Actions [run 34752758528](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34752758528). |
@@ -79,6 +79,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | 2026-09-13 | DEC-020 | `ACCEPTED` | Este repositorio `inkendar.app` pasa a ser la fuente de verdad del software; el repositorio `inkendar` conserva la landing y su documentación de marketing. | Evitar que dos repositorios mantengan copias divergentes de la spec técnica y del estado de implementación. |
 | 2026-09-13 | DEC-021 | `ACCEPTED` | La base full-stack usa React Router 8 sobre Node.js LTS y npm workspaces, con un adaptador de servidor reemplazable. | Ejecutar PWA y API/BFF en un solo artefacto portable y expresar los límites del monolito sin acoplar el dominio al alojamiento. |
 | 2026-09-13 | DEC-022 | `ACCEPTED` | La identidad inicial usa `auth.users` y tablas tenant-scoped `user_profile`, `membership` y `artist_profile`; los únicos roles son `OWNER` y `ARTIST`, y Postgres RLS aplica el aislamiento mediante helpers privados con `search_path` vacío. | Hacer que el owner administre solo su estudio, limitar al artista a lectura propia y evitar escalación o recursión en políticas antes de conectar UI o Supabase Cloud. |
+| 2026-09-13 | DEC-023 | `ACCEPTED` | El alta inicial es una operación gestionada mediante CLI de servidor, Supabase Admin detrás de puertos y RPC transaccionales exclusivas de `service_role`; los roles son fijos y un fallo de persistencia compensa la identidad Auth recién creada. | Provisionar pilotos sin superficie pública ni secretos versionados y hacer explícita la recuperación ante la falta de una transacción distribuida entre Auth y Postgres. |
 
 La arquitectura técnica está en [Arquitectura de aplicación](../architecture/application-architecture.md) y el proceso de entrega en [Flujo de desarrollo, revisión e integración](../development/delivery-workflow.md).
 
@@ -86,6 +87,7 @@ La arquitectura técnica está en [Arquitectura de aplicación](../architecture/
 
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
+| 2026-09-13 | 1.3.0 | Se implementó el CLI y el núcleo del alta manual gestionada, con compensación Auth/DB y pruebas de aplicación e infraestructura; la integración pgTAP queda pendiente del job `database`. | Habilitar la provisión operada de estudios, owners y artistas sin declarar login ni autoservicio disponibles. |
 | 2026-09-13 | 1.2.2 | El flujo de entrega pasó a `PASS` tras integrar el primer slice con los checks `validate` y `database` requeridos. | Registrar evidencia de PR, protección de `main` y CI posterior al merge sin confundir el estado técnico con trabajo funcional pendiente. |
 | 2026-09-13 | 1.2.1 | Se verificó el aislamiento de identidad con 38 aserciones pgTAP contra Supabase/Postgres real en CI. | Cerrar el gate técnico con evidencia reproducible y conservar la limitación local de Docker como un detalle del entorno. |
 | 2026-09-13 | 1.2.0 | Se añadió el primer slice de identidad multi-tenant con esquema versionado, datos sintéticos, RLS y pruebas pgTAP preparadas. | Establecer el aislamiento de estudios antes de añadir UI, integraciones o datos operativos; la prueba real sigue pendiente del daemon local. |

@@ -54,6 +54,16 @@ Las políticas resuelven el rol mediante funciones `SECURITY DEFINER` en el sche
 
 La prueba de aceptación vive en `supabase/tests/identity_rls.test.sql` y cambia a los roles reales `authenticated` y `anon` sobre Postgres. Sus 38 aserciones pasaron contra Supabase/Postgres real en GitHub Actions; la indisponibilidad del daemon Docker local no bloquea esta evidencia reproducible.
 
+### Alta manual gestionada
+
+La provisión inicial se ejecuta desde un CLI de servidor operado por Incamdi. El CLI ofrece únicamente `create-studio-owner` y `add-artist`, obtiene contraseña y credenciales de servicio desde el entorno y no acepta un rol. No existe endpoint público para estas operaciones.
+
+La aplicación depende de `IdentityAdminPort` y `OnboardingRepositoryPort`. El adaptador de infraestructura usa Supabase Auth Admin para crear una identidad confirmada y después invoca una función Postgres transaccional. Las funciones SQL fijan `OWNER` o `ARTIST`, usan `search_path` vacío y solo conceden ejecución a `service_role`; la entrada de artista contiene un UUID validado y la función exige que el estudio exista.
+
+Auth y Postgres no comparten una transacción. Si la escritura Postgres falla tras crear Auth, el caso de uso elimina la identidad recién creada. Si esa compensación también falla, devuelve `ProvisioningCompensationFailedError` con el identificador técnico necesario para intervención, sin incluir contraseña, token, email ni respuesta del proveedor.
+
+Este módulo provisiona identidades y filas coherentes, pero no implementa login, sesión, recuperación de contraseña, invitaciones ni UI de autenticación.
+
 ## 2. Alternativas consideradas
 
 ### A. Monolito modular TypeScript — aceptada
@@ -247,3 +257,4 @@ La recomendación añade un backend propio delgado, pero concentra allí autoriz
 | 2026-09-10 | Ratificación del monolito modular y TDD | Fijar una arquitectura operable y pruebas previas al código de producción para todos los cambios de comportamiento. |
 | 2026-09-13 | Flujo de dos agentes y CI | Separar implementación e integración y exigir validación automática antes de `main`. |
 | 2026-09-13 | React Router 8, Node 24 y npm workspaces como base ejecutable | Unir PWA y API/BFF en un despliegue portable, expresar los límites internos y habilitar validación automática sin añadir infraestructura de producto. |
+| 2026-09-13 | CLI de alta manual, puertos de provisión y compensación Auth/Postgres | Habilitar el servicio gestionado sin endpoint público y conservar roles, secretos y operaciones privilegiadas en el servidor. |
