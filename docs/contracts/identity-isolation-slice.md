@@ -79,4 +79,3 @@ And cada columna usada para autorización o relación tiene un índice adecuado
 - RED de comportamiento: no observado. La prueba se escribió antes de la migración, pero `supabase start` no pudo iniciar porque Docker Desktop no expuso el daemon.
 - GREEN de RLS: no declarado. `npm run db:test` terminó con `ECONNREFUSED 127.0.0.1:54322`; la migración y las 38 aserciones quedan preparadas para el agente de integración.
 - Validación disponible sin Postgres: `npm test` pasó 6/6 y `npm run check` pasó lint, tipos, tests y build.
-
