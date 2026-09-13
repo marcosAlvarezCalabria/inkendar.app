@@ -67,14 +67,14 @@ describe("manual onboarding CLI boundary", () => {
     ).toThrow("Missing server environment: SUPABASE_SERVICE_ROLE_KEY");
   });
 
-  it("reports intervention and preserves Auth when both RPC responses are lost", async () => {
+  it("reports intervention and preserves Auth when both owner RPC rows are incomplete", async () => {
     const request = vi
       .fn<(input: string, init?: RequestInit) => Promise<Response>>()
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ id: "10000000-0000-4000-8000-000000000001" }), { status: 200 }),
       )
-      .mockRejectedValueOnce(new TypeError("response lost after commit"))
-      .mockRejectedValueOnce(new TypeError("response lost after commit"));
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ studio_id: "20000000-0000-4000-8000-000000000001" }])))
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ membership_id: "" }])));
     vi.stubGlobal("fetch", request);
     const write = vi.fn();
 

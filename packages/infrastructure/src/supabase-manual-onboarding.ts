@@ -83,7 +83,7 @@ export class SupabaseManualOnboardingAdapter implements IdentityAdminPort, Onboa
       p_display_name: input.displayName,
       p_studio_name: input.studioName,
       p_user_id: input.userId,
-    });
+    }, ["studio_id", "user_profile_id", "membership_id"]);
     return {
       studioId: requiredRowString(row, "studio_id"),
       userProfileId: requiredRowString(row, "user_profile_id"),
@@ -96,7 +96,7 @@ export class SupabaseManualOnboardingAdapter implements IdentityAdminPort, Onboa
       p_display_name: input.displayName,
       p_studio_id: input.studioId,
       p_user_id: input.userId,
-    });
+    }, ["user_profile_id", "membership_id", "artist_profile_id"]);
     return {
       userProfileId: requiredRowString(row, "user_profile_id"),
       membershipId: requiredRowString(row, "membership_id"),
@@ -104,7 +104,11 @@ export class SupabaseManualOnboardingAdapter implements IdentityAdminPort, Onboa
     };
   }
 
-  async #rpc(name: string, parameters: Readonly<Record<string, string>>): Promise<Record<string, unknown>> {
+  async #rpc(
+    name: string,
+    parameters: Readonly<Record<string, string>>,
+    requiredFields: readonly string[],
+  ): Promise<Record<string, unknown>> {
     const path = `/rest/v1/rpc/${name}`;
     const init = {
       method: "POST",
@@ -145,7 +149,12 @@ export class SupabaseManualOnboardingAdapter implements IdentityAdminPort, Onboa
         throw new SupabaseOnboardingAdapterError();
       }
 
-      if (Array.isArray(body) && body.length === 1 && isRecord(body[0])) {
+      if (
+        Array.isArray(body) &&
+        body.length === 1 &&
+        isRecord(body[0]) &&
+        requiredFields.every((field) => hasNonEmptyRowString(body[0], field))
+      ) {
         return body[0];
       }
       if (attempt === 0) {
@@ -199,8 +208,13 @@ function recordString(value: unknown, key: string): string | undefined {
 
 function requiredRowString(row: Record<string, unknown>, key: string): string {
   const value = recordString(row, key);
-  if (!value) throw new SupabaseOnboardingAdapterError();
+  if (!value || value.trim().length === 0) throw new SupabaseOnboardingAdapterError();
   return value;
+}
+
+function hasNonEmptyRowString(row: Record<string, unknown>, key: string): boolean {
+  const value = recordString(row, key);
+  return value !== undefined && value.trim().length > 0;
 }
 
 function providerMessage(value: unknown): string {

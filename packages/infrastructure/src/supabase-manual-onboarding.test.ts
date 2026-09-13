@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { DuplicateIdentityError, PersistenceOutcomeUnknownError, StudioNotFoundError } from "@inkendar/application";
+import {
+  DuplicateIdentityError,
+  PersistenceOutcomeUnknownError,
+  ProvisioningOutcomeUnknownError,
+  StudioNotFoundError,
+  createManualOnboardingService,
+} from "@inkendar/application";
 
 import { SupabaseManualOnboardingAdapter } from "./supabase-manual-onboarding.js";
 
@@ -160,10 +166,120 @@ describe("SupabaseManualOnboardingAdapter", () => {
     expect(request).toHaveBeenCalledTimes(2);
   });
 
+  it("retries a partial owner row and converges on a complete result", async () => {
+    const committed = {
+      studio_id: "20000000-0000-4000-8000-000000000001",
+      user_profile_id: "30000000-0000-4000-8000-000000000001",
+      membership_id: "40000000-0000-4000-8000-000000000001",
+    };
+    const request = vi
+      .fn<(input: string, init?: RequestInit) => Promise<Response>>()
+      .mockResolvedValueOnce(jsonResponse([{ ...committed, membership_id: undefined }]))
+      .mockResolvedValueOnce(jsonResponse([committed]));
+    const adapter = new SupabaseManualOnboardingAdapter({
+      supabaseUrl: "https://project.supabase.co",
+      serviceRoleKey,
+      fetch: request,
+    });
+
+    await expect(
+      adapter.createStudioOwner({
+        displayName: "Owner",
+        role: "OWNER",
+        studioName: "North Ink",
+        userId: "10000000-0000-4000-8000-000000000001",
+      }),
+    ).resolves.toEqual({
+      studioId: committed.studio_id,
+      userProfileId: committed.user_profile_id,
+      membershipId: committed.membership_id,
+    });
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries an artist row with an empty identifier and converges on a complete result", async () => {
+    const committed = {
+      user_profile_id: "30000000-0000-4000-8000-000000000002",
+      membership_id: "40000000-0000-4000-8000-000000000002",
+      artist_profile_id: "50000000-0000-4000-8000-000000000002",
+    };
+    const request = vi
+      .fn<(input: string, init?: RequestInit) => Promise<Response>>()
+      .mockResolvedValueOnce(jsonResponse([{ ...committed, artist_profile_id: "" }]))
+      .mockResolvedValueOnce(jsonResponse([committed]));
+    const adapter = new SupabaseManualOnboardingAdapter({
+      supabaseUrl: "https://project.supabase.co",
+      serviceRoleKey,
+      fetch: request,
+    });
+
+    await expect(
+      adapter.addArtist({
+        displayName: "Artist",
+        role: "ARTIST",
+        studioId: "20000000-0000-4000-8000-000000000001",
+        userId: "10000000-0000-4000-8000-000000000002",
+      }),
+    ).resolves.toEqual({
+      userProfileId: committed.user_profile_id,
+      membershipId: committed.membership_id,
+      artistProfileId: committed.artist_profile_id,
+    });
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps Auth when two incomplete artist rows leave the provisioning result ambiguous", async () => {
+    const userId = "10000000-0000-4000-8000-000000000002";
+    const request = vi
+      .fn<(input: string, init?: RequestInit) => Promise<Response>>()
+      .mockResolvedValueOnce(jsonResponse({ id: userId }))
+      .mockResolvedValueOnce(jsonResponse([{ user_profile_id: "30000000-0000-4000-8000-000000000002" }]))
+      .mockResolvedValueOnce(jsonResponse([{ artist_profile_id: "" }]));
+    const adapter = new SupabaseManualOnboardingAdapter({
+      supabaseUrl: "https://project.supabase.co",
+      serviceRoleKey,
+      fetch: request,
+    });
+    const onboarding = createManualOnboardingService({ identity: adapter, repository: adapter });
+
+    await expect(
+      onboarding.addArtist({
+        displayName: "Artist",
+        email: "artist@example.com",
+        password: "private-password",
+        studioId: "20000000-0000-4000-8000-000000000001",
+      }),
+    ).rejects.toMatchObject({ constructor: ProvisioningOutcomeUnknownError, userId });
+    expect(request).toHaveBeenCalledTimes(3);
+    expect(request.mock.calls.some(([, init]) => init?.method === "DELETE")).toBe(false);
+  });
+
   it("reports an ambiguous persistence result after two lost RPC responses", async () => {
     const request = vi.fn(async () => {
       throw new TypeError("response lost after commit");
     });
+    const adapter = new SupabaseManualOnboardingAdapter({
+      supabaseUrl: "https://project.supabase.co",
+      serviceRoleKey,
+      fetch: request,
+    });
+
+    await expect(
+      adapter.createStudioOwner({
+        displayName: "Owner",
+        role: "OWNER",
+        studioName: "North Ink",
+        userId: "10000000-0000-4000-8000-000000000001",
+      }),
+    ).rejects.toBeInstanceOf(PersistenceOutcomeUnknownError);
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it("reports an ambiguous persistence result after two incomplete owner rows", async () => {
+    const request = vi
+      .fn<(input: string, init?: RequestInit) => Promise<Response>>()
+      .mockResolvedValueOnce(jsonResponse([{ studio_id: "20000000-0000-4000-8000-000000000001" }]))
+      .mockResolvedValueOnce(jsonResponse([{ membership_id: "" }]));
     const adapter = new SupabaseManualOnboardingAdapter({
       supabaseUrl: "https://project.supabase.co",
       serviceRoleKey,
