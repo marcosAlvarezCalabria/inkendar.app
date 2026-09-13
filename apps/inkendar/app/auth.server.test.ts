@@ -105,6 +105,24 @@ describe("PWA auth request handlers", () => {
     expect((caught as Response).status).toBe(403);
   });
 
+  it("turns incoherent access at the app entry into a data-free 403 with rotated cookies", async () => {
+    const requestContext = context();
+    vi.mocked(requestContext.service.currentAccess).mockRejectedValueOnce(new AccessDeniedError());
+    const handlers = createAuthHandlers(() => requestContext);
+
+    const caught = await handlers
+      .current(new Request("https://app.inkendar.es/app"))
+      .catch((error: unknown) => error);
+
+    expect(caught).toBeInstanceOf(Response);
+    expect((caught as Response).status).toBe(403);
+    expect((caught as Response).headers.get("Cache-Control")).toBe("private, no-store");
+    expect((caught as Response).headers.get("Set-Cookie")).toContain("session=rotated");
+    const body = await (caught as Response).text();
+    expect(body).toBe("Acceso denegado");
+    expect(body).not.toContain(owner.studioId);
+  });
+
   it.each([
     ["cross-origin Origin", { Origin: "https://evil.example", "Sec-Fetch-Site": "cross-site" }],
     ["cross-site fetch metadata", { Origin: "https://app.inkendar.es", "Sec-Fetch-Site": "cross-site" }],

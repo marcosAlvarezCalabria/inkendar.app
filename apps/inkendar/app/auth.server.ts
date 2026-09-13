@@ -52,32 +52,21 @@ export function createAuthHandlers(
 
     async loginPage(request: Request): Promise<Response> {
       const context = createContext(request);
-      try {
-        const access = await context.service.currentAccess();
-        return access
-          ? redirectResponse(roleHome(access.role), context.headers)
-          : Response.json({}, { headers: context.headers });
-      } catch (error: unknown) {
-        if (error instanceof AccessDeniedError) throw accessDenied(context.headers);
-        throw error;
-      }
+      const access = await currentAccessOrDenied(context);
+      return access
+        ? redirectResponse(roleHome(access.role), context.headers)
+        : Response.json({}, { headers: context.headers });
     },
 
     async current(request: Request): Promise<Response | AuthorizedAccess> {
       const context = createContext(request);
-      const access = await context.service.currentAccess();
+      const access = await currentAccessOrDenied(context);
       return access ? redirectResponse(roleHome(access.role), context.headers) : redirectResponse("/login", context.headers);
     },
 
     async requireRole(request: Request, requiredRole: AccessRole): Promise<Response | AuthorizedRequestAccess> {
       const context = createContext(request);
-      let access: AuthorizedAccess | null;
-      try {
-        access = await context.service.currentAccess();
-      } catch (error: unknown) {
-        if (error instanceof AccessDeniedError) throw accessDenied(context.headers);
-        throw error;
-      }
+      const access = await currentAccessOrDenied(context);
       if (!access) {
         const url = new URL(request.url);
         const returnTo = `${url.pathname}${url.search}`;
@@ -113,6 +102,15 @@ export function safeReturnPath(value: string | null, role: AccessRole): string {
 }
 
 export const authHandlers = createAuthHandlers();
+
+async function currentAccessOrDenied(context: AuthRequestContext): Promise<AuthorizedAccess | null> {
+  try {
+    return await context.service.currentAccess();
+  } catch (error: unknown) {
+    if (error instanceof AccessDeniedError) throw accessDenied(context.headers);
+    throw error;
+  }
+}
 
 function defaultTrustedOrigin(request: Request): string | null {
   const configured = process.env.INKENDAR_APP_ORIGIN;
