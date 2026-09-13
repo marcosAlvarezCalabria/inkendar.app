@@ -46,7 +46,7 @@ El manifiesto web establece la base instalable. El service worker y la política
 
 ### Base de identidad y aislamiento
 
-El primer slice de persistencia utiliza Supabase CLI 2.117.0 fijada en el proyecto, migraciones SQL versionadas y datos sintéticos. `auth.users` conserva la identidad autenticada; `studio` es la raíz de cada tenant, y `user_profile`, `membership` y `artist_profile` incluyen `studio_id` con claves compuestas que impiden relacionar filas de estudios distintos.
+El primer slice de persistencia utiliza Supabase CLI 2.117.0 fijada en el proyecto, migraciones SQL versionadas y datos sintéticos. `auth.users` conserva la identidad autenticada; `studio` es la raíz de cada tenant, y `user_profile`, `membership` y `artist_profile` incluyen `studio_id` con claves compuestas que impiden relacionar filas de estudios distintos y que ligan cada membership a la identidad exacta de su user profile.
 
 `membership_role` admite exclusivamente `OWNER` y `ARTIST`. El alta inicial del estudio pertenece al proceso operado con credenciales de servicio: un usuario autenticado no puede crear un tenant antes de tener una membresía owner. El owner administra únicamente las filas de su estudio. El artista solo consulta su propia membresía y perfiles cuando conserva una membresía `ARTIST` activa; no recibe escrituras ni acceso al registro del estudio.
 

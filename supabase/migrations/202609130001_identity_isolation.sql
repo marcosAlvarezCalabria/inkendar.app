@@ -17,7 +17,7 @@ create table public.user_profile (
   display_name text not null check (char_length(btrim(display_name)) between 1 and 120),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint user_profile_id_studio_unique unique (id, studio_id),
+  constraint user_profile_identity_unique unique (id, studio_id, user_id),
   constraint user_profile_studio_user_unique unique (studio_id, user_id)
 );
 
@@ -29,9 +29,9 @@ create table public.membership (
   role public.membership_role not null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint membership_profile_same_studio_fk
-    foreign key (user_profile_id, studio_id)
-    references public.user_profile(id, studio_id)
+  constraint membership_profile_same_studio_user_fk
+    foreign key (user_profile_id, studio_id, user_id)
+    references public.user_profile(id, studio_id, user_id)
     on delete cascade,
   constraint membership_studio_user_unique unique (studio_id, user_id),
   constraint membership_identity_unique unique (id, studio_id, user_id, role)
@@ -57,8 +57,8 @@ create table public.artist_profile (
 
 create index user_profile_user_id_idx on public.user_profile(user_id);
 create index membership_user_id_idx on public.membership(user_id);
-create index membership_user_profile_id_studio_id_idx
-  on public.membership(user_profile_id, studio_id);
+create index membership_user_profile_identity_idx
+  on public.membership(user_profile_id, studio_id, user_id);
 create index artist_profile_user_id_idx on public.artist_profile(user_id);
 create index artist_profile_membership_studio_user_role_idx
   on public.artist_profile(membership_id, studio_id, user_id, membership_role);

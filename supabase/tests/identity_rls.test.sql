@@ -1,6 +1,6 @@
 begin;
 
-select plan(37);
+select plan(38);
 
 select has_type('public', 'membership_role', 'membership_role enum exists');
 select enum_has_labels(
@@ -78,6 +78,25 @@ select results_eq(
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000001', true);
+
+select throws_ok(
+  $$
+    insert into public.membership (id, studio_id, user_id, user_profile_id, role)
+    values (
+      '40000000-0000-0000-0000-000000000005',
+      '20000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000004',
+      '30000000-0000-0000-0000-000000000002',
+      'ARTIST'
+    )
+  $$,
+  '23503',
+  null,
+  'membership cannot impersonate another user profile in the same studio'
+);
+
+delete from public.membership
+where id = '40000000-0000-0000-0000-000000000005';
 
 select lives_ok(
   $$

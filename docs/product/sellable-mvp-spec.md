@@ -48,7 +48,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | PWA y autenticación | `IN_PROGRESS` | Existe el shell React Router SSR y el manifiesto web en la rama de base; autenticación, service worker y política de caché siguen pendientes. |
 | Flujo de entrega y CI | `IN_PROGRESS` | El workflow valida instalación, lint, tipos, pruebas y build en la rama; faltan PR, ejecución remota y protección de `main`. |
 | Memoria de agentes | `PASS` | Engram 1.20.0 guarda y recupera memoria del proyecto `inkendar`; Codex MCP está configurado y requiere reinicio para cargarlo en nuevos chats. |
-| Supabase y aislamiento multi-tenant | `IN_PROGRESS` | Existe el contrato del slice, la migración inicial, el seed sintético y una suite pgTAP de 37 aserciones. La ejecución local contra Postgres continúa pendiente porque Docker Desktop no expuso el daemon; no se considera `PASS`. |
+| Supabase y aislamiento multi-tenant | `IN_PROGRESS` | Existe el contrato del slice, la migración inicial, el seed sintético y una suite pgTAP de 38 aserciones. La ejecución local contra Postgres continúa pendiente porque Docker Desktop no expuso el daemon; no se considera `PASS`. |
 | Google Calendar y booking | `PLANNED` | No existe OAuth, disponibilidad, ofertas ni creación de eventos. |
 | Galería, portfolios y publicación web | `PLANNED` | No existe todavía el almacenamiento, feed público ni componente de integración. |
 | Piloto externo y disposición a pagar | `PLANNED` | No existe todavía evidencia de uso real autorizado ni pago. |

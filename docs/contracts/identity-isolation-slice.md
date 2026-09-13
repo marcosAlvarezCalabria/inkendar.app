@@ -65,7 +65,7 @@ And cada columna usada para autorización o relación tiene un índice adecuado
 ## Contrato técnico
 
 - `auth.users` conserva la identidad de autenticación; `public.user_profile` contiene el perfil tenant-scoped.
-- `public.membership` vincula una identidad con un estudio y contiene el rol `OWNER | ARTIST`.
+- `public.membership` vincula una identidad con un estudio y contiene el rol `OWNER | ARTIST`; su FK compuesta exige que `user_profile_id`, `studio_id` y `user_id` pertenezcan al mismo perfil.
 - `public.artist_profile` existe solo para una membresía ARTIST y mantiene una FK compuesta que conserva el tenant.
 - `public.studio` es la raíz del tenant. Su `id` es el valor referenciado como `studio_id` por las demás tablas privadas.
 - El owner puede `SELECT`, `INSERT`, `UPDATE` y `DELETE` sobre membresías y perfiles de su estudio, y `SELECT`, `UPDATE` y `DELETE` sobre su estudio. La creación inicial de un tenant pertenece al proceso de provisión con rol de servicio.
@@ -77,6 +77,6 @@ And cada columna usada para autorización o relación tiene un índice adecuado
 ## Verificación
 
 - RED de comportamiento: no observado. La prueba se escribió antes de la migración, pero `supabase start` no pudo iniciar porque Docker Desktop no expuso el daemon.
-- GREEN de RLS: no declarado. `npm run db:test` terminó con `ECONNREFUSED 127.0.0.1:54322`; la migración y las 37 aserciones quedan preparadas para el agente de integración.
+- GREEN de RLS: no declarado. `npm run db:test` terminó con `ECONNREFUSED 127.0.0.1:54322`; la migración y las 38 aserciones quedan preparadas para el agente de integración.
 - Validación disponible sin Postgres: `npm test` pasó 6/6 y `npm run check` pasó lint, tipos, tests y build.
 
