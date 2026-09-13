@@ -2,7 +2,7 @@
 
 _Estado: especificación viva y fuente de verdad para alcance, comportamiento y progreso_
 
-_Versión: 1.5.0_
+_Versión: 1.5.1_
 
 _Última actualización: 2026-09-13_
 
@@ -46,7 +46,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | Facebook Messenger | `CONNECTED` | Falta la prueba bidireccional final. |
 | Operación dentro de Inkendar | `PLANNED` | Chatwoot todavía no está oculto detrás del futuro panel. |
 | PWA y autenticación | `PASS` | Login email/password, cookies SSR, guards, logout y shells OWNER/ARTIST pasaron `npm run check` con 75 pruebas y un smoke Auth/RLS real con ambos roles en el job `database` del [run 34762663413](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34762663413). El service worker continúa fuera del slice y la suspensión explícita de accesos sigue pendiente. |
-| Clientes y casos de tatuaje | `IN_PROGRESS` | Dominio, aplicación, adaptador Supabase, UI SSR OWNER, migración y 36 aserciones pgTAP están implementados; `npm run check` pasó con 97 pruebas. Falta ejecutar migración y pgTAP contra Supabase/Postgres real. |
+| Clientes y casos de tatuaje | `PASS` | Dominio, aplicación, adaptador Supabase y UI SSR OWNER pasaron `npm run check` con 97 pruebas; migración limpia, seed y 58 aserciones pgTAP del slice pasaron dentro de las 117 aserciones del job `database` en el [run 34774972933](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34774972933). |
 | Alta manual gestionada | `PASS` | El CLI de servidor, Auth Admin, compensación y RPC idempotentes pasaron 32 pruebas enfocadas, `npm run check` con 38 pruebas y 21 aserciones pgTAP dentro del job `database` [run 34756137292](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34756137292). No incluye login, sesión ni UI de autenticación. |
 | Flujo de entrega y CI | `PASS` | El PR [#2](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/2) se integró por squash con `validate` y `database` verdes; ambos checks son obligatorios en `main`, cuya ejecución [34753177240](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34753177240) terminó correctamente. |
 | Memoria de agentes | `PASS` | Engram 1.20.0 guarda y recupera memoria del proyecto `inkendar.app`; Codex MCP está configurado y requiere reinicio para cargarlo en nuevos chats. |
@@ -91,6 +91,7 @@ La arquitectura técnica está en [Arquitectura de aplicación](../architecture/
 
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
+| 2026-09-13 | 1.5.1 | Clientes y casos de tatuaje pasaron a `PASS` tras verificar migración limpia, seed, 117 aserciones pgTAP —58 del slice— y el smoke Auth/RLS en CI. | Cerrar el slice con evidencia real de Postgres, aislamiento tenant, permisos y relaciones compuestas sin confundirlo con booking o integraciones posteriores. |
 | 2026-09-13 | 1.5.0 | Se implementó el slice owner de clientes y casos con estados mínimos, formularios SSR privados, aislamiento RLS y relaciones tenant compuestas; la prueba Postgres real queda pendiente. | Habilitar el contexto operativo básico sin introducir Chatwoot, archivos, calendario, booking, notificaciones ni acceso del artista. |
 | 2026-09-13 | 1.4.1 | La autenticación PWA pasó a `PASS` tras verificar en CI el registro público cerrado y el recorrido Auth/RLS/cookies/guards/logout de OWNER y ARTIST en dos tenants. | Cerrar el slice con evidencia real del proveedor y del aislamiento sin declarar implementados el service worker ni la suspensión explícita de accesos. |
 | 2026-09-13 | 1.4.0 | Se implementaron login, cookies SSR, guards, logout y shells por rol; el smoke real quedó en CI pendiente de evidencia verde. | Habilitar acceso básico sin confundir implementación con validación extremo a extremo. |

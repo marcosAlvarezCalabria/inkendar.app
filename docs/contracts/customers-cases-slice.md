@@ -1,6 +1,6 @@
 # Contrato del slice: clientes y casos de tatuaje
 
-_Estado: IN_PROGRESS_
+_Estado: DONE_
 
 _Última actualización: 2026-09-13_
 
@@ -95,5 +95,5 @@ And no incluye datos personales en URL, logs ni caché persistente
 - GREEN de dominio y aplicación: 12/12 pruebas enfocadas pasaron.
 - RED de infraestructura y handlers SSR: 2 suites fallaron porque los adaptadores aún no existían; después, 22/22 pruebas enfocadas del slice pasaron en 5 suites.
 - Validación completa: `npm run check` pasó lint, tipos, 97 pruebas (1 integración condicionada omitida) y build cliente/SSR.
-- Persistencia preparada: la migración `202609130003_customers_cases.sql` y 58 aserciones pgTAP cubren esquema, FKs compuestas, todos los índices del slice, unicidad parcial, ausencia de `DELETE`, owner CRUD de clientes y casos, ARTIST, anon y aislamiento cross-tenant de cliente y artista.
-- Limitación: Supabase local no quedó disponible. El último `npm run db:test` recibió `ECONNREFUSED 127.0.0.1:54322`; el diagnóstico de CI detectó y permitió corregir las dos aserciones de FK compuesta y el INSERT cross-tenant, pero pgTAP debe volver a ejecutarse sobre Postgres real antes de declarar la persistencia aprobada. El estado continúa `IN_PROGRESS`.
+- Persistencia: la migración limpia, el seed y las tres suites pgTAP pasaron contra Supabase/Postgres real con 117 aserciones, incluidas las 58 de este slice para esquema, FKs compuestas, todos sus índices, unicidad parcial, ausencia de `DELETE`, owner CRUD de clientes y casos, ARTIST, anon y aislamiento cross-tenant de cliente y artista.
+- Evidencia final: `validate` y `database` pasaron en el [run 34774972933](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34774972933); el mismo job ejecutó además el smoke Auth/RLS real para ambos roles, guards, cookies y logout.
