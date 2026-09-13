@@ -136,7 +136,7 @@ suite("Supabase Auth SSR integration", () => {
 function fixture(role: "OWNER" | "ARTIST"): PendingRoleFixture {
   const fixtureId = randomUUID();
   return {
-    email: `auth-smoke-${role.toLowerCase()}-${fixtureId}@example.test`,
+    email: `auth-smoke-${role.toLowerCase()}-${fixtureId}@example.com`,
     membershipId: randomUUID(),
     password: "local-auth-smoke-password",
     profileId: randomUUID(),
