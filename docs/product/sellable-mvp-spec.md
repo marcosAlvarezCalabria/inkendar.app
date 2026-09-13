@@ -2,7 +2,7 @@
 
 _Estado: especificación viva y fuente de verdad para alcance, comportamiento y progreso_
 
-_Versión: 1.2.1_
+_Versión: 1.2.2_
 
 _Última actualización: 2026-09-13_
 
@@ -46,7 +46,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | Facebook Messenger | `CONNECTED` | Falta la prueba bidireccional final. |
 | Operación dentro de Inkendar | `PLANNED` | Chatwoot todavía no está oculto detrás del futuro panel. |
 | PWA y autenticación | `IN_PROGRESS` | Existe el shell React Router SSR y el manifiesto web en la rama de base; autenticación, service worker y política de caché siguen pendientes. |
-| Flujo de entrega y CI | `IN_PROGRESS` | El workflow valida instalación, lint, tipos, pruebas y build en la rama; faltan PR, ejecución remota y protección de `main`. |
+| Flujo de entrega y CI | `PASS` | El PR [#2](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/2) se integró por squash con `validate` y `database` verdes; ambos checks son obligatorios en `main`, cuya ejecución [34753177240](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34753177240) terminó correctamente. |
 | Memoria de agentes | `PASS` | Engram 1.20.0 guarda y recupera memoria del proyecto `inkendar.app`; Codex MCP está configurado y requiere reinicio para cargarlo en nuevos chats. |
 | Supabase y aislamiento multi-tenant | `PASS` | La migración, el seed sintético y las 38 aserciones pgTAP pasaron contra Supabase/Postgres real en GitHub Actions [run 34752758528](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34752758528). |
 | Google Calendar y booking | `PLANNED` | No existe OAuth, disponibilidad, ofertas ni creación de eventos. |
@@ -86,6 +86,7 @@ La arquitectura técnica está en [Arquitectura de aplicación](../architecture/
 
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
+| 2026-09-13 | 1.2.2 | El flujo de entrega pasó a `PASS` tras integrar el primer slice con los checks `validate` y `database` requeridos. | Registrar evidencia de PR, protección de `main` y CI posterior al merge sin confundir el estado técnico con trabajo funcional pendiente. |
 | 2026-09-13 | 1.2.1 | Se verificó el aislamiento de identidad con 38 aserciones pgTAP contra Supabase/Postgres real en CI. | Cerrar el gate técnico con evidencia reproducible y conservar la limitación local de Docker como un detalle del entorno. |
 | 2026-09-13 | 1.2.0 | Se añadió el primer slice de identidad multi-tenant con esquema versionado, datos sintéticos, RLS y pruebas pgTAP preparadas. | Establecer el aislamiento de estudios antes de añadir UI, integraciones o datos operativos; la prueba real sigue pendiente del daemon local. |
 | 2026-09-13 | 1.1.0 | Se añadió la base ejecutable full-stack, el grafo de workspaces y el primer workflow de CI. | Empezar los slices de producto sobre una estructura compilable, portable y comprobada automáticamente. |
