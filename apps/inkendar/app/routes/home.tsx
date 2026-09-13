@@ -1,5 +1,11 @@
 import type { Route } from "./+types/home";
 
+import { authHandlers } from "../auth.server.js";
+
+export async function loader({ request }: Route.LoaderArgs) {
+  return await authHandlers.current(request);
+}
+
 export function meta(): Route.MetaDescriptors {
   return [
     { title: "Inkendar" },
@@ -11,11 +17,5 @@ export function meta(): Route.MetaDescriptors {
 }
 
 export default function Home() {
-  return (
-    <main>
-      <p className="eyebrow">Inkendar</p>
-      <h1>La plataforma está en construcción.</h1>
-      <p>Esta base técnica ya ejecuta la PWA y su servidor full-stack.</p>
-    </main>
-  );
+  return null;
 }

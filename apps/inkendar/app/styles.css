@@ -48,3 +48,116 @@ p {
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  min-height: 3rem;
+  border: 0;
+  border-radius: 0.4rem;
+  padding: 0.7rem 1rem;
+  color: #17130f;
+  background: #d9a562;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 3px solid #f5f0e8;
+  outline-offset: 3px;
+}
+
+.auth-page,
+.status-page {
+  width: min(32rem, calc(100% - 2rem));
+}
+
+.auth-card,
+.shell-panel {
+  display: grid;
+  gap: 1.25rem;
+  border: 1px solid #40372e;
+  border-radius: 0.8rem;
+  padding: clamp(1.25rem, 5vw, 2.5rem);
+  background: #211b16;
+}
+
+.auth-card h1,
+.shell-page h1,
+.status-page h1 {
+  max-width: none;
+  font-size: clamp(2rem, 7vw, 3.8rem);
+}
+
+.auth-form,
+.auth-form label {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.auth-form {
+  gap: 1rem;
+}
+
+.auth-form label {
+  color: #f5f0e8;
+  font-weight: 650;
+}
+
+.auth-form input {
+  min-height: 3rem;
+  border: 1px solid #625448;
+  border-radius: 0.4rem;
+  padding: 0.7rem 0.8rem;
+  color: #f5f0e8;
+  background: #17130f;
+}
+
+.form-error {
+  color: #ffb4a8;
+  font-size: 0.95rem;
+}
+
+.shell-page {
+  align-content: start;
+  width: min(70rem, calc(100% - 2rem));
+  padding-block: clamp(1.5rem, 5vw, 4rem);
+}
+
+.shell-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.shell-header > div {
+  display: grid;
+  gap: 1rem;
+}
+
+.shell-panel h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+button.secondary {
+  color: #f5f0e8;
+  background: #40372e;
+}
+
+@media (max-width: 36rem) {
+  .shell-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .shell-header form,
+  .shell-header button {
+    width: 100%;
+  }
+}

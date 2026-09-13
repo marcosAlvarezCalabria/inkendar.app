@@ -4,7 +4,7 @@ PWA y backend de Inkendar para operar conversaciones, casos de tatuaje, propuest
 
 ## Estado
 
-La base técnica ejecutable está en construcción. El repositorio contiene React Router full-stack, el esquema de identidad aislado por RLS y el alta manual gestionada de estudios, owners y artistas. La provisión no equivale a un login: sesión, UI de autenticación, service worker e integraciones siguen pendientes.
+La base técnica ejecutable está en construcción. El repositorio contiene React Router full-stack, identidad aislada por RLS, alta manual y acceso PWA con login, cookies SSR, guards, logout y shells separados por rol. El smoke real de Auth/RLS/logout se ejecuta en el job `database`; el service worker y las integraciones operativas siguen pendientes.
 
 ## Requisitos
 
