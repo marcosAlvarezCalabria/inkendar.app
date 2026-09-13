@@ -1,6 +1,7 @@
 import {
   InvalidOnboardingInputError,
   ProvisioningCompensationFailedError,
+  ProvisioningOutcomeUnknownError,
   createManualOnboardingService,
   type AddArtistInput,
   type CreateStudioOwnerInput,
@@ -81,7 +82,7 @@ export async function runManualOnboarding(
         : await onboarding.addArtist(command.input);
     write(JSON.stringify({ status: "created", operation: command.operation, ...result }));
   } catch (error: unknown) {
-    if (error instanceof ProvisioningCompensationFailedError) {
+    if (error instanceof ProvisioningCompensationFailedError || error instanceof ProvisioningOutcomeUnknownError) {
       write(JSON.stringify({ status: "manual-intervention-required", code: error.code, userId: error.userId }));
     }
     throw error;

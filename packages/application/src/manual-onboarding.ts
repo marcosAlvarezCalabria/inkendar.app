@@ -44,6 +44,24 @@ export class ProvisioningCompensationFailedError extends Error {
   }
 }
 
+export class PersistenceOutcomeUnknownError extends Error {
+  readonly code = "PERSISTENCE_OUTCOME_UNKNOWN";
+
+  constructor() {
+    super("The persistence result could not be confirmed");
+    this.name = "PersistenceOutcomeUnknownError";
+  }
+}
+
+export class ProvisioningOutcomeUnknownError extends Error {
+  readonly code = "PROVISIONING_OUTCOME_UNKNOWN";
+
+  constructor(readonly userId: string) {
+    super("Onboarding may have completed; the Auth identity was preserved for safe recovery");
+    this.name = "ProvisioningOutcomeUnknownError";
+  }
+}
+
 export type CreateConfirmedUserInput = Readonly<{ email: string; password: string }>;
 
 export interface IdentityAdminPort {
@@ -106,6 +124,10 @@ export function createManualOnboardingService(dependencies: {
       const result = await persist(userId);
       return { ...result, userId };
     } catch (persistenceError: unknown) {
+      if (persistenceError instanceof PersistenceOutcomeUnknownError) {
+        throw new ProvisioningOutcomeUnknownError(userId);
+      }
+
       try {
         await dependencies.identity.deleteUser(userId);
       } catch {

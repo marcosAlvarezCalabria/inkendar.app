@@ -1,6 +1,6 @@
 begin;
 
-select plan(15);
+select plan(21);
 
 select has_function('public', 'provision_studio_owner', array['uuid', 'text', 'text'], 'owner provisioning function exists');
 select has_function('public', 'provision_studio_artist', array['uuid', 'uuid', 'text'], 'artist provisioning function exists');
@@ -64,6 +64,38 @@ select results_eq(
   'owner membership and profile share the created tenant and identity'
 );
 
+select results_eq(
+  $$
+    select * from public.provision_studio_owner(
+      '10000000-0000-0000-0000-000000000005', 'Manual Studio', 'Manual Owner'
+    )
+  $$,
+  $$
+    select s.id, up.id, m.id
+    from public.membership m
+    join public.studio s on s.id = m.studio_id
+    join public.user_profile up on up.id = m.user_profile_id
+    where m.user_id = '10000000-0000-0000-0000-000000000005'
+  $$,
+  'repeating the same owner request returns the original identifiers'
+);
+
+select results_eq(
+  $$ select count(*)::bigint from public.studio where name = 'Manual Studio' $$,
+  $$ values (1::bigint) $$,
+  'repeating owner provisioning does not duplicate the studio'
+);
+
+select results_eq(
+  $$
+    select count(*)::bigint
+    from public.membership
+    where user_id = '10000000-0000-0000-0000-000000000005'
+  $$,
+  $$ values (1::bigint) $$,
+  'repeating owner provisioning does not duplicate membership'
+);
+
 select lives_ok(
   $$ select * from public.provision_studio_artist(
     '10000000-0000-0000-0000-000000000006',
@@ -85,6 +117,44 @@ select results_eq(
   $$,
   $$ values ('ARTIST'::text) $$,
   'artist membership and artist profile share tenant, identity and fixed role'
+);
+
+select results_eq(
+  $$
+    select * from public.provision_studio_artist(
+      '10000000-0000-0000-0000-000000000006',
+      (select id from public.studio where name = 'Manual Studio'),
+      'Manual Artist'
+    )
+  $$,
+  $$
+    select up.id, m.id, ap.id
+    from public.membership m
+    join public.user_profile up on up.id = m.user_profile_id
+    join public.artist_profile ap on ap.membership_id = m.id
+    where m.user_id = '10000000-0000-0000-0000-000000000006'
+  $$,
+  'repeating the same artist request returns the original identifiers'
+);
+
+select results_eq(
+  $$
+    select count(*)::bigint
+    from public.user_profile
+    where user_id = '10000000-0000-0000-0000-000000000006'
+  $$,
+  $$ values (1::bigint) $$,
+  'repeating artist provisioning does not duplicate the profile'
+);
+
+select results_eq(
+  $$
+    select count(*)::bigint
+    from public.artist_profile
+    where user_id = '10000000-0000-0000-0000-000000000006'
+  $$,
+  $$ values (1::bigint) $$,
+  'repeating artist provisioning does not duplicate the artist profile'
 );
 
 select throws_ok(

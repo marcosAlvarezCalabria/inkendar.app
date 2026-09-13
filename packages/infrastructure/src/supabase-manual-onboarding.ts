@@ -1,5 +1,6 @@
 import {
   DuplicateIdentityError,
+  PersistenceOutcomeUnknownError,
   StudioNotFoundError,
   type AddArtistRecord,
   type CreateConfirmedUserInput,
@@ -104,28 +105,57 @@ export class SupabaseManualOnboardingAdapter implements IdentityAdminPort, Onboa
   }
 
   async #rpc(name: string, parameters: Readonly<Record<string, string>>): Promise<Record<string, unknown>> {
-    const response = await this.#request(`/rest/v1/rpc/${name}`, {
+    const path = `/rest/v1/rpc/${name}`;
+    const init = {
       method: "POST",
       body: JSON.stringify(parameters),
-    });
-    const body = await readJson(response);
+    };
+    let previousAttemptWasAmbiguous = false;
 
-    if (!response.ok) {
-      const message = providerMessage(body);
-      const code = recordString(body, "code");
-      if (message === "STUDIO_NOT_FOUND") {
-        throw new StudioNotFoundError();
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      let response: Response;
+      try {
+        response = await this.#request(path, init);
+      } catch {
+        if (attempt === 0) {
+          previousAttemptWasAmbiguous = true;
+          continue;
+        }
+        throw new PersistenceOutcomeUnknownError();
       }
-      if (message === "DUPLICATE_IDENTITY" || code === "23505") {
-        throw new DuplicateIdentityError();
+      const body = await readJson(response);
+
+      if (!response.ok) {
+        const message = providerMessage(body);
+        const code = recordString(body, "code");
+        if (message === "STUDIO_NOT_FOUND") {
+          throw new StudioNotFoundError();
+        }
+        if (message === "DUPLICATE_IDENTITY" || code === "23505") {
+          throw new DuplicateIdentityError();
+        }
+        if (response.status >= 500) {
+          if (attempt === 0) {
+            previousAttemptWasAmbiguous = true;
+            continue;
+          }
+          throw new PersistenceOutcomeUnknownError();
+        }
+        if (previousAttemptWasAmbiguous) throw new PersistenceOutcomeUnknownError();
+        throw new SupabaseOnboardingAdapterError();
       }
-      throw new SupabaseOnboardingAdapterError();
+
+      if (Array.isArray(body) && body.length === 1 && isRecord(body[0])) {
+        return body[0];
+      }
+      if (attempt === 0) {
+        previousAttemptWasAmbiguous = true;
+        continue;
+      }
+      throw new PersistenceOutcomeUnknownError();
     }
 
-    if (!Array.isArray(body) || body.length !== 1 || !isRecord(body[0])) {
-      throw new SupabaseOnboardingAdapterError();
-    }
-    return body[0];
+    throw new PersistenceOutcomeUnknownError();
   }
 
   async #request(path: string, init: RequestInit): Promise<Response> {

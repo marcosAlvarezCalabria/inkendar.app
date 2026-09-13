@@ -60,7 +60,7 @@ La provisión inicial se ejecuta desde un CLI de servidor operado por Incamdi. E
 
 La aplicación depende de `IdentityAdminPort` y `OnboardingRepositoryPort`. El adaptador de infraestructura usa Supabase Auth Admin para crear una identidad confirmada y después invoca una función Postgres transaccional. Las funciones SQL fijan `OWNER` o `ARTIST`, usan `search_path` vacío y solo conceden ejecución a `service_role`; la entrada de artista contiene un UUID validado y la función exige que el estudio exista.
 
-Auth y Postgres no comparten una transacción. Si la escritura Postgres falla tras crear Auth, el caso de uso elimina la identidad recién creada. Si esa compensación también falla, devuelve `ProvisioningCompensationFailedError` con el identificador técnico necesario para intervención, sin incluir contraseña, token, email ni respuesta del proveedor.
+Auth y Postgres no comparten una transacción. Las RPC serializan por identidad y son idempotentes para el mismo payload: un reintento devuelve los IDs ya persistidos. El adaptador reintenta una vez si pierde la respuesta; si el resultado sigue siendo ambiguo, conserva Auth y devuelve `ProvisioningOutcomeUnknownError` con el identificador técnico necesario para intervención. Solo elimina la identidad recién creada ante un fallo confirmado de Postgres; si esa compensación falla, devuelve `ProvisioningCompensationFailedError`. Ningún error incluye contraseña, token, email ni respuesta del proveedor.
 
 Este módulo provisiona identidades y filas coherentes, pero no implementa login, sesión, recuperación de contraseña, invitaciones ni UI de autenticación.
 

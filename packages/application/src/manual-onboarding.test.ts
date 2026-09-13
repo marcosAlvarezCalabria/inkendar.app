@@ -3,8 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import {
   DuplicateIdentityError,
   InvalidOnboardingInputError,
+  PersistenceOutcomeUnknownError,
   ProvisioningCompensationFailedError,
   ProvisioningFailedError,
+  ProvisioningOutcomeUnknownError,
   StudioNotFoundError,
   createManualOnboardingService,
   type IdentityAdminPort,
@@ -135,7 +137,7 @@ describe("manual onboarding", () => {
     expect(identity.deleteUser).toHaveBeenCalledWith("10000000-0000-4000-8000-000000000001");
   });
 
-  it("maps an unknown persistence failure after successful compensation", async () => {
+  it("maps a confirmed persistence failure after successful compensation", async () => {
     const { identity, repository } = createPorts();
     vi.mocked(repository.createStudioOwner).mockRejectedValueOnce(new Error("database unavailable"));
     const onboarding = createManualOnboardingService({ identity, repository });
@@ -149,6 +151,36 @@ describe("manual onboarding", () => {
       }),
     ).rejects.toBeInstanceOf(ProvisioningFailedError);
     expect(identity.deleteUser).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["studio owner", "createStudioOwner"] as const,
+    ["artist", "addArtist"] as const,
+  ])("preserves Auth when the %s persistence result is ambiguous", async (_label, operation) => {
+    const { identity, repository } = createPorts();
+    vi.mocked(repository[operation]).mockRejectedValueOnce(new PersistenceOutcomeUnknownError());
+    const onboarding = createManualOnboardingService({ identity, repository });
+
+    const request =
+      operation === "createStudioOwner"
+        ? onboarding.createStudioOwner({
+            studioName: "North Ink",
+            displayName: "Owner",
+            email: "owner@example.com",
+            password: "correct-horse-battery-staple",
+          })
+        : onboarding.addArtist({
+            studioId: "20000000-0000-4000-8000-000000000001",
+            displayName: "Artist",
+            email: "artist@example.com",
+            password: "correct-horse-battery-staple",
+          });
+
+    await expect(request).rejects.toMatchObject({
+      constructor: ProvisioningOutcomeUnknownError,
+      userId: "10000000-0000-4000-8000-000000000001",
+    });
+    expect(identity.deleteUser).not.toHaveBeenCalled();
   });
 
   it("reports a typed intervention state when compensation fails", async () => {
