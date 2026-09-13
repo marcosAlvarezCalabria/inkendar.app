@@ -2,7 +2,7 @@
 
 _Estado: especificación viva y fuente de verdad para alcance, comportamiento y progreso_
 
-_Versión: 1.2.0_
+_Versión: 1.2.1_
 
 _Última actualización: 2026-09-13_
 
@@ -47,8 +47,8 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | Operación dentro de Inkendar | `PLANNED` | Chatwoot todavía no está oculto detrás del futuro panel. |
 | PWA y autenticación | `IN_PROGRESS` | Existe el shell React Router SSR y el manifiesto web en la rama de base; autenticación, service worker y política de caché siguen pendientes. |
 | Flujo de entrega y CI | `IN_PROGRESS` | El workflow valida instalación, lint, tipos, pruebas y build en la rama; faltan PR, ejecución remota y protección de `main`. |
-| Memoria de agentes | `PASS` | Engram 1.20.0 guarda y recupera memoria del proyecto `inkendar`; Codex MCP está configurado y requiere reinicio para cargarlo en nuevos chats. |
-| Supabase y aislamiento multi-tenant | `IN_PROGRESS` | Existe el contrato del slice, la migración inicial, el seed sintético y una suite pgTAP de 38 aserciones. La ejecución local contra Postgres continúa pendiente porque Docker Desktop no expuso el daemon; no se considera `PASS`. |
+| Memoria de agentes | `PASS` | Engram 1.20.0 guarda y recupera memoria del proyecto `inkendar.app`; Codex MCP está configurado y requiere reinicio para cargarlo en nuevos chats. |
+| Supabase y aislamiento multi-tenant | `PASS` | La migración, el seed sintético y las 38 aserciones pgTAP pasaron contra Supabase/Postgres real en GitHub Actions [run 34752758528](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34752758528). |
 | Google Calendar y booking | `PLANNED` | No existe OAuth, disponibilidad, ofertas ni creación de eventos. |
 | Galería, portfolios y publicación web | `PLANNED` | No existe todavía el almacenamiento, feed público ni componente de integración. |
 | Piloto externo y disposición a pagar | `PLANNED` | No existe todavía evidencia de uso real autorizado ni pago. |
@@ -86,6 +86,7 @@ La arquitectura técnica está en [Arquitectura de aplicación](../architecture/
 
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
+| 2026-09-13 | 1.2.1 | Se verificó el aislamiento de identidad con 38 aserciones pgTAP contra Supabase/Postgres real en CI. | Cerrar el gate técnico con evidencia reproducible y conservar la limitación local de Docker como un detalle del entorno. |
 | 2026-09-13 | 1.2.0 | Se añadió el primer slice de identidad multi-tenant con esquema versionado, datos sintéticos, RLS y pruebas pgTAP preparadas. | Establecer el aislamiento de estudios antes de añadir UI, integraciones o datos operativos; la prueba real sigue pendiente del daemon local. |
 | 2026-09-13 | 1.1.0 | Se añadió la base ejecutable full-stack, el grafo de workspaces y el primer workflow de CI. | Empezar los slices de producto sobre una estructura compilable, portable y comprobada automáticamente. |
 | 2026-09-13 | 1.0.0 | Se inicializó el repositorio exclusivo del software y se trasladó aquí su fuente de verdad. | Comenzar la implementación sin mezclar dependencias ni estado con la landing comercial. |

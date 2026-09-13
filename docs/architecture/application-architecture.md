@@ -52,7 +52,7 @@ El primer slice de persistencia utiliza Supabase CLI 2.117.0 fijada en el proyec
 
 Las políticas resuelven el rol mediante funciones `SECURITY DEFINER` en el schema no expuesto `private`. Las funciones fijan `search_path = ''`, cualifican objetos, exponen únicamente ejecución a `authenticated` y se evalúan con el `studio_id` de cada fila. Esto evita tanto la recursión sobre `membership` como la reutilización de una autorización entre tenants.
 
-La prueba de aceptación vive en `supabase/tests/identity_rls.test.sql` y cambia a los roles reales `authenticated` y `anon` sobre Postgres. La suite está preparada, pero su ejecución local no se considera verificada hasta que Docker permita iniciar Supabase y `npm run db:test` termine en verde.
+La prueba de aceptación vive en `supabase/tests/identity_rls.test.sql` y cambia a los roles reales `authenticated` y `anon` sobre Postgres. Sus 38 aserciones pasaron contra Supabase/Postgres real en GitHub Actions; la indisponibilidad del daemon Docker local no bloquea esta evidencia reproducible.
 
 ## 2. Alternativas consideradas
 

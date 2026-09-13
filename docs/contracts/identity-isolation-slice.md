@@ -1,6 +1,6 @@
 # Contrato del slice: identidad y aislamiento multi-tenant
 
-_Estado: IN_PROGRESS_
+_Estado: DONE_
 
 _Última actualización: 2026-09-13_
 
@@ -76,6 +76,6 @@ And cada columna usada para autorización o relación tiene un índice adecuado
 
 ## Verificación
 
-- RED de comportamiento: no observado. La prueba se escribió antes de la migración, pero `supabase start` no pudo iniciar porque Docker Desktop no expuso el daemon.
-- GREEN de RLS: no declarado. `npm run db:test` terminó con `ECONNREFUSED 127.0.0.1:54322`; la migración y las 38 aserciones quedan preparadas para el agente de integración.
-- Validación disponible sin Postgres: `npm test` pasó 6/6 y `npm run check` pasó lint, tipos, tests y build.
+- RED inicial: no observable localmente porque Docker Desktop no expuso el daemon; la regresión de suplantación de identidad sí se añadió antes de corregir la FK compuesta.
+- GREEN de RLS: `PASS`. GitHub Actions [run 34752758528](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34752758528) ejecutó Supabase/Postgres real y terminó con `Files=1, Tests=38, Result: PASS`.
+- Validación de aplicación: `npm test` pasó 6/6 y `npm run check` pasó lint, tipos, tests y build tanto localmente como en el job `validate`.

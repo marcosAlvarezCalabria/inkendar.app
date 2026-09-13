@@ -141,7 +141,7 @@ El handoff no sustituye las fuentes de verdad. Ante una diferencia, prevalecen e
 
 ### Memoria auxiliar con Engram
 
-Engram se usa como índice local y persistente para recuperar contexto relevante sin copiar el historial completo al chat. Al comenzar un slice, el agente consulta el proyecto `inkendar` y recupera únicamente las memorias relacionadas con el objetivo. La recuperación inicial se limita a un máximo de 10 resultados y debe mantenerse dentro del paquete de contexto acordado.
+Engram se usa como índice local y persistente para recuperar contexto relevante sin copiar el historial completo al chat. Al comenzar un slice, el agente consulta el proyecto `inkendar.app` y recupera únicamente las memorias relacionadas con el objetivo. La recuperación inicial se limita a un máximo de 10 resultados y debe mantenerse dentro del paquete de contexto acordado.
 
 Al terminar, el agente guarda solo decisiones duraderas, descubrimientos, correcciones verificadas y el resumen de handoff. Cada memoria indica qué cambió, por qué, dónde está la evidencia y qué se aprendió. No se guardan conversaciones completas, código fuente, salidas crudas de herramientas, secretos ni datos de clientes.
 
