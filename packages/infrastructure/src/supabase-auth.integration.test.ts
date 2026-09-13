@@ -285,7 +285,7 @@ async function cleanup(admin: SupabaseClient, studioIds: string[], userIds: stri
   if (failures.length > 0) throw new AggregateError(failures, "Auth smoke cleanup failed");
 }
 
-function authErrorCategory(error: { code?: string; message: string }): string {
+function authErrorCategory(error: { code?: string | undefined; message: string }): string {
   const value = `${error.code ?? ""} ${error.message}`.toLowerCase();
   const categories: ReadonlyArray<readonly [string, string]> = [
     ["invalid credential", "invalid-credentials"],
