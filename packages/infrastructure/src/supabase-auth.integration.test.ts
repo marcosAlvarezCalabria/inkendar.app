@@ -80,7 +80,8 @@ suite("Supabase Auth SSR integration", () => {
       throw new Error(`Auth smoke ${identity.role}: direct sign-in request failed`);
     }
     if (signedIn.error) {
-      throw new Error(`Auth smoke ${identity.role}: direct sign-in was rejected`);
+      const category = signedIn.error.code === "invalid_credentials" ? "invalid-credentials" : "other";
+      throw new Error(`Auth smoke ${identity.role}: direct sign-in was rejected (${category})`);
     }
     if (!signedIn.data.session) {
       throw new Error(`Auth smoke ${identity.role}: direct sign-in returned no session`);
