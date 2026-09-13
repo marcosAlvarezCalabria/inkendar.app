@@ -44,6 +44,16 @@ La primera base utiliza:
 
 El manifiesto web establece la base instalable. El service worker y la política de caché se implementarán con el primer slice PWA que pueda probar qué recursos son públicos y cuáles contienen datos privados.
 
+### Base de identidad y aislamiento
+
+El primer slice de persistencia utiliza Supabase CLI 2.117.0 fijada en el proyecto, migraciones SQL versionadas y datos sintéticos. `auth.users` conserva la identidad autenticada; `studio` es la raíz de cada tenant, y `user_profile`, `membership` y `artist_profile` incluyen `studio_id` con claves compuestas que impiden relacionar filas de estudios distintos y que ligan cada membership a la identidad exacta de su user profile.
+
+`membership_role` admite exclusivamente `OWNER` y `ARTIST`. El alta inicial del estudio pertenece al proceso operado con credenciales de servicio: un usuario autenticado no puede crear un tenant antes de tener una membresía owner. El owner administra únicamente las filas de su estudio. El artista solo consulta su propia membresía y perfiles cuando conserva una membresía `ARTIST` activa; no recibe escrituras ni acceso al registro del estudio.
+
+Las políticas resuelven el rol mediante funciones `SECURITY DEFINER` en el schema no expuesto `private`. Las funciones fijan `search_path = ''`, cualifican objetos, exponen únicamente ejecución a `authenticated` y se evalúan con el `studio_id` de cada fila. Esto evita tanto la recursión sobre `membership` como la reutilización de una autorización entre tenants.
+
+La prueba de aceptación vive en `supabase/tests/identity_rls.test.sql` y cambia a los roles reales `authenticated` y `anon` sobre Postgres. Sus 38 aserciones pasaron contra Supabase/Postgres real en GitHub Actions; la indisponibilidad del daemon Docker local no bloquea esta evidencia reproducible.
+
 ## 2. Alternativas consideradas
 
 ### A. Monolito modular TypeScript — aceptada
@@ -231,6 +241,7 @@ La recomendación añade un backend propio delgado, pero concentra allí autoriz
 
 | Fecha | Cambio | Motivo |
 |---|---|---|
+| 2026-09-13 | Esquema inicial de identidad, helpers privados y RLS multi-tenant | Fijar una frontera de autorización comprobable antes de incorporar UI, proveedores o datos operativos. |
 | 2026-09-10 | Primera propuesta de arquitectura de aplicación | Convertir las decisiones de producto en una estructura implementable y comparar alternativas antes de escribir el panel. |
 | 2026-09-10 | Separación de la landing y contrato de contenido web | Conectar galerías con webs nuevas o existentes sin mezclar marketing de Inkendar ni exponer datos privados. |
 | 2026-09-10 | Ratificación del monolito modular y TDD | Fijar una arquitectura operable y pruebas previas al código de producción para todos los cambios de comportamiento. |
