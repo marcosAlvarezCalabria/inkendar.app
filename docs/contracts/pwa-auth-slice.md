@@ -98,6 +98,11 @@ Given que falta la URL o la clave pública de Supabase
 When se compone el adaptador de autenticación
 Then la petición falla cerrada sin iniciar una sesión
 And la clave service_role no forma parte de la configuración ni del bundle del navegador
+
+Given que el alta manual crea una identidad confirmada mediante la Admin API
+When esa identidad inicia sesión con email y contraseña
+Then el proveedor email está disponible para autenticarla
+And el registro público continúa deshabilitado por la configuración global de Auth
 ```
 
 ### Caché privada
@@ -135,5 +140,6 @@ And no existe un service worker que persista datos privados
 - RED de dominio/aplicación e infraestructura/rutas: 4 suites fallaron por los módulos todavía ausentes.
 - GREEN enfocado de continuidad: 2 suites y 22 pruebas pasan para cookies endurecidas, propagación de rotación, CSRF, guards, retorno seguro y logout; la integración condicionada compila y queda omitida sin Supabase local.
 - `supabase-auth.integration.test.ts` cubre OWNER y ARTIST sintéticos en dos tenants, guards cruzados, lecturas bajo RLS, cookies de login/logout y cleanup comprobado en `finally` dentro del job `database`.
+- El mismo smoke exige que el registro público por email siga rechazado antes de comprobar que identidades confirmadas mediante Admin API pueden autenticarse por contraseña.
 - `npm run check` pasó lint, tipos, 72 pruebas (más la integración condicionada omitida) y build cliente/SSR. Las políticas SQL y el smoke real ampliado completaron localmente con código 0; el extremo permanece sin estado `PASS` hasta que CI independiente termine verde.
 - El build no contiene `service_role`; esa credencial se limita a procesos de servidor aislados.

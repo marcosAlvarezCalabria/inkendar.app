@@ -41,6 +41,7 @@ suite("Supabase Auth SSR integration", () => {
     let testFailure: unknown;
 
     try {
+      await verifyPublicEmailSignupDenied(admin, pendingOwner);
       const owner = await provision(admin, pendingOwner, createdUsers, createdStudios);
       const artist = await provision(admin, pendingArtist, createdUsers, createdStudios);
       process.env.SUPABASE_URL = url;
@@ -70,6 +71,31 @@ suite("Supabase Auth SSR integration", () => {
     if (cleanupFailure) throw cleanupFailure;
     if (testFailure) throw testFailure;
   });
+
+  async function verifyPublicEmailSignupDenied(
+    adminClient: SupabaseClient,
+    pendingIdentity: PendingRoleFixture,
+  ): Promise<void> {
+    const client = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
+    let signedUp;
+    try {
+      signedUp = await client.auth.signUp({
+        email: pendingIdentity.email,
+        password: pendingIdentity.password,
+      });
+    } catch {
+      throw new Error("Auth smoke: public email signup request failed");
+    }
+
+    const unexpectedUserId = signedUp.data.user?.id;
+    if (unexpectedUserId) {
+      const deleted = await adminClient.auth.admin.deleteUser(unexpectedUserId);
+      if (deleted.error) throw new Error("Auth smoke: unexpected public signup cleanup failed");
+    }
+    if (!signedUp.error || authErrorCategory(signedUp.error) !== "signup-disabled") {
+      throw new Error("Auth smoke: public email signup was not rejected");
+    }
+  }
 
   async function verifyTenantRls(identity: RoleFixture, otherTenant: RoleFixture): Promise<void> {
     const client = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
