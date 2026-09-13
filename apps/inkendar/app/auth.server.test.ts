@@ -34,6 +34,16 @@ describe("PWA auth request handlers", () => {
     expect(safeReturnPath("/app/artist", "OWNER")).toBe("/app/owner");
   });
 
+  it("returns rotated cookies with successful private access", async () => {
+    const handlers = createAuthHandlers(() => context(owner));
+
+    const result = await handlers.requireRole(new Request("https://app.inkendar.es/app/owner"), "OWNER");
+
+    expect(result).not.toBeInstanceOf(Response);
+    expect((result as { access: AuthorizedAccess }).access).toEqual(owner);
+    expect((result as { headers: Headers }).headers.get("Set-Cookie")).toContain("session=rotated");
+  });
+
   it("redirects an anonymous private request to login with a safe return path", async () => {
     const anonymous = context(null);
     const handlers = createAuthHandlers(() => anonymous);
@@ -64,7 +74,7 @@ describe("PWA auth request handlers", () => {
     form.set("email", "owner@example.com");
     form.set("password", "private-password");
 
-    const response = await handlers.login(new Request("https://app.inkendar.es/login", { method: "POST", body: form }));
+    const response = await handlers.login(mutationRequest("https://app.inkendar.es/login", form));
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "No se pudo iniciar sesión con esas credenciales." });
@@ -75,7 +85,7 @@ describe("PWA auth request handlers", () => {
     const requestContext = context();
     const handlers = createAuthHandlers(() => requestContext);
 
-    const response = await handlers.logout(new Request("https://app.inkendar.es/logout", { method: "POST" }));
+    const response = await handlers.logout(mutationRequest("https://app.inkendar.es/logout"));
 
     expect(requestContext.service.logout).toHaveBeenCalledOnce();
     expect(response.headers.get("Location")).toBe("/login");
@@ -94,4 +104,67 @@ describe("PWA auth request handlers", () => {
     expect(caught).toBeInstanceOf(Response);
     expect((caught as Response).status).toBe(403);
   });
+
+  it.each([
+    ["cross-origin Origin", { Origin: "https://evil.example", "Sec-Fetch-Site": "cross-site" }],
+    ["cross-site fetch metadata", { Origin: "https://app.inkendar.es", "Sec-Fetch-Site": "cross-site" }],
+    ["missing provenance headers", {}],
+  ])("rejects login with %s before reading credentials", async (_case, headers) => {
+    const requestContext = context();
+    const createContext = vi.fn(() => requestContext);
+    const handlers = createAuthHandlers(createContext);
+    const form = new FormData();
+    form.set("email", "private@example.test");
+    form.set("password", "private-password");
+
+    const response = await handlers.login(
+      new Request("https://app.inkendar.es/login", { method: "POST", headers, body: form }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.text()).toBe("Solicitud rechazada");
+    expect(createContext).not.toHaveBeenCalled();
+    expect(requestContext.service.login).not.toHaveBeenCalled();
+  });
+
+  it("rejects logout without same-origin provenance and preserves the session", async () => {
+    const requestContext = context();
+    const handlers = createAuthHandlers(() => requestContext);
+
+    const response = await handlers.logout(
+      new Request("https://app.inkendar.es/logout", {
+        method: "POST",
+        headers: { Origin: "https://evil.example" },
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(requestContext.service.logout).not.toHaveBeenCalled();
+  });
+
+  it("does not trust a spoofed request host when a canonical origin is configured", async () => {
+    const requestContext = context();
+    const handlers = createAuthHandlers(
+      () => requestContext,
+      () => "https://app.inkendar.es",
+    );
+
+    const response = await handlers.logout(
+      new Request("https://spoofed.example/logout", {
+        method: "POST",
+        headers: { Host: "spoofed.example", Origin: "https://spoofed.example", "Sec-Fetch-Site": "same-origin" },
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(requestContext.service.logout).not.toHaveBeenCalled();
+  });
 });
+
+function mutationRequest(url: string, body?: FormData): Request {
+  return new Request(url, {
+    method: "POST",
+    headers: { Origin: new URL(url).origin, "Sec-Fetch-Site": "same-origin" },
+    ...(body ? { body } : {}),
+  });
+}

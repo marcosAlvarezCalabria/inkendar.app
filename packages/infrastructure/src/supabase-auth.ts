@@ -1,4 +1,4 @@
-import { createServerClient, parseCookieHeader, serializeCookieHeader } from "@supabase/ssr";
+import { createServerClient, parseCookieHeader, serializeCookieHeader, type CookieOptions } from "@supabase/ssr";
 
 import type { AuthSessionPort, LoginCredentials, MembershipAccessPort } from "@inkendar/application";
 import type { AccessRole, IdentityAccessRecord } from "@inkendar/domain";
@@ -72,11 +72,15 @@ export function createSupabaseAuthRequestAdapter(
   const config = loadSupabasePublicConfig(environment);
   const headers = privateHeaders();
   const client = createServerClient(config.url, config.publishableKey, {
+    cookieOptions: supabaseAuthCookieOptions(environment),
     cookies: {
       getAll: () => parseCookieHeader(request.headers.get("Cookie") ?? ""),
       setAll: (cookies) => {
         for (const cookie of cookies) {
-          headers.append("Set-Cookie", serializeCookieHeader(cookie.name, cookie.value, cookie.options));
+          headers.append(
+            "Set-Cookie",
+            serializeSupabaseAuthCookie(cookie.name, cookie.value, cookie.options, environment),
+          );
         }
       },
     },
@@ -86,6 +90,27 @@ export function createSupabaseAuthRequestAdapter(
 
 export function privateHeaders(): Headers {
   return new Headers({ "Cache-Control": "private, no-store" });
+}
+
+export function serializeSupabaseAuthCookie(
+  name: string,
+  value: string,
+  options: CookieOptions,
+  environment: Record<string, string | undefined>,
+): string {
+  return serializeCookieHeader(name, value, {
+    ...options,
+    ...supabaseAuthCookieOptions(environment),
+  });
+}
+
+function supabaseAuthCookieOptions(environment: Record<string, string | undefined>): CookieOptions {
+  return {
+    httpOnly: true,
+    path: "/",
+    sameSite: "lax",
+    secure: environment.NODE_ENV === "production",
+  };
 }
 
 function requiredEnvironment(environment: Record<string, string | undefined>, name: string): string {

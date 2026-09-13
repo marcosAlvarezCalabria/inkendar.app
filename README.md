@@ -25,6 +25,9 @@ npm run check
 ```
 
 Ese comando ejecuta lint, comprobación de tipos de todos los workspaces, pruebas y build de producción. El artefacto resultante separa `apps/inkendar/build/client` y `apps/inkendar/build/server` y se puede ejecutar con `npm start`.
+
+En producción, `app.inkendar.es` es el origen canónico por defecto para las acciones de login y logout. Si el despliegue usa otro origen o termina TLS en un proxy, configura `INKENDAR_APP_ORIGIN` con el origen externo exacto (por ejemplo, `https://app.inkendar.es`, sin ruta ni barra final). La aplicación no deriva esta decisión de `Host`, `Forwarded` ni `X-Forwarded-*`.
+
 ## Alta manual gestionada
 
 El alta se ejecuta solo desde un entorno de servidor autorizado. Configura `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e `INKENDAR_ONBOARDING_PASSWORD` como variables de entorno; no guardes sus valores en el repositorio ni pases la contraseña como argumento.

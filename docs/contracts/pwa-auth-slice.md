@@ -73,6 +73,15 @@ And las cookies actualizadas se devuelven al navegador
 And el servidor redirige al login
 ```
 
+### Mutaciones same-origin
+
+```gherkin
+Given una petición de login o logout sin Origin verificable, con Origin externo o con Sec-Fetch-Site cross-site
+When alcanza la acción del servidor
+Then se rechaza antes de leer credenciales o tocar la sesión
+And no se confía en Host ni en cabeceras X-Forwarded aportadas por el cliente
+```
+
 ### Retorno seguro
 
 ```gherkin
@@ -105,8 +114,10 @@ And no existe un service worker que persista datos privados
 - El dominio decide si una identidad, membership y perfiles forman un acceso coherente `OWNER | ARTIST`; cualquier ambigüedad se deniega.
 - Aplicación define puertos para sesión y lectura de acceso. No importa React Router ni Supabase.
 - Infraestructura implementa ambos puertos con `@supabase/ssr`, una clave pública y el token de la cookie; `auth.getUser()` valida la identidad con Auth y las lecturas posteriores respetan RLS.
-- El composition root vive en `apps/inkendar/app` y convierte cada `Request` en un adaptador con cabeceras `Set-Cookie` propagables.
+- El composition root vive en `apps/inkendar/app` y convierte cada `Request` en un adaptador con cabeceras `Set-Cookie` propagables, también cuando una ruta privada rota la sesión.
+- Las cookies Auth son `HttpOnly`, `SameSite=Lax`, `Path=/` y `Secure` en producción; local y test conservan HTTP sin `Secure`. Los atributos se imponen sobre cada escritura de Supabase, incluida renovación y borrado.
 - `/login` acepta solo email/password y devuelve un único mensaje público para cualquier rechazo de credenciales.
+- `POST /login` y `POST /logout` exigen un `Origin` HTTP(S) idéntico al origen confiable; `Sec-Fetch-Site`, cuando existe, debe ser `same-origin`. `INKENDAR_APP_ORIGIN` fija el origen canónico detrás de proxy, sin ruta ni barra final.
 - `/app`, `/app/owner` y `/app/artist` se protegen en loaders SSR. El servidor no serializa la membership completa: solo los campos mínimos del shell autorizado.
 - `/logout` acepta únicamente `POST` y usa logout de alcance local.
 - Las rutas privadas y de autenticación devuelven `Cache-Control: private, no-store`.
@@ -122,8 +133,7 @@ And no existe un service worker que persista datos privados
 ## Evidencia de implementación
 
 - RED de dominio/aplicación e infraestructura/rutas: 4 suites fallaron por los módulos todavía ausentes.
-- GREEN enfocado: 4 suites y 26 pruebas pasaron para coherencia, error genérico, adaptador, cookies, guards, retorno seguro y logout.
-- `npm run check` pasó lint, tipos, 64 pruebas, una integración condicionada omitida y build cliente/SSR.
-- `supabase-auth.integration.test.ts` prueba un owner sintético con Auth, cookies, RLS y logout dentro del job `database`.
-- Limitación local: `supabase start` no quedó listo en 90 segundos y `npm run db:test` devolvió `ECONNREFUSED` a `127.0.0.1:54322`. El extremo real no se declara `PASS` hasta que CI termine verde.
+- GREEN enfocado de continuidad: 2 suites y 22 pruebas pasan para cookies endurecidas, propagación de rotación, CSRF, guards, retorno seguro y logout; la integración condicionada compila y queda omitida sin Supabase local.
+- `supabase-auth.integration.test.ts` cubre OWNER y ARTIST sintéticos en dos tenants, guards cruzados, lecturas bajo RLS, cookies de login/logout y cleanup comprobado en `finally` dentro del job `database`.
+- `npm run check` pasó lint, tipos, 72 pruebas (más la integración condicionada omitida) y build cliente/SSR. Las políticas SQL y el smoke real ampliado completaron localmente con código 0; el extremo permanece sin estado `PASS` hasta que CI independiente termine verde.
 - El build no contiene `service_role`; esa credencial se limita a procesos de servidor aislados.

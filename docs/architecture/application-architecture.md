@@ -209,7 +209,7 @@ El mecanismo concreto puede comenzar con funciones programadas sobre la platafor
 ## 9. Despliegue inicial
 
 - `inkendar.es`: landing comercial independiente, sin datos de estudios.
-- `app.inkendar.es`: PWA y API/BFF de la plataforma.
+- `app.inkendar.es`: PWA y API/BFF de la plataforma. Este origen es el valor confiable por defecto para mutaciones de autenticación; un proxy o dominio alternativo debe fijar explícitamente `INKENDAR_APP_ORIGIN` y no se confía en cabeceras de host reenviadas por el cliente.
 - dominio del estudio: web creada por Incamdi o web existente conectada al feed público.
 - Supabase Cloud Pro: un proyecto de producción multi-tenant.
 - Desarrollo: Supabase local o proyecto gratuito separado.

@@ -1,4 +1,4 @@
-import { Form, isRouteErrorResponse, useLoaderData, useRouteError } from "react-router";
+import { data, Form, isRouteErrorResponse, useLoaderData, useRouteError } from "react-router";
 import type { Route } from "./+types/artist";
 
 import { authHandlers } from "../auth.server.js";
@@ -10,7 +10,7 @@ export function meta(): Route.MetaDescriptors {
 export async function loader({ request }: Route.LoaderArgs) {
   const access = await authHandlers.requireRole(request, "ARTIST");
   if (access instanceof Response) return access;
-  return { displayName: access.displayName };
+  return data({ displayName: access.access.displayName }, { headers: access.headers });
 }
 
 export function headers() {

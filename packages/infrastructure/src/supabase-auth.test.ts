@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { loadSupabasePublicConfig, SupabaseAuthenticationAdapter, type SupabaseAuthClient } from "./supabase-auth.js";
+import {
+  loadSupabasePublicConfig,
+  serializeSupabaseAuthCookie,
+  SupabaseAuthenticationAdapter,
+  type SupabaseAuthClient,
+} from "./supabase-auth.js";
 
 const userId = "10000000-0000-4000-8000-000000000001";
 
@@ -77,5 +82,35 @@ describe("Supabase authentication adapter", () => {
       .catch((caught: unknown) => caught);
 
     expect(String(error)).toBe("Error: Supabase authentication operation failed");
+  });
+
+  it("forces server-only auth cookie attributes in production while preserving expiry", () => {
+    const serialized = serializeSupabaseAuthCookie(
+      "sb-session",
+      "secret-token",
+      { httpOnly: false, maxAge: 0, path: "/unsafe", sameSite: "none", secure: false },
+      { NODE_ENV: "production" },
+    );
+
+    expect(serialized).toContain("Max-Age=0");
+    expect(serialized).toContain("Path=/");
+    expect(serialized).toContain("HttpOnly");
+    expect(serialized).toContain("Secure");
+    expect(serialized).toContain("SameSite=Lax");
+    expect(serialized).not.toContain("Path=/unsafe");
+  });
+
+  it("keeps auth cookies usable over local HTTP", () => {
+    const serialized = serializeSupabaseAuthCookie(
+      "sb-session",
+      "secret-token",
+      { maxAge: 60 },
+      { NODE_ENV: "test" },
+    );
+
+    expect(serialized).toContain("Path=/");
+    expect(serialized).toContain("HttpOnly");
+    expect(serialized).toContain("SameSite=Lax");
+    expect(serialized).not.toContain("Secure");
   });
 });
