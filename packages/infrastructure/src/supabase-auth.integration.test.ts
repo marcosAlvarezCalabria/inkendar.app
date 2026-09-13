@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 
+import { createSupabaseAuthRequestAdapter } from "./supabase-auth.js";
 import { authHandlers } from "../../../apps/inkendar/app/auth.server.js";
 
 const enabled = process.env.INKENDAR_AUTH_INTEGRATION === "1";
@@ -43,10 +44,12 @@ suite("Supabase Auth SSR integration", () => {
       process.env.SUPABASE_URL = url;
       process.env.SUPABASE_ANON_KEY = anonKey;
 
-      await verifyRoleFlow(owner, "ARTIST");
-      await verifyRoleFlow(artist, "OWNER");
       await verifyTenantRls(owner, artist);
       await verifyTenantRls(artist, owner);
+      await verifyRequestAdapter(owner);
+      await verifyRequestAdapter(artist);
+      await verifyRoleFlow(owner, "ARTIST");
+      await verifyRoleFlow(artist, "OWNER");
     } catch (error: unknown) {
       testFailure = error;
     } finally {
@@ -68,18 +71,56 @@ suite("Supabase Auth SSR integration", () => {
 
   async function verifyTenantRls(identity: RoleFixture, otherTenant: RoleFixture): Promise<void> {
     const client = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
-    const signedIn = await client.auth.signInWithPassword({ email: identity.email, password: identity.password });
-    if (signedIn.error) throw signedIn.error;
+    let signedIn;
+    try {
+      signedIn = await client.auth.signInWithPassword({ email: identity.email, password: identity.password });
+    } catch {
+      throw new Error(`Auth smoke ${identity.role}: direct sign-in request failed`);
+    }
+    if (signedIn.error || !signedIn.data.session || signedIn.data.user?.id !== identity.userId) {
+      throw new Error(`Auth smoke ${identity.role}: direct sign-in did not create the expected session`);
+    }
 
     const memberships = await client.from("membership").select("studio_id,user_id");
-    if (memberships.error) throw memberships.error;
+    if (memberships.error) {
+      throw new Error(`Auth smoke ${identity.role}: direct membership RLS query failed`);
+    }
     expect(memberships.data).toEqual([{ studio_id: identity.studioId, user_id: identity.userId }]);
     expect(memberships.data).not.toContainEqual({ studio_id: otherTenant.studioId, user_id: otherTenant.userId });
 
     const studios = await client.from("studio").select("id");
-    if (studios.error) throw studios.error;
+    if (studios.error) {
+      throw new Error(`Auth smoke ${identity.role}: direct studio RLS query failed`);
+    }
     expect(studios.data).toEqual(identity.role === "OWNER" ? [{ id: identity.studioId }] : []);
     expect(studios.data).not.toContainEqual({ id: otherTenant.studioId });
+  }
+
+  async function verifyRequestAdapter(identity: RoleFixture): Promise<void> {
+    const { adapter } = createSupabaseAuthRequestAdapter(
+      new Request("http://127.0.0.1:3000/login"),
+      { NODE_ENV: "test", SUPABASE_URL: url, SUPABASE_ANON_KEY: anonKey },
+    );
+    let authenticated;
+    try {
+      authenticated = await adapter.signInWithPassword({ email: identity.email, password: identity.password });
+    } catch {
+      throw new Error(`Auth smoke ${identity.role}: request adapter sign-in failed`);
+    }
+    expect(authenticated).toEqual({ userId: identity.userId });
+
+    let records;
+    try {
+      records = await adapter.findForUser(identity.userId);
+    } catch {
+      throw new Error(`Auth smoke ${identity.role}: request adapter membership lookup failed`);
+    }
+    expect(records).toHaveLength(1);
+    expect(records[0]?.membership).toMatchObject({
+      role: identity.role,
+      studioId: identity.studioId,
+      userId: identity.userId,
+    });
   }
 });
 
