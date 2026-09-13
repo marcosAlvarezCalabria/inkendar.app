@@ -31,6 +31,19 @@ sin datos de estudios              PWA React + TypeScript
 
 La PWA no llamará directamente a Chatwoot ni a Google. El backend de Inkendar validará permisos, ejecutará los casos de uso y ocultará tokens y contratos de terceros. Las lecturas directas desde Supabase solo se admitirán cuando RLS garantice el mismo contrato de autorización.
 
+### Base técnica ejecutable
+
+La primera base utiliza:
+
+- React Router 8 en modo framework para renderizado de servidor, rutas de UI y futuros resource routes del API/BFF;
+- el servidor Node oficial de React Router como adaptador inicial portable;
+- React 19 y TypeScript 6;
+- npm workspaces para `apps/inkendar` y los paquetes internos;
+- Node.js 24 LTS en CI, con compatibilidad declarada para la última línea 22.22.x de mantenimiento;
+- Vitest para TDD y una prueba de arquitectura que comprueba el grafo de dependencias declarado por los workspaces.
+
+El manifiesto web establece la base instalable. El service worker y la política de caché se implementarán con el primer slice PWA que pueda probar qué recursos son públicos y cuáles contienen datos privados.
+
 ## 2. Alternativas consideradas
 
 ### A. Monolito modular TypeScript — aceptada
@@ -56,13 +69,13 @@ Ofrece control total, pero exige operar autenticación, permisos multi-tenant, a
 ```text
 Este repositorio: inkendar.app
   apps/
-    inkendar/              # PWA y API/BFF
+    inkendar/              # React Router: PWA, SSR y API/BFF
   packages/
-    domain/                # entidades, estados y reglas puras
-    application/           # casos de uso, DTO y puertos
-    infrastructure/        # Supabase, Chatwoot, Google y notificaciones
-    public-content/        # feed público y web component
-    ui/                    # componentes compartidos del panel
+    domain/                # núcleo; no depende de otros workspaces
+    application/           # depende solo de domain
+    infrastructure/        # depende de application y domain
+    public-content/        # depende de application y domain
+    ui/                    # depende de application y domain
   supabase/
     migrations/            # esquema versionado
     policies/              # RLS y grants comprobables
@@ -193,6 +206,15 @@ Todo comportamiento de producción se implementa mediante RED–GREEN–REFACTOR
 
 La regla se aplica a dominio, casos de uso, permisos, migraciones y defectos. Un slice no comienza con código de producción si su comportamiento observable aún no está expresado por una prueba fallida. Los cambios exclusivamente documentales o mecánicos que no alteran comportamiento no requieren una prueba artificial.
 
+La validación ejecutable actual es:
+
+```text
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
+
 - Pruebas unitarias para reglas de disponibilidad, estados y caducidad.
 - Pruebas de casos de uso con adaptadores falsos de Chatwoot y Google.
 - Pruebas de integración para migraciones, RLS, webhooks y OAuth.
@@ -213,3 +235,4 @@ La recomendación añade un backend propio delgado, pero concentra allí autoriz
 | 2026-09-10 | Separación de la landing y contrato de contenido web | Conectar galerías con webs nuevas o existentes sin mezclar marketing de Inkendar ni exponer datos privados. |
 | 2026-09-10 | Ratificación del monolito modular y TDD | Fijar una arquitectura operable y pruebas previas al código de producción para todos los cambios de comportamiento. |
 | 2026-09-13 | Flujo de dos agentes y CI | Separar implementación e integración y exigir validación automática antes de `main`. |
+| 2026-09-13 | React Router 8, Node 24 y npm workspaces como base ejecutable | Unir PWA y API/BFF en un despliegue portable, expresar los límites internos y habilitar validación automática sin añadir infraestructura de producto. |

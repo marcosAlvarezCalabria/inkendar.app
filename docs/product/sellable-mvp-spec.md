@@ -2,7 +2,7 @@
 
 _Estado: especificación viva y fuente de verdad para alcance, comportamiento y progreso_
 
-_Versión: 1.0.0_
+_Versión: 1.1.0_
 
 _Última actualización: 2026-09-13_
 
@@ -45,8 +45,8 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | Instagram en Chatwoot | `PASS` | Recepción y respuesta por el canal original verificadas. |
 | Facebook Messenger | `CONNECTED` | Falta la prueba bidireccional final. |
 | Operación dentro de Inkendar | `PLANNED` | Chatwoot todavía no está oculto detrás del futuro panel. |
-| PWA y autenticación | `PLANNED` | No existe todavía la aplicación privada. |
-| Flujo de entrega y CI | `PLANNED` | El proceso de dos agentes está aceptado; falta crear GitHub Actions y proteger `main`. |
+| PWA y autenticación | `IN_PROGRESS` | Existe el shell React Router SSR y el manifiesto web en la rama de base; autenticación, service worker y política de caché siguen pendientes. |
+| Flujo de entrega y CI | `IN_PROGRESS` | El workflow valida instalación, lint, tipos, pruebas y build en la rama; faltan PR, ejecución remota y protección de `main`. |
 | Memoria de agentes | `PASS` | Engram 1.20.0 guarda y recupera memoria del proyecto `inkendar`; Codex MCP está configurado y requiere reinicio para cargarlo en nuevos chats. |
 | Supabase y aislamiento multi-tenant | `PLANNED` | No existen proyecto, migraciones ni pruebas RLS en el repositorio. |
 | Google Calendar y booking | `PLANNED` | No existe OAuth, disponibilidad, ofertas ni creación de eventos. |
@@ -77,6 +77,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | 2026-09-13 | DEC-018 | `ACCEPTED` | Se retira el backlog contradictorio de los documentos activos y se autoriza iniciar la base técnica con datos sintéticos mientras continúa la validación comercial. | Reducir contexto obsoleto y permitir progreso verificable sin anunciar ni operar capacidades que aún no han superado sus gates. |
 | 2026-09-13 | DEC-019 | `ACCEPTED` | La landing permanece en el repositorio actual y el software se construye en un repositorio independiente, cada uno con su propio CI y despliegue. | Evitar mezclar ciclos de vida, dependencias y datos del producto con el sitio comercial. |
 | 2026-09-13 | DEC-020 | `ACCEPTED` | Este repositorio `inkendar.app` pasa a ser la fuente de verdad del software; el repositorio `inkendar` conserva la landing y su documentación de marketing. | Evitar que dos repositorios mantengan copias divergentes de la spec técnica y del estado de implementación. |
+| 2026-09-13 | DEC-021 | `ACCEPTED` | La base full-stack usa React Router 8 sobre Node.js LTS y npm workspaces, con un adaptador de servidor reemplazable. | Ejecutar PWA y API/BFF en un solo artefacto portable y expresar los límites del monolito sin acoplar el dominio al alojamiento. |
 
 La arquitectura técnica está en [Arquitectura de aplicación](../architecture/application-architecture.md) y el proceso de entrega en [Flujo de desarrollo, revisión e integración](../development/delivery-workflow.md).
 
@@ -84,6 +85,7 @@ La arquitectura técnica está en [Arquitectura de aplicación](../architecture/
 
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
+| 2026-09-13 | 1.1.0 | Se añadió la base ejecutable full-stack, el grafo de workspaces y el primer workflow de CI. | Empezar los slices de producto sobre una estructura compilable, portable y comprobada automáticamente. |
 | 2026-09-13 | 1.0.0 | Se inicializó el repositorio exclusivo del software y se trasladó aquí su fuente de verdad. | Comenzar la implementación sin mezclar dependencias ni estado con la landing comercial. |
 | 2026-09-13 | 0.9.0 | Se separaron definitivamente los repositorios de landing y software. | Permitir CI, dependencias y despliegues independientes para marketing y plataforma. |
 | 2026-09-13 | 0.8.0 | Se consolidaron las fuentes activas, se retiró el backlog contradictorio y se separó el gate técnico del comercial. | Empezar el desarrollo con datos sintéticos sin arrastrar roles, canales ni prioridades descartados. |
