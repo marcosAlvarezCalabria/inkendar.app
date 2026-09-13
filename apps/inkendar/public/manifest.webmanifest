@@ -1,0 +1,17 @@
+{
+  "name": "Inkendar",
+  "short_name": "Inkendar",
+  "description": "Plataforma de operación para estudios de tatuaje.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#17130f",
+  "theme_color": "#17130f",
+  "icons": [
+    {
+      "src": "/inkendar-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

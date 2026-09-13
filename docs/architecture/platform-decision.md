@@ -9,7 +9,10 @@ La [Especificación de Inkendar](../product/sellable-mvp-spec.md) define el comp
 ## Decisión
 
 - PWA React y TypeScript dentro de un monolito modular.
+- React Router 8 en modo framework con renderizado de servidor y su adaptador oficial de Node para unir PWA y API/BFF en un artefacto portable.
 - API/BFF en el mismo producto desplegable.
+- npm workspaces para expresar los módulos internos sin añadir una herramienta de orquestación.
+- Node.js 24 LTS en desarrollo y CI; se conserva compatibilidad con la última línea 22.22.x de mantenimiento admitida por React Router 8.
 - Supabase Cloud para Postgres, autenticación, almacenamiento y migraciones.
 - Chatwoot como motor oculto para chat web, Instagram y Facebook.
 - Google Calendar como fuente operativa de disponibilidad y eventos.
@@ -30,6 +33,6 @@ El MVP utiliza un proyecto Supabase multi-tenant con `studio_id`, RLS y pruebas 
 
 ## Motivo
 
-Esta combinación permite validar el producto con una sola operación, conservar reglas relacionales y sustituir proveedores mediante adaptadores. Evita distribuir reglas críticas entre el navegador, funciones aisladas y servicios externos antes de tener volumen real.
+Esta combinación permite validar el producto con una sola operación, conservar reglas relacionales y sustituir proveedores mediante adaptadores. React Router genera un manejador de servidor y recursos cliente sobre APIs web, y ofrece adaptadores oficiales para distintos runtimes; la aplicación no depende de una función exclusiva de un proveedor. La selección sigue la [documentación de Framework Mode](https://reactrouter.com/start/framework/installation) y el [contrato de adaptadores](https://reactrouter.com/api/other-api/adapter) vigentes al implementar la base.
 
 El proveedor de alojamiento de la PWA continúa abierto. Debe soportar la región, tareas programadas y límites de ejecución necesarios sin introducir una dependencia exclusiva en el dominio.

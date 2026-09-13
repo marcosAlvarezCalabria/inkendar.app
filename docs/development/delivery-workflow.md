@@ -59,17 +59,17 @@ No cambia reglas de producto ni debilita pruebas para conseguir un resultado ver
 
 ## 4. CI obligatorio
 
-El workflow se ejecuta en cada Pull Request y en cada push a `main`. Mientras el repositorio contiene solo la landing, la validación mínima es:
+El workflow se ejecuta en cada Pull Request y en cada push a `main`, con permiso de solo lectura sobre el contenido. Utiliza Node.js 24 LTS y la caché de npm basada en `package-lock.json`. La validación mínima actual es:
 
 ```text
 npm ci
-npm run check
-node scripts/check-i18n.mjs
-node scripts/check-story.mjs
+npm run lint
+npm run typecheck
+npm test
 npm run build
 ```
 
-Cuando comience la PWA se incorporarán como checks requeridos:
+`npm run check` agrupa esas cuatro comprobaciones. A medida que se implemente producto se incorporarán como checks requeridos:
 
 - pruebas unitarias del dominio;
 - pruebas de casos de uso;
@@ -165,3 +165,4 @@ Un cambio está integrado cuando:
 | 2026-09-13 | Se adopta el flujo de dos agentes, PR y CI obligatorio | Separar creación y revisión, automatizar la evidencia y proteger `main`. |
 | 2026-09-13 | Se limita cada chat de agente a un slice y 32.000 tokens | Reducir contexto irrelevante y reiniciar mediante handoffs verificables antes de mezclar objetivos. |
 | 2026-09-13 | Se adopta Engram en modo piloto como memoria auxiliar local | Recuperar solo decisiones relevantes entre sesiones sin convertir la memoria automática en fuente de verdad. |
+| 2026-09-13 | Se implementa el primer workflow del software | Ejecutar instalación limpia, lint, tipos, pruebas y build sobre Node.js 24 con permisos mínimos y caché reproducible. |
