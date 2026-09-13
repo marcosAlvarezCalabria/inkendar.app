@@ -68,6 +68,14 @@ Este módulo provisiona identidades y filas coherentes, pero no implementa login
 
 React Router compone un adaptador por petición con `@supabase/ssr`, clave pública y cookies HTTP. Aplicación depende de puertos de sesión y lectura de membership; infraestructura usa `auth.getUser()` y consulta perfiles con el mismo cliente sujeto a RLS. Dominio acepta únicamente una membership coherente con identidad, tenant y perfiles. Los loaders protegen cada shell, devuelven `private, no-store` y no serializan tokens ni la membership completa. `service_role` se limita al alta manual y a la prueba de integración aislada.
 
+### Clientes y casos de tatuaje
+
+El panel SSR del owner ofrece listas y formularios para customer y tattoo_case. Los handlers obtienen studioId del acceso OWNER resuelto en servidor, validan same-origin antes de leer mutaciones y devuelven Cache-Control: private, no-store. No existe endpoint público ni acceso del artista a estos datos.
+
+Aplicación depende de CustomerCasesRepositoryPort; infraestructura adapta Supabase/PostgREST con la sesión del request. customer y tattoo_case incluyen studio_id, RLS exclusiva de OWNER y relaciones compuestas que impiden vincular un caso con cliente o artista de otro estudio incluso mediante una escritura privilegiada.
+
+El modelo evita borrado y workflows anticipados: clientes usan ACTIVE / ARCHIVED, casos OPEN / ARCHIVED, y la asignación de artista es opcional. Referencias, archivos, conversaciones, calendario, booking y notificaciones permanecen fuera del slice.
+
 ## 2. Alternativas consideradas
 
 ### A. Monolito modular TypeScript — aceptada
@@ -262,3 +270,4 @@ La recomendación añade un backend propio delgado, pero concentra allí autoriz
 | 2026-09-13 | Flujo de dos agentes y CI | Separar implementación e integración y exigir validación automática antes de `main`. |
 | 2026-09-13 | React Router 8, Node 24 y npm workspaces como base ejecutable | Unir PWA y API/BFF en un despliegue portable, expresar los límites internos y habilitar validación automática sin añadir infraestructura de producto. |
 | 2026-09-13 | CLI de alta manual, puertos de provisión y compensación Auth/Postgres | Habilitar el servicio gestionado sin endpoint público y conservar roles, secretos y operaciones privilegiadas en el servidor. |
+| 2026-09-13 | Clientes y casos OWNER con estados mínimos, RLS y FKs tenant compuestas | Registrar contexto operativo básico sin borrar datos, abrir acceso del artista ni anticipar booking e integraciones. |
