@@ -19,6 +19,8 @@ type RoleFixture = Readonly<{
   userId: string;
 }>;
 
+type PendingRoleFixture = Omit<RoleFixture, "userId">;
+
 suite("Supabase Auth SSR integration", () => {
   const url = process.env.SUPABASE_URL ?? "http://127.0.0.1:54321";
   const anonKey = process.env.SUPABASE_ANON_KEY ?? "integration-disabled";
@@ -31,16 +33,16 @@ suite("Supabase Auth SSR integration", () => {
     required("SUPABASE_URL");
     required("SUPABASE_ANON_KEY");
     required("SUPABASE_SERVICE_ROLE_KEY");
-    const owner = fixture("OWNER");
-    const artist = fixture("ARTIST");
+    const pendingOwner = fixture("OWNER");
+    const pendingArtist = fixture("ARTIST");
     const createdUsers: string[] = [];
     const createdStudios: string[] = [];
     let cleanupFailure: unknown;
     let testFailure: unknown;
 
     try {
-      await provision(admin, owner, createdUsers, createdStudios);
-      await provision(admin, artist, createdUsers, createdStudios);
+      const owner = await provision(admin, pendingOwner, createdUsers, createdStudios);
+      const artist = await provision(admin, pendingArtist, createdUsers, createdStudios);
       process.env.SUPABASE_URL = url;
       process.env.SUPABASE_ANON_KEY = anonKey;
 
@@ -130,35 +132,33 @@ suite("Supabase Auth SSR integration", () => {
   }
 });
 
-function fixture(role: "OWNER" | "ARTIST"): RoleFixture {
-  const userId = randomUUID();
+function fixture(role: "OWNER" | "ARTIST"): PendingRoleFixture {
+  const fixtureId = randomUUID();
   return {
-    email: `auth-smoke-${role.toLowerCase()}-${userId}@example.test`,
+    email: `auth-smoke-${role.toLowerCase()}-${fixtureId}@example.test`,
     membershipId: randomUUID(),
     password: "local-auth-smoke-password",
     profileId: randomUUID(),
     role,
     studioId: randomUUID(),
-    userId,
   };
 }
 
 async function provision(
   admin: SupabaseClient,
-  identity: RoleFixture,
+  pendingIdentity: PendingRoleFixture,
   createdUsers: string[],
   createdStudios: string[],
-): Promise<void> {
+): Promise<RoleFixture> {
   const created = await admin.auth.admin.createUser({
-    id: identity.userId,
-    email: identity.email,
-    password: identity.password,
+    email: pendingIdentity.email,
+    password: pendingIdentity.password,
     email_confirm: true,
   });
-  if (created.error) throw created.error;
-  if (created.data.user?.id !== identity.userId) {
-    throw new Error(`Auth smoke ${identity.role}: admin createUser returned another identity`);
+  if (created.error || !created.data.user?.id) {
+    throw new Error(`Auth smoke ${pendingIdentity.role}: admin createUser failed`);
   }
+  const identity = { ...pendingIdentity, userId: created.data.user.id };
   createdUsers.push(identity.userId);
 
   const studio = await admin.from("studio").insert({ id: identity.studioId, name: `Auth Smoke ${identity.role}` });
@@ -190,6 +190,7 @@ async function provision(
     });
     if (artist.error) throw artist.error;
   }
+  return identity;
 }
 
 async function verifyRoleFlow(identity: RoleFixture, deniedRole: "OWNER" | "ARTIST"): Promise<void> {
