@@ -1,0 +1,215 @@
+# Arquitectura de aplicación de Inkendar
+
+_Estado: aceptada_
+
+_Última actualización: 2026-09-13_
+
+_La fuente de verdad del comportamiento y el alcance es [Especificación de Inkendar](../product/sellable-mvp-spec.md). Este documento explica cómo construirlo y debe actualizarse cuando cambie una frontera, dependencia o decisión técnica._
+
+## 1. Decisión
+
+Construir Inkendar como una **PWA sobre un monolito modular TypeScript**, con una sola aplicación operativa y límites internos explícitos. Utilizar Supabase Cloud como plataforma gestionada de datos, autenticación y archivos. La PWA y su backend viven en este repositorio. La landing comercial permanece en `marcosAlvarezCalabria/inkendar` y no participa en el flujo de datos de estudios.
+
+```text
+Landing Inkendar                   Plataforma Inkendar
+marketing independiente            app.inkendar.es
+sin datos de estudios              PWA React + TypeScript
+                                            │
+                                         API/BFF
+                                            │
+                      ┌─────────────────────┼────────────────────┐
+                      │                     │                    │
+                 Supabase               Chatwoot          Google Calendar
+              dominio y archivos       mensajería        huecos y eventos
+                      │
+              Public Content API
+                      │
+          ┌───────────┴───────────┐
+          │                       │
+  Web creada por Incamdi   Web existente del estudio
+```
+
+La PWA no llamará directamente a Chatwoot ni a Google. El backend de Inkendar validará permisos, ejecutará los casos de uso y ocultará tokens y contratos de terceros. Las lecturas directas desde Supabase solo se admitirán cuando RLS garantice el mismo contrato de autorización.
+
+## 2. Alternativas consideradas
+
+### A. Monolito modular TypeScript — aceptada
+
+- Landing Astro independiente.
+- PWA React con un framework full-stack TypeScript.
+- API/BFF y casos de uso en el mismo producto desplegable.
+- Supabase para Postgres, Auth, Storage, Realtime y migraciones.
+- Adaptadores separados para Chatwoot y Google Calendar.
+
+Es la opción recomendada porque permite entregar rápido, probar el dominio sin infraestructura distribuida y mantener una sola operación. Los módulos pueden extraerse después si el tráfico o la organización lo justifican.
+
+### B. PWA conectada directamente a Supabase
+
+Reduce código de backend, pero empuja reglas de negocio y coordinación entre Chatwoot, Google y la base de datos hacia el cliente o funciones dispersas. Aumenta el riesgo de exponer contratos externos y dificulta operaciones atómicas como reservar, caducar y confirmar una cita.
+
+### C. MERN y microservicios propios
+
+Ofrece control total, pero exige operar autenticación, permisos multi-tenant, almacenamiento, colas, backups y varios despliegues antes de validar el negocio. No aporta valor proporcional al MVP.
+
+## 3. Forma de los repositorios
+
+```text
+Este repositorio: inkendar.app
+  apps/
+    inkendar/              # PWA y API/BFF
+  packages/
+    domain/                # entidades, estados y reglas puras
+    application/           # casos de uso, DTO y puertos
+    infrastructure/        # Supabase, Chatwoot, Google y notificaciones
+    public-content/        # feed público y web component
+    ui/                    # componentes compartidos del panel
+  supabase/
+    migrations/            # esquema versionado
+    policies/              # RLS y grants comprobables
+    seed/                  # datos sintéticos de desarrollo
+  docs/                    # spec, arquitectura y contratos de slices
+
+Repositorio separado: inkendar
+  src/                     # landing Astro
+  public/                  # recursos de marketing
+  scripts/                 # validadores de landing
+```
+
+Cada repositorio tiene dependencias, CI, ramas, protección de `main` y despliegue propios. La landing no importa código del dominio ni accede a datos de estudios.
+## 4. Módulos funcionales
+
+### Identidad y estudios
+
+Gestiona `studio`, `user`, `membership` y `artist_profile`. El MVP reconoce dos roles:
+
+- `OWNER`: opera todo el estudio y configura integraciones.
+- `ARTIST`: consulta únicamente su agenda y los datos necesarios de sus trabajos.
+
+### Conversaciones
+
+Presenta dentro de Inkendar las conversaciones de Chatwoot. Chatwoot permanece oculto para los usuarios del estudio y conserva mensajes y conversaciones como fuente operativa. Inkendar almacena sus identificadores, asignación y relación con cliente y caso.
+
+### Casos de tatuaje
+
+Conserva cliente, resumen, zona corporal, tamaño, referencias, artista asignado y estado. Un caso puede existir sin cita y puede producir varias sesiones.
+
+### Disponibilidad y booking
+
+Calcula opciones con jornada, duración, márgenes, zona horaria y ocupación real de Google Calendar. Gestiona ofertas, opciones, reservas provisionales, caducidad, confirmación y liberación idempotente.
+
+### Contenido web y portfolios
+
+Gestiona únicamente la galería del estudio y las imágenes vinculadas a cada artista. El owner publica desde la PWA. Los originales permanecen privados y un modelo de lectura contiene solo variantes optimizadas y metadatos públicos.
+
+### Entrega de contenido público
+
+Expone el contenido publicado mediante una API cacheable y un web component agnóstico del framework. Las webs creadas por Incamdi y las webs existentes consumen el mismo contrato. Este módulo no recibe escrituras públicas ni comparte tablas privadas.
+
+### Notificaciones
+
+Envía confirmaciones y vencimientos por el canal original cuando el proveedor lo permita. El correo actúa como respaldo configurado. Ningún estado se presenta como enviado si el proveedor no lo confirma.
+
+### Auditoría
+
+Registra acciones sensibles: conexiones, cambios de rol, publicación de imágenes, ofertas, confirmaciones, cancelaciones y fallos de integración.
+
+## 5. Propiedad de los datos
+
+| Dato | Fuente de verdad |
+|---|---|
+| Estudios, usuarios, artistas, casos y reglas | Supabase/Postgres |
+| Ofertas, reservas provisionales y auditoría | Supabase/Postgres |
+| Imágenes privadas y originales | Supabase Storage privado |
+| Imágenes publicadas de la web | Supabase Storage/CDN público |
+| Conversaciones y mensajes | Chatwoot |
+| Disponibilidad ocupada y eventos confirmados | Google Calendar |
+
+Inkendar no mantendrá dos copias editables del mismo mensaje o evento. Guardará identificadores externos, estado de sincronización y la información mínima necesaria para relacionarlos con el dominio.
+
+## 6. Modelo de datos inicial
+
+```text
+studio
+├── membership ── user
+├── artist_profile
+├── customer
+├── tattoo_case
+│   ├── reference_asset
+│   ├── conversation_link
+│   └── appointment
+├── booking_offer
+│   └── booking_option
+├── availability_rule
+├── integration_connection
+├── website_media
+└── audit_event
+```
+
+Todas las tablas de negocio incluyen `studio_id`. Las políticas RLS deben demostrar que un miembro autorizado puede acceder únicamente a su estudio y que usuarios externos y anónimos no pueden leer datos privados.
+
+## 7. Seguridad y privacidad
+
+- Supabase se crea en una región europea disponible y se utiliza un solo proyecto multi-tenant.
+- Los tokens de Google y Chatwoot permanecen cifrados en backend y nunca se exponen al navegador, logs o documentación.
+- Los enlaces del cliente son opacos, tienen alcance mínimo, caducan y no requieren una cuenta.
+- La PWA almacena en caché la aplicación estática; no conserva permanentemente mensajes, datos personales ni imágenes privadas en el dispositivo.
+- Las referencias de clientes utilizan URLs firmadas y temporales.
+- Al procesar imágenes se eliminan metadatos como GPS antes de almacenarlas o publicarlas.
+- Las operaciones de reserva y publicación son auditables e idempotentes.
+
+## 8. Procesos asíncronos
+
+Un ejecutor programado debe:
+
+- caducar ofertas y reservas provisionales;
+- liberar en Google Calendar los bloqueos vencidos;
+- enviar recordatorios y avisos de vencimiento;
+- reintentar webhooks y notificaciones recuperables;
+- marcar para intervención humana los fallos que excedan el límite de reintentos.
+
+El mecanismo concreto puede comenzar con funciones programadas sobre la plataforma gestionada. Una cola dedicada solo se añadirá cuando el volumen o la fiabilidad medida lo exijan.
+
+## 9. Despliegue inicial
+
+- `inkendar.es`: landing comercial independiente, sin datos de estudios.
+- `app.inkendar.es`: PWA y API/BFF de la plataforma.
+- dominio del estudio: web creada por Incamdi o web existente conectada al feed público.
+- Supabase Cloud Pro: un proyecto de producción multi-tenant.
+- Desarrollo: Supabase local o proyecto gratuito separado.
+- Chatwoot: motor de mensajería no visible para el estudio.
+- Google Calendar: cuenta central del estudio con un calendario por artista.
+
+El proveedor de alojamiento de la PWA queda abierto hasta comparar coste, región, cron y límites de ejecución. La arquitectura no debe depender de una capacidad exclusiva de un proveedor.
+
+## 10. TDD, calidad y observabilidad
+
+El proceso operativo completo está definido en [Flujo de desarrollo, revisión e integración](../development/delivery-workflow.md). Dos agentes trabajan secuencialmente: uno implementa mediante TDD y otro revisa, ejecuta la validación completa, gestiona el Pull Request y vigila el CI.
+
+Todo comportamiento de producción se implementa mediante RED–GREEN–REFACTOR:
+
+1. **RED:** escribir primero una prueba que falle por el comportamiento ausente o por la regresión.
+2. **GREEN:** implementar la solución mínima que satisface el contrato.
+3. **REFACTOR:** mejorar el diseño manteniendo todas las pruebas verdes.
+
+La regla se aplica a dominio, casos de uso, permisos, migraciones y defectos. Un slice no comienza con código de producción si su comportamiento observable aún no está expresado por una prueba fallida. Los cambios exclusivamente documentales o mecánicos que no alteran comportamiento no requieren una prueba artificial.
+
+- Pruebas unitarias para reglas de disponibilidad, estados y caducidad.
+- Pruebas de casos de uso con adaptadores falsos de Chatwoot y Google.
+- Pruebas de integración para migraciones, RLS, webhooks y OAuth.
+- Prueba de regresión RED antes de corregir cada defecto reproducible.
+- Pocos recorridos E2E para owner, artista y cliente invitado.
+- Correlation ID en webhooks, reservas y notificaciones.
+- Métricas de fallos, reintentos, ofertas caducadas y confirmaciones.
+
+## 11. Consecuencias
+
+La recomendación añade un backend propio delgado, pero concentra allí autorización, reglas y coordinación externa. Evita que el navegador conozca secretos o decida estados críticos. También mantiene la complejidad operativa por debajo de una arquitectura de microservicios y permite sustituir Chatwoot, Google o Supabase mediante adaptadores cuando exista una razón real.
+
+## 12. Registro de cambios
+
+| Fecha | Cambio | Motivo |
+|---|---|---|
+| 2026-09-10 | Primera propuesta de arquitectura de aplicación | Convertir las decisiones de producto en una estructura implementable y comparar alternativas antes de escribir el panel. |
+| 2026-09-10 | Separación de la landing y contrato de contenido web | Conectar galerías con webs nuevas o existentes sin mezclar marketing de Inkendar ni exponer datos privados. |
+| 2026-09-10 | Ratificación del monolito modular y TDD | Fijar una arquitectura operable y pruebas previas al código de producción para todos los cambios de comportamiento. |
+| 2026-09-13 | Flujo de dos agentes y CI | Separar implementación e integración y exigir validación automática antes de `main`. |
