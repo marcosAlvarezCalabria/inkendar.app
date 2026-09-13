@@ -1,6 +1,6 @@
 # Contrato del slice: acceso autenticado a la PWA
 
-_Estado: IN_PROGRESS_
+_Estado: DONE_
 
 _Última actualización: 2026-09-13_
 
@@ -141,5 +141,5 @@ And no existe un service worker que persista datos privados
 - GREEN enfocado de continuidad: 2 suites y 22 pruebas pasan para cookies endurecidas, propagación de rotación, CSRF, guards, retorno seguro y logout; la integración condicionada compila y queda omitida sin Supabase local.
 - `supabase-auth.integration.test.ts` cubre OWNER y ARTIST sintéticos en dos tenants, guards cruzados, lecturas bajo RLS, cookies de login/logout y cleanup comprobado en `finally` dentro del job `database`.
 - El mismo smoke exige que el registro público por email siga rechazado antes de comprobar que identidades confirmadas mediante Admin API pueden autenticarse por contraseña.
-- `npm run check` pasó lint, tipos, 72 pruebas (más la integración condicionada omitida) y build cliente/SSR. Las políticas SQL y el smoke real ampliado completaron localmente con código 0; el extremo permanece sin estado `PASS` hasta que CI independiente termine verde.
+- `npm run check` pasó lint, tipos, 75 pruebas (más la integración condicionada omitida) y build cliente/SSR. En GitHub Actions, 59 aserciones pgTAP y el smoke real de Auth con ambos roles, RLS, guards, cookies y logout pasaron en el job `database` del [run 34762663413](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34762663413).
 - El build no contiene `service_role`; esa credencial se limita a procesos de servidor aislados.
