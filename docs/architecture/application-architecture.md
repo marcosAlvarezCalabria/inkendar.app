@@ -2,7 +2,7 @@
 
 _Estado: aceptada_
 
-_Última actualización: 2026-09-13_
+_Última actualización: 2026-09-14_
 
 _La fuente de verdad del comportamiento y el alcance es [Especificación de Inkendar](../product/sellable-mvp-spec.md). Este documento explica cómo construirlo y debe actualizarse cuando cambie una frontera, dependencia o decisión técnica._
 
@@ -38,7 +38,7 @@ La primera base utiliza:
 - React Router 8 en modo framework para renderizado de servidor, rutas de UI y futuros resource routes del API/BFF;
 - el servidor Node oficial de React Router como adaptador inicial portable;
 - React 19 y TypeScript 6;
-- npm workspaces para `apps/inkendar` y los paquetes internos;
+- pnpm workspaces para `apps/inkendar` y los paquetes internos;
 - Node.js 24 LTS en CI, con compatibilidad declarada para la última línea 22.22.x de mantenimiento;
 - Vitest para TDD y una prueba de arquitectura que comprueba el grafo de dependencias declarado por los workspaces.
 
@@ -241,10 +241,10 @@ La regla se aplica a dominio, casos de uso, permisos, migraciones y defectos. Un
 La validación ejecutable actual es:
 
 ```text
-npm run lint
-npm run typecheck
-npm test
-npm run build
+pnpm run lint
+pnpm run typecheck
+pnpm test
+pnpm run build
 ```
 
 - Pruebas unitarias para reglas de disponibilidad, estados y caducidad.
@@ -271,3 +271,4 @@ La recomendación añade un backend propio delgado, pero concentra allí autoriz
 | 2026-09-13 | React Router 8, Node 24 y npm workspaces como base ejecutable | Unir PWA y API/BFF en un despliegue portable, expresar los límites internos y habilitar validación automática sin añadir infraestructura de producto. |
 | 2026-09-13 | CLI de alta manual, puertos de provisión y compensación Auth/Postgres | Habilitar el servicio gestionado sin endpoint público y conservar roles, secretos y operaciones privilegiadas en el servidor. |
 | 2026-09-13 | Clientes y casos OWNER con estados mínimos, RLS y FKs tenant compuestas | Registrar contexto operativo básico sin borrar datos, abrir acceso del artista ni anticipar booking e integraciones. |
+| 2026-09-14 | pnpm 10.22.0 y un único lockfile para todos los workspaces | Unificar el toolchain con la landing y hacer reproducibles la instalación local y los dos jobs de CI. |

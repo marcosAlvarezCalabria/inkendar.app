@@ -133,7 +133,7 @@ And no existe un service worker que persista datos privados
 2. RED de rutas: retorno interno seguro, redirect anónimo, acceso por rol, denegación y logout.
 3. GREEN con puertos, adaptador Supabase SSR, composition root y UI mínima accesible.
 4. Integración desechable contra Supabase local para login real, cookies, RLS y logout.
-5. REFACTOR, validación enfocada, `npm run check`, `npm run db:test`, smoke del build y revisión de secretos.
+5. REFACTOR, validación enfocada, `pnpm run check`, `pnpm run db:test`, smoke del build y revisión de secretos.
 
 ## Evidencia de implementación
 

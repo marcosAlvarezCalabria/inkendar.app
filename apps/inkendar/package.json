@@ -10,11 +10,11 @@
     "typecheck": "react-router typegen && tsc --noEmit"
   },
   "dependencies": {
-    "@inkendar/application": "0.0.0",
-    "@inkendar/domain": "0.0.0",
-    "@inkendar/infrastructure": "0.0.0",
-    "@inkendar/public-content": "0.0.0",
-    "@inkendar/ui": "0.0.0",
+    "@inkendar/application": "workspace:*",
+    "@inkendar/domain": "workspace:*",
+    "@inkendar/infrastructure": "workspace:*",
+    "@inkendar/public-content": "workspace:*",
+    "@inkendar/ui": "workspace:*",
     "@react-router/node": "^8.3.1",
     "@react-router/serve": "^8.3.1",
     "isbot": "^5.1.36",

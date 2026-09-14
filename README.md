@@ -9,22 +9,22 @@ La base técnica ejecutable está en construcción. El repositorio contiene Reac
 ## Requisitos
 
 - Node.js 24 LTS (también se admite la última línea 22.22.x de mantenimiento).
-- npm 11.
+- pnpm 10.22.0.
 
 ## Desarrollo
 
 ```bash
-npm ci
-npm run dev
+pnpm install --frozen-lockfile
+pnpm run dev
 ```
 
 La aplicación se sirve en la URL que indique React Router. La validación local completa es:
 
 ```bash
-npm run check
+pnpm run check
 ```
 
-Ese comando ejecuta lint, comprobación de tipos de todos los workspaces, pruebas y build de producción. El artefacto resultante separa `apps/inkendar/build/client` y `apps/inkendar/build/server` y se puede ejecutar con `npm start`.
+Ese comando ejecuta lint, comprobación de tipos de todos los workspaces, pruebas y build de producción. El artefacto resultante separa `apps/inkendar/build/client` y `apps/inkendar/build/server` y se puede ejecutar con `pnpm start`.
 
 En producción, `app.inkendar.es` es el origen canónico por defecto para las acciones de login y logout. Si el despliegue usa otro origen o termina TLS en un proxy, configura `INKENDAR_APP_ORIGIN` con el origen externo exacto (por ejemplo, `https://app.inkendar.es`, sin ruta ni barra final). La aplicación no deriva esta decisión de `Host`, `Forwarded` ni `X-Forwarded-*`.
 
@@ -33,12 +33,12 @@ En producción, `app.inkendar.es` es el origen canónico por defecto para las ac
 El alta se ejecuta solo desde un entorno de servidor autorizado. Configura `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e `INKENDAR_ONBOARDING_PASSWORD` como variables de entorno; no guardes sus valores en el repositorio ni pases la contraseña como argumento.
 
 ```bash
-npm run onboard -- create-studio-owner \
+pnpm run onboard -- create-studio-owner \
   --studio-name "Studio Example" \
   --display-name "Owner Example" \
   --email "owner@example.test"
 
-npm run onboard -- add-artist \
+pnpm run onboard -- add-artist \
   --studio-id "00000000-0000-4000-8000-000000000000" \
   --display-name "Artist Example" \
   --email "artist@example.test"

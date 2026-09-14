@@ -87,7 +87,7 @@ And no incluye datos personales en URL, logs ni caché persistente
 2. RED de infraestructura y handlers SSR: mapeo de filas/errores, guards OWNER, mutaciones same-origin, respuestas privadas y errores sin PII.
 3. RED de persistencia: migración y pgTAP para esquema, FKs compuestas, RLS y denegaciones reales.
 4. GREEN mínimo por capa y UI accesible de listas, alta y edición.
-5. REFACTOR, pruebas enfocadas, `npm run check`, Supabase/pgTAP real cuando esté disponible, build/smoke y revisión de secretos/diff.
+5. REFACTOR, pruebas enfocadas, `pnpm run check`, Supabase/pgTAP real cuando esté disponible, build/smoke y revisión de secretos/diff.
 
 ## Evidencia de implementación
 
