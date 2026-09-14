@@ -2,7 +2,7 @@
 
 _Estado: especificación viva y fuente de verdad para alcance, comportamiento y progreso_
 
-_Versión: 1.6.0_
+_Versión: 1.7.1_
 
 _Última actualización: 2026-09-14_
 
@@ -52,7 +52,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | Flujo de entrega y CI | `PASS` | El PR [#2](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/2) se integró por squash con `validate` y `database` verdes; ambos checks son obligatorios en `main`, cuya ejecución [34753177240](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34753177240) terminó correctamente. |
 | Memoria de agentes | `PASS` | Engram 1.20.0 guarda y recupera memoria del proyecto `inkendar.app`; Codex MCP está configurado y requiere reinicio para cargarlo en nuevos chats. |
 | Supabase y aislamiento multi-tenant | `PASS` | La migración, el seed sintético y las 38 aserciones pgTAP pasaron contra Supabase/Postgres real en GitHub Actions [run 34752758528](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34752758528). |
-| Google Calendar y booking | `PLANNED` | No existe OAuth, disponibilidad, ofertas ni creación de eventos. |
+| Google Calendar y booking | `IN_PROGRESS` | Contrato OAuth y asignación de calendarios por artista `DONE`: el [PR #10](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/10) pasó 188 pruebas, build, migración limpia y 34 aserciones pgTAP del slice en el [run 34894832675](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34894832675). Faltan evidencia live con Google, `freeBusy`, eventos, ofertas y booking. |
 | Galería, portfolios y publicación web | `PLANNED` | No existe todavía el almacenamiento, feed público ni componente de integración. |
 | Piloto externo y disposición a pagar | `PLANNED` | No existe todavía evidencia de uso real autorizado ni pago. |
 
@@ -87,6 +87,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | 2026-09-13 | DEC-025 | `ACCEPTED` | El modelo operativo mínimo usa `customer` con estado `ACTIVE` / `ARCHIVED` y `tattoo_case` con estado `OPEN` / `ARCHIVED`; solo OWNER accede, el artista asignado es opcional y no se borran filas en este slice. | Registrar clientes y casos sin anticipar booking ni un workflow complejo, conservando retirada explícita y aislamiento tenant mediante RLS y FKs compuestas. |
 | 2026-09-14 | DEC-026 | `ACCEPTED` | El toolchain de `inkendar.app` usa pnpm 10.22.0, un workspace explícito y un único `pnpm-lock.yaml`; CI instala con lockfile congelado y caché de pnpm. | Unificar el gestor de paquetes con la landing y mantener instalaciones locales y remotas reproducibles sin cambiar la arquitectura ni el comportamiento del producto. |
 | 2026-09-14 | DEC-027 | `ACCEPTED` | El primer corte de conversaciones OWNER consulta Chatwoot bajo demanda detrás de `ConversationProviderPort`, pagina sin conexión como vacío privado, conserva vínculos, ingesta y operaciones outbound sin contenido en Supabase y autentica webhooks con firma HMAC, frescura y delivery ID idempotente. | Ocultar el proveedor, evitar copias divergentes de mensajes y conectar conversaciones con clientes/casos manteniendo aislamiento tenant y reintentos observables. |
+| 2026-09-14 | DEC-028 | `ACCEPTED` | La conexión Google usa Authorization Code web server, scope incremental `calendar.calendarlist.readonly`, refresh token cifrado con AES-256-GCM y persistencia/RPC exclusivas de `service_role`; cada artista puede tener un calendario de la conexión activa de su estudio. | Preparar disponibilidad y eventos con privilegio mínimo, secretos fuera del navegador y relaciones tenant-safe sin anticipar booking. |
 
 La arquitectura técnica está en [Arquitectura de aplicación](../architecture/application-architecture.md) y el proceso de entrega en [Flujo de desarrollo, revisión e integración](../development/delivery-workflow.md).
 
@@ -94,6 +95,8 @@ La arquitectura técnica está en [Arquitectura de aplicación](../architecture/
 
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
+| 2026-09-14 | 1.7.1 | El contrato técnico de Google OAuth y asignación de calendarios pasó a `DONE` tras verificar rutas SSR, migración limpia, 34 aserciones pgTAP, 188 pruebas y build; el recorrido live con Google continúa `IN_PROGRESS`. | Cerrar la implementación y la persistencia sin atribuir al CI una validación operativa contra el proveedor real. |
+| 2026-09-14 | 1.7.0 | Se fijó el contrato de conexión Google OAuth y asignación de un calendario por artista con estado `IN_PROGRESS`. | Habilitar la configuración mínima de Calendar antes de implementar disponibilidad, eventos y booking. |
 | 2026-09-14 | 1.6.1 | El contrato técnico de conversaciones OWNER pasó a `DONE` tras verificar en CI migraciones limpias, pgTAP, Auth/RLS, 156 pruebas y build; el recorrido live con Chatwoot continúa `IN_PROGRESS`. | Cerrar la implementación y la persistencia sin atribuir al CI una validación operativa contra el proveedor real. |
 | 2026-09-14 | 1.6.0 | Se implementó el corte mínimo OWNER de conversaciones, mensajes, respuesta, vínculo cliente/caso y webhook idempotente; la prueba Postgres real queda pendiente. | Avanzar la operación oculta sobre Chatwoot sin copiar mensajes ni introducir canales o capacidades fuera del MVP. |
 | 2026-09-14 | 1.5.2 | El toolchain del software migra de npm a pnpm 10.22.0 con workspace, lockfile y CI sincronizados. | Unificar el gestor con la landing y mantener una instalación reproducible sin alterar contratos de producto. |

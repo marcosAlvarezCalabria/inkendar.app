@@ -85,6 +85,17 @@ La bandeja SSR OWNER resuelve la conexion por `studioId` despues del guard. Si e
 Supabase conserva `conversation_link` para customer/tattoo_case, `conversation_webhook_receipt` para entregas firmadas y `conversation_outbound_operation` sin contenido para idempotencia. Las RPC outbound son exclusivas de `service_role`, se componen lazy tras OWNER y serializan una clave UUID: `SUCCEEDED` reutiliza el resultado, `PENDING` bloquea concurrencia y `FAILED`/`UNKNOWN` son finales. Un reintento consciente despues de `FAILED` usa una clave nueva; `UNKNOWN` requiere intervencion manual.
 
 El webhook conserva HMAC-SHA256, frescura de cinco minutos, delivery ID, limite real de 256 KiB, account esperado y actualizacion monotona. RLS y FKs compuestas mantienen el vinculo tenant-safe; mensajes, secretos y payloads brutos no se persisten ni se serializan.
+
+### Conexión Google Calendar
+
+_Estado técnico del slice: `DONE`; el recorrido con una cuenta Google real permanece `IN_PROGRESS`._
+
+El panel SSR OWNER inicia Authorization Code para aplicaciones web de servidor y recibe el callback fijo `/auth/google/callback`. El estado OAuth es aleatorio, ligado al estudio y usuario, expira y se consume una sola vez antes del exchange. La configuración, el cliente Google y `service_role` se componen de forma lazy después del guard OWNER. El redirect URI se valida contra los dos valores canónicos registrados y no se deriva de cabeceras del request.
+
+Aplicación depende de puertos para OAuth/Calendar y persistencia; infraestructura adapta los endpoints oficiales y Supabase. El refresh token se cifra con AES-256-GCM y una clave de entorno independiente. Las tablas de intentos, conexión y asignación no conceden acceso al browser; las mutaciones privilegiadas usan RPC `SECURITY DEFINER`, `search_path` vacío y ejecución exclusiva de `service_role`.
+
+Este corte pide solo `calendar.calendarlist.readonly` y lista metadata de calendarios sin leer eventos. `writerWithoutPrivateAccess`, `writer` y `owner` son asignables. Los futuros casos de uso solicitarán incrementalmente `calendar.events.freebusy` al consultar ocupación y `calendar.events` al crear citas. Una asignación referencia un único calendario por artista y exige artista, conexión activa y estudio coincidentes. `invalid_grant` al refrescar marca `REAUTH_REQUIRED`, conserva asignaciones y bloquea su gestión hasta reconectar; los fallos transitorios no mutan estado. Desconectar intenta revocar cualquier token retenido y después retira credenciales y asignaciones locales.
+
 ## 2. Alternativas consideradas
 
 ### A. Monolito modular TypeScript — aceptada
@@ -282,3 +293,4 @@ La recomendación añade un backend propio delgado, pero concentra allí autoriz
 | 2026-09-13 | Clientes y casos OWNER con estados mínimos, RLS y FKs tenant compuestas | Registrar contexto operativo básico sin borrar datos, abrir acceso del artista ni anticipar booking e integraciones. |
 | 2026-09-14 | pnpm 10.22.0 y un único lockfile para todos los workspaces | Unificar el toolchain con la landing y hacer reproducibles la instalación local y los dos jobs de CI. |
 | 2026-09-14 | Frontera de conversaciones OWNER, vínculo tenant-safe y webhook Chatwoot autenticado | Ocultar Chatwoot, conservarlo como fuente de mensajes y hacer observables/deduplicables los reintentos sin almacenar contenido. |
+| 2026-09-14 | OAuth Google server-side, token AEAD y calendario por artista | Preparar Calendar con privilegio mínimo, configuración lazy y aislamiento multi-tenant antes de implementar disponibilidad y eventos. |
