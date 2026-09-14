@@ -1,7 +1,7 @@
 import {
   ConversationNotFoundError, InvalidMessagingInputError, MessagingConnectionUnavailableError,
   MessagingProviderRejectedError, MessagingProviderUnavailableError, ReplyAlreadyInProgressError,
-  ReplyOutcomeUnknownError, createMessagingService,
+  ReplyOutcomeUnknownError, ReplyPreviouslyFailedError, createMessagingService,
 } from "@inkendar/application";
 import { normalizeConversationId, normalizeConversationPage, normalizeIdempotencyKey, normalizeMessageBefore, normalizeReplyText } from "@inkendar/domain";
 import { ChatwootInboxAdapter, createSupabaseMessagingRequestAdapter, loadMessagingProviderConfig } from "@inkendar/infrastructure";
@@ -91,6 +91,7 @@ function publicError(error: unknown, headers: Headers): Response {
   if (error instanceof ConversationNotFoundError) return Response.json({ error: "No se encontró la conversación." }, { status: 404, headers });
   if (error instanceof ReplyAlreadyInProgressError) return Response.json({ error: "La respuesta ya se está enviando." }, { status: 409, headers });
   if (error instanceof ReplyOutcomeUnknownError) return Response.json({ error: "No se pudo confirmar el envío. Actualiza la conversación antes de responder de nuevo.", blocked: true }, { status: 409, headers });
+  if (error instanceof ReplyPreviouslyFailedError) return Response.json({ error: "La respuesta anterior no se envió. Actualiza la conversación antes de volver a responder.", blocked: true }, { status: 409, headers });
   if (error instanceof MessagingConnectionUnavailableError) return Response.json({ error: "No se pudo completar la operación." }, { status: 503, headers });
   if (error instanceof MessagingProviderUnavailableError || error instanceof MessagingProviderRejectedError) {
     return Response.json({ error: "No se pudo completar la operación." }, { status: 502, headers });

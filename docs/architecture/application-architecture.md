@@ -77,12 +77,12 @@ Aplicación depende de CustomerCasesRepositoryPort; infraestructura adapta Supab
 El modelo evita borrado y workflows anticipados: clientes usan ACTIVE / ARCHIVED, casos OPEN / ARCHIVED, y la asignación de artista es opcional. Referencias, archivos, conversaciones, calendario, booking y notificaciones permanecen fuera del slice.
 
 ### Bandeja de conversaciones del owner
-_Estado del slice: `IN_PROGRESS`. El código está listo y `npm run check` pasó lint, typecheck, 148 pruebas y build; faltan la verificación Postgres/pgTAP y el recorrido sintético real con Chatwoot en CI._
+_Estado del slice: `IN_PROGRESS`. El código está listo y `npm run check` pasó lint, typecheck, 161 pruebas y build; faltan la verificación Postgres/pgTAP y el recorrido sintético real con Chatwoot en CI._
 
 
 React Router protege lista, lectura y respuesta con el guard OWNER, validación same-origin y respuestas `private, no-store`. El BFF obtiene `studioId` de la sesión; cuenta externa, referencia de credencial y URL base proceden exclusivamente de persistencia tenant-scoped y configuración de servidor. Chatwoot conserva mensajes y conversaciones, mientras Supabase guarda solo conexiones, enlaces por identificador externo y operaciones salientes sin contenido.
 
-Como Chatwoot no ofrece idempotencia documentada para crear mensajes, una RPC Postgres reclama cada clave UUID. `SUCCEEDED` devuelve el identificador confirmado, `PENDING` bloquea concurrencia, `UNKNOWN` exige refrescar y evita reenvío automático, y solo un rechazo definitivo `FAILED` permite repetir con seguridad. Timeout, aborto, 5xx, payload inválido tras el POST o fallo al confirmar persistencia se tratan como resultado ambiguo.
+Como Chatwoot no ofrece idempotencia documentada para crear mensajes, una RPC Postgres reclama cada clave UUID. `SUCCEEDED` devuelve el identificador confirmado, `PENDING` bloquea concurrencia, `UNKNOWN` exige refrescar y evita reenvío automático, y `FAILED` conserva el cierre; un reintento consciente requiere una presentación nueva con otra clave. Timeout, aborto, 5xx, payload inválido tras el POST o fallo al confirmar persistencia se tratan como resultado ambiguo.
 
 ## 2. Alternativas consideradas
 

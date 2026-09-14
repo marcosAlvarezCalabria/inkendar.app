@@ -24,6 +24,10 @@ describe("messaging input", () => {
     expect(() => normalizeIdempotencyKey("retry-me")).toThrow(InvalidMessagingInputError);
   });
 
+  it("keeps a conscious retry key distinct from the failed attempt", () => {
+    expect(normalizeIdempotencyKey("90000000-0000-4000-8000-000000000001")).not.toBe(normalizeIdempotencyKey("90000000-0000-4000-8000-000000000002"));
+  });
+
   it("accepts only conversation pages from 1 through 1000", () => {
     expect(normalizeConversationPage(null)).toBe(1);
     expect(normalizeConversationPage("1000")).toBe(1000);

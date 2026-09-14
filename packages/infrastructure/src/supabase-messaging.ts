@@ -47,7 +47,7 @@ export class SupabaseMessagingAdapter implements MessagingRepositoryPort {
     const row = object(data[0]); const status = string(row.claim_status);
     if (status === "CLAIMED") return { kind: "CLAIMED", operationId: string(row.operation_id) };
     if (status === "SUCCEEDED") return { kind: "SUCCEEDED", externalMessageId: integerString(row.external_message_id) };
-    if (status === "PENDING" || status === "UNKNOWN") return { kind: status };
+    if (status === "PENDING" || status === "UNKNOWN" || status === "FAILED") return { kind: status };
     throw new SupabaseMessagingAdapterError();
   }
 

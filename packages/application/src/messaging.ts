@@ -51,7 +51,8 @@ export type OutboundClaim =
   | Readonly<{ kind: "CLAIMED"; operationId: string }>
   | Readonly<{ kind: "SUCCEEDED"; externalMessageId: string }>
   | Readonly<{ kind: "PENDING" }>
-  | Readonly<{ kind: "UNKNOWN" }>;
+  | Readonly<{ kind: "UNKNOWN" }>
+  | Readonly<{ kind: "FAILED" }>;
 
 export interface MessagingRepositoryPort {
   findActiveConnection(studioId: string): Promise<MessagingConnection | null>;
@@ -84,6 +85,10 @@ export class ReplyAlreadyInProgressError extends Error {
 export class ReplyOutcomeUnknownError extends Error {
   readonly code = "REPLY_OUTCOME_UNKNOWN";
   constructor() { super("Reply outcome unknown"); this.name = "ReplyOutcomeUnknownError"; }
+}
+export class ReplyPreviouslyFailedError extends Error {
+  readonly code = "REPLY_PREVIOUSLY_FAILED";
+  constructor() { super("Reply previously failed"); this.name = "ReplyPreviouslyFailedError"; }
 }
 export class MessagingProviderUnavailableError extends Error {
   readonly code = "MESSAGING_PROVIDER_UNAVAILABLE";
@@ -145,6 +150,7 @@ export function createMessagingService(repository: MessagingRepositoryPort, prov
       if (claim.kind === "SUCCEEDED") return { externalMessageId: claim.externalMessageId, repeated: true };
       if (claim.kind === "PENDING") throw new ReplyAlreadyInProgressError();
       if (claim.kind === "UNKNOWN") throw new ReplyOutcomeUnknownError();
+      if (claim.kind === "FAILED") throw new ReplyPreviouslyFailedError();
 
       try {
         const sent = await provider().sendReply(connection, externalId, content, signal);

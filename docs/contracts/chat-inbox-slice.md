@@ -67,6 +67,11 @@ Given que se pierde la respuesta después de iniciar la llamada externa
 When el owner repite la misma clave
 Then Inkendar no vuelve a enviar silenciosamente
 And muestra que el resultado no pudo confirmarse y requiere actualizar la conversación
+
+Given que un envío terminó con rechazo definitivo
+When el owner repite la misma clave
+Then Inkendar conserva el estado FAILED y no vuelve a llamar al proveedor
+And un reintento consciente requiere actualizar la conversación y presentar un formulario con una clave nueva
 ```
 
 ### Validación y errores
@@ -150,10 +155,11 @@ Las tres tablas mantienen lectura RLS exclusiva para OWNER. `anon` y `authentica
 - `ConversationNotFoundError`: HTTP 404.
 - `ReplyAlreadyInProgressError`: HTTP 409.
 - `ReplyOutcomeUnknownError`: HTTP 409 e indicación de actualizar antes de intentar otra respuesta.
+- `ReplyPreviouslyFailedError`: HTTP 409; la misma clave permanece cerrada y un reintento consciente usa una clave nueva tras actualizar.
 - `MessagingProviderUnavailableError`: HTTP 502 con mensaje genérico.
 
 ## Evidencia y gates pendientes
 
-El 14 de septiembre de 2026, las pruebas enfocadas de dominio, aplicación, adaptador Chatwoot y handlers SSR pasaron 51 casos; la subparte RPC/service-role pasó además 34 pruebas enfocadas. La validación completa `npm run check` pasó lint, typecheck, 157 pruebas y build de cliente y servidor. El código del slice está listo para revisión de integración.
+El 14 de septiembre de 2026, las pruebas enfocadas de dominio, aplicación, repositorio Supabase y handlers SSR pasaron 52 casos. La validación completa `npm run check` pasó lint, typecheck, 161 pruebas y build de cliente y servidor. El código del slice está listo para revisión de integración.
 
 El archivo `supabase/tests/chat_inbox.test.sql` contiene 44 aserciones para grants, RLS, aislamiento tenant, idempotencia y transiciones finales. El intento local terminó con `ECONNREFUSED` porque Postgres no estaba activo; no se inició Docker. El slice permanece `IN_PROGRESS` hasta verificar migración/pgTAP contra Postgres real y completar un recorrido sintético real con Chatwoot; no se usaron datos de clientes ni una conexión live.

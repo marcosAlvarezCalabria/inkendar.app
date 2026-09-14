@@ -58,6 +58,7 @@ describe("Supabase messaging adapter", () => {
     ["CLAIMED", { kind: "CLAIMED", operationId }],
     ["PENDING", { kind: "PENDING" }],
     ["UNKNOWN", { kind: "UNKNOWN" }],
+    ["FAILED", { kind: "FAILED" }],
   ] as const)("maps the %s claim without retrying it", async (claimStatus, expected) => {
     const builder = query({ data: null, error: null });
     const client = clientFor(builder, { data: [{ claim_status: claimStatus, operation_id: operationId, external_message_id: null }], error: null });

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { MessagingConnectionUnavailableError, ReplyOutcomeUnknownError, createMessagingService, type ConversationMessage, type ConversationSummary, type MessagingRepositoryPort } from "@inkendar/application";
+import { MessagingConnectionUnavailableError, ReplyOutcomeUnknownError, ReplyPreviouslyFailedError, createMessagingService, type ConversationMessage, type ConversationSummary, type MessagingRepositoryPort } from "@inkendar/application";
 import type { AuthorizedAccess } from "@inkendar/domain";
 import { createOwnerMessagingHandlers } from "./owner-messaging.server.js";
 
@@ -120,6 +120,16 @@ describe("owner messaging handlers", () => {
     const response = await handlers.replyAction(new Request("https://app.inkendar.es/app/owner/inbox/42", { method: "POST", headers: { Origin: "https://app.inkendar.es" }, body }), "42");
     expect(response.status).toBe(409);
     expect(await response.text()).not.toContain("Sensitive full message");
+  });
+
+  it("reports a final failed attempt without echoing message content", async () => {
+    const messaging = service(); vi.mocked(messaging.sendConversationReply).mockRejectedValue(new ReplyPreviouslyFailedError());
+    const handlers = createOwnerMessagingHandlers({ authorize: async () => ({ access, headers: new Headers() }), service: () => messaging, createKey: crypto.randomUUID });
+    const body = new FormData(); body.set("reply", "Sensitive failed message"); body.set("idempotencyKey", "90000000-0000-4000-8000-000000000001");
+    const response = await handlers.replyAction(new Request("https://app.inkendar.es/app/owner/inbox/42", { method: "POST", headers: { Origin: "https://app.inkendar.es" }, body }), "42");
+    expect(response.status).toBe(409);
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+    expect(await response.text()).not.toContain("Sensitive failed message");
   });
 
   it("returns the contracted 503 when messaging is not configured", async () => {

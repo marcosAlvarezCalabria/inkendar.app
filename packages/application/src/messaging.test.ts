@@ -6,6 +6,7 @@ import {
   MessagingProviderRejectedError,
   ReplyAlreadyInProgressError,
   ReplyOutcomeUnknownError,
+  ReplyPreviouslyFailedError,
   createMessagingService,
   type InboxProviderPort,
   type MessagingRepositoryPort,
@@ -99,6 +100,13 @@ describe("messaging service", () => {
     const repo = repository(); vi.mocked(repo.claimOutboundOperation).mockResolvedValue({ kind: "UNKNOWN" }); const upstream = provider();
     await expect(createMessagingService(repo, upstream).sendConversationReply(studioId, "42", "Hola", key)).rejects.toBeInstanceOf(ReplyOutcomeUnknownError);
     expect(upstream.sendReply).not.toHaveBeenCalled();
+  });
+
+  it("does not reopen or resend a final failed operation", async () => {
+    const repo = repository(); vi.mocked(repo.claimOutboundOperation).mockResolvedValue({ kind: "FAILED" }); const upstream = provider();
+    await expect(createMessagingService(repo, upstream).sendConversationReply(studioId, "42", "Hola", key)).rejects.toBeInstanceOf(ReplyPreviouslyFailedError);
+    expect(upstream.sendReply).not.toHaveBeenCalled();
+    expect(repo.markOutboundFailed).not.toHaveBeenCalled();
   });
 
   it("marks a confirmed provider rejection as failed", async () => {
