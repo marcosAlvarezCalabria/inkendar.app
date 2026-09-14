@@ -141,7 +141,7 @@ Las tres llamadas autentican mediante `api_access_token`. La documentación del 
 - `conversation_link`: `id`, `studio_id`, `integration_connection_id`, `external_conversation_id`, timestamps. No guarda contacto ni mensajes.
 - `outbound_message_operation`: `id`, `studio_id`, `conversation_link_id`, `idempotency_key`, `status`, `external_message_id?`, timestamps. No guarda el texto.
 
-Las tres tablas tienen RLS OWNER-only. Las claves candidatas y FKs compuestas incluyen `studio_id`. Una RPC `claim_outbound_message_operation` serializa claves repetidas: crea una operación nueva, devuelve el éxito anterior o bloquea estados `PENDING`/`UNKNOWN`. Tras una respuesta externa válida se marca `SUCCEEDED`; un rechazo confirmado antes de aceptar el mensaje se marca `FAILED`; timeout, aborto, 5xx o persistencia de confirmación fallida quedan `UNKNOWN` para impedir duplicados silenciosos.
+Las tres tablas mantienen lectura RLS exclusiva para OWNER. `anon` y `authenticated` no pueden escribir directamente ni ejecutar las RPCs de mensajería; un cliente `service_role` separado y server-only crea enlaces y operaciones mediante funciones `SECURITY DEFINER`. `claim_outbound_message_operation` valida el tuple estudio, conexión activa, conversación y clave, serializa claves repetidas con la restricción unique y bloqueo de fila, y nunca reabre un estado existente. `transition_outbound_message_operation` permite exclusivamente `PENDING` a `SUCCEEDED`, `FAILED` o `UNKNOWN`; ningún estado final puede volver a transicionar.
 
 ### Errores públicos
 
@@ -154,6 +154,6 @@ Las tres tablas tienen RLS OWNER-only. Las claves candidatas y FKs compuestas in
 
 ## Evidencia y gates pendientes
 
-El 14 de septiembre de 2026, las pruebas enfocadas de dominio, aplicación, adaptador Chatwoot y handlers SSR pasaron 51 casos. La validación completa `npm run check` pasó lint, typecheck, 156 pruebas y build de cliente y servidor. El código del slice está listo para revisión de integración.
+El 14 de septiembre de 2026, las pruebas enfocadas de dominio, aplicación, adaptador Chatwoot y handlers SSR pasaron 51 casos; la subparte RPC/service-role pasó además 34 pruebas enfocadas. La validación completa `npm run check` pasó lint, typecheck, 157 pruebas y build de cliente y servidor. El código del slice está listo para revisión de integración.
 
-El archivo `supabase/tests/chat_inbox.test.sql` contiene 41 aserciones para esquema, RLS, aislamiento tenant e idempotencia. No se ejecutó localmente porque Docker Desktop no estaba activo. El slice permanece `IN_PROGRESS` hasta verificar migración/pgTAP en CI y completar un recorrido sintético real con Chatwoot; no se usaron datos de clientes ni una conexión live.
+El archivo `supabase/tests/chat_inbox.test.sql` contiene 44 aserciones para grants, RLS, aislamiento tenant, idempotencia y transiciones finales. El intento local terminó con `ECONNREFUSED` porque Postgres no estaba activo; no se inició Docker. El slice permanece `IN_PROGRESS` hasta verificar migración/pgTAP contra Postgres real y completar un recorrido sintético real con Chatwoot; no se usaron datos de clientes ni una conexión live.

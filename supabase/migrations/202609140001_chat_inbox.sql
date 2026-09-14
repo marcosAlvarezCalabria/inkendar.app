@@ -48,26 +48,59 @@ alter table public.conversation_link enable row level security;
 alter table public.outbound_message_operation enable row level security;
 
 revoke all on table public.integration_connection, public.conversation_link, public.outbound_message_operation from anon, authenticated;
-grant select on table public.integration_connection to authenticated;
-grant select, insert, update on table public.conversation_link to authenticated;
-grant select, insert, update on table public.outbound_message_operation to authenticated;
+grant select on table public.integration_connection, public.conversation_link, public.outbound_message_operation to authenticated;
 grant all on table public.integration_connection, public.conversation_link, public.outbound_message_operation to service_role;
 
 create policy integration_connection_owner_select on public.integration_connection for select to authenticated using (private.is_studio_owner(studio_id));
-create policy conversation_link_owner_all on public.conversation_link for all to authenticated using (private.is_studio_owner(studio_id)) with check (private.is_studio_owner(studio_id));
-create policy outbound_message_owner_all on public.outbound_message_operation for all to authenticated using (private.is_studio_owner(studio_id)) with check (private.is_studio_owner(studio_id));
+create policy conversation_link_owner_select on public.conversation_link for select to authenticated using (private.is_studio_owner(studio_id));
+create policy outbound_message_owner_select on public.outbound_message_operation for select to authenticated using (private.is_studio_owner(studio_id));
+
+create or replace function public.upsert_conversation_links(
+  p_studio_id uuid, p_integration_connection_id uuid, p_external_conversation_ids bigint[]
+) returns void
+language plpgsql security definer
+set search_path = ''
+as $$
+begin
+  if not exists (
+    select 1 from public.integration_connection
+    where id = p_integration_connection_id and studio_id = p_studio_id and status = 'ACTIVE'
+  ) then raise insufficient_privilege using message = 'messaging connection unavailable'; end if;
+
+  insert into public.conversation_link (studio_id, integration_connection_id, external_conversation_id)
+  select p_studio_id, p_integration_connection_id, external_id
+  from unnest(p_external_conversation_ids) as external_id
+  on conflict (integration_connection_id, external_conversation_id) do nothing;
+end;
+$$;
 
 create or replace function public.claim_outbound_message_operation(
-  p_studio_id uuid, p_conversation_link_id uuid, p_idempotency_key uuid
+  p_studio_id uuid, p_integration_connection_id uuid, p_external_conversation_id bigint, p_idempotency_key uuid
 ) returns table (claim_status text, operation_id uuid, external_message_id bigint)
-language plpgsql
+language plpgsql security definer
 set search_path = ''
 as $$
 declare
+  link_id uuid;
   claimed public.outbound_message_operation%rowtype;
 begin
+  if not exists (
+    select 1 from public.integration_connection
+    where id = p_integration_connection_id and studio_id = p_studio_id and status = 'ACTIVE'
+  ) then raise insufficient_privilege using message = 'messaging connection unavailable'; end if;
+
+  insert into public.conversation_link (studio_id, integration_connection_id, external_conversation_id)
+  values (p_studio_id, p_integration_connection_id, p_external_conversation_id)
+  on conflict (integration_connection_id, external_conversation_id) do nothing;
+
+  select id into link_id from public.conversation_link
+  where studio_id = p_studio_id and integration_connection_id = p_integration_connection_id
+    and external_conversation_id = p_external_conversation_id
+  for share;
+  if link_id is null then raise insufficient_privilege using message = 'conversation unavailable'; end if;
+
   insert into public.outbound_message_operation (studio_id, conversation_link_id, idempotency_key)
-  values (p_studio_id, p_conversation_link_id, p_idempotency_key)
+  values (p_studio_id, link_id, p_idempotency_key)
   on conflict (studio_id, idempotency_key) do nothing
   returning * into claimed;
 
@@ -76,22 +109,37 @@ begin
     return;
   end if;
 
-  update public.outbound_message_operation
-  set status = 'PENDING', updated_at = now()
-  where studio_id = p_studio_id and idempotency_key = p_idempotency_key
-    and conversation_link_id = p_conversation_link_id and status = 'FAILED'
-  returning * into claimed;
-
-  if claimed.id is not null then
-    return query select 'CLAIMED'::text, claimed.id, null::bigint;
-    return;
-  end if;
-
   select * into claimed from public.outbound_message_operation
-  where studio_id = p_studio_id and idempotency_key = p_idempotency_key and conversation_link_id = p_conversation_link_id;
-  if claimed.id is null then raise insufficient_privilege using message = 'outbound operation unavailable'; end if;
+  where studio_id = p_studio_id and idempotency_key = p_idempotency_key
+  for update;
+  if claimed.id is null or claimed.conversation_link_id <> link_id then
+    raise insufficient_privilege using message = 'outbound operation unavailable';
+  end if;
   return query select claimed.status::text, claimed.id, claimed.external_message_id;
 end;
 $$;
-revoke all on function public.claim_outbound_message_operation(uuid, uuid, uuid) from public, anon;
-grant execute on function public.claim_outbound_message_operation(uuid, uuid, uuid) to authenticated, service_role;
+
+create or replace function public.transition_outbound_message_operation(
+  p_studio_id uuid, p_operation_id uuid, p_status public.outbound_message_status, p_external_message_id bigint default null
+) returns void
+language plpgsql security definer
+set search_path = ''
+as $$
+begin
+  if p_status not in ('SUCCEEDED', 'FAILED', 'UNKNOWN')
+    or (p_status = 'SUCCEEDED') <> (p_external_message_id is not null)
+  then raise check_violation using message = 'invalid outbound transition'; end if;
+
+  update public.outbound_message_operation
+  set status = p_status, external_message_id = p_external_message_id, updated_at = now()
+  where id = p_operation_id and studio_id = p_studio_id and status = 'PENDING';
+  if not found then raise check_violation using message = 'outbound operation is not pending'; end if;
+end;
+$$;
+
+revoke all on function public.upsert_conversation_links(uuid, uuid, bigint[]) from public, anon, authenticated;
+revoke all on function public.claim_outbound_message_operation(uuid, uuid, bigint, uuid) from public, anon, authenticated;
+revoke all on function public.transition_outbound_message_operation(uuid, uuid, public.outbound_message_status, bigint) from public, anon, authenticated;
+grant execute on function public.upsert_conversation_links(uuid, uuid, bigint[]) to service_role;
+grant execute on function public.claim_outbound_message_operation(uuid, uuid, bigint, uuid) to service_role;
+grant execute on function public.transition_outbound_message_operation(uuid, uuid, public.outbound_message_status, bigint) to service_role;

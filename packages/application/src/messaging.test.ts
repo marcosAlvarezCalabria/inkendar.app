@@ -78,6 +78,7 @@ describe("messaging service", () => {
     expect(result).toEqual({ externalMessageId: "99", repeated: false });
     expect(upstream.sendReply).toHaveBeenCalledWith(connection, "42", "Hola", undefined);
     expect(repo.markOutboundSucceeded).toHaveBeenCalledWith(studioId, "91000000-0000-4000-8000-000000000001", "99");
+    expect(repo.claimOutboundOperation).toHaveBeenCalledWith(studioId, connection.id, "42", key);
     expect(repo.markOutboundSucceeded).not.toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.stringContaining("Hola"));
   });
 

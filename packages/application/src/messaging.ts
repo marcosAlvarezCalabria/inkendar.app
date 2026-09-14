@@ -57,7 +57,7 @@ export interface MessagingRepositoryPort {
   findActiveConnection(studioId: string): Promise<MessagingConnection | null>;
   upsertConversationLinks(studioId: string, connectionId: string, externalConversationIds: readonly string[]): Promise<void>;
   findConversationLink(studioId: string, externalConversationId: string): Promise<ConversationLink | null>;
-  claimOutboundOperation(studioId: string, conversationLinkId: string, idempotencyKey: string): Promise<OutboundClaim>;
+  claimOutboundOperation(studioId: string, connectionId: string, externalConversationId: string, idempotencyKey: string): Promise<OutboundClaim>;
   markOutboundSucceeded(studioId: string, operationId: string, externalMessageId: string): Promise<void>;
   markOutboundFailed(studioId: string, operationId: string): Promise<void>;
   markOutboundUnknown(studioId: string, operationId: string): Promise<void>;
@@ -140,8 +140,8 @@ export function createMessagingService(repository: MessagingRepositoryPort, prov
       const content = normalizeReplyText(rawContent);
       const idempotencyKey = normalizeIdempotencyKey(rawKey);
       const externalId = normalizeConversationId(conversationId);
-      const { connection, link } = await linkedConnection(studioId, externalId);
-      const claim = await repository.claimOutboundOperation(studioId, link.id, idempotencyKey);
+      const { connection } = await linkedConnection(studioId, externalId);
+      const claim = await repository.claimOutboundOperation(studioId, connection.id, externalId, idempotencyKey);
       if (claim.kind === "SUCCEEDED") return { externalMessageId: claim.externalMessageId, repeated: true };
       if (claim.kind === "PENDING") throw new ReplyAlreadyInProgressError();
       if (claim.kind === "UNKNOWN") throw new ReplyOutcomeUnknownError();
