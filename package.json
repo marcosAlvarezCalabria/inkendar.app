@@ -6,25 +6,21 @@
   "engines": {
     "node": "^22.22.0 || ^24.0.0"
   },
-  "packageManager": "npm@11.6.2",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
+  "packageManager": "pnpm@10.22.0",
   "scripts": {
-    "build": "npm run build --workspace @inkendar/app",
+    "build": "pnpm --filter @inkendar/app run build",
     "db:reset": "supabase db reset --local",
     "db:start": "supabase start",
     "db:test": "supabase test db --local",
-    "check": "npm run lint && npm run typecheck && npm run test && npm run build",
-    "dev": "npm run dev --workspace @inkendar/app",
+    "check": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
+    "dev": "pnpm --filter @inkendar/app run dev",
     "lint": "eslint .",
     "onboard": "tsx scripts/manual-onboarding.ts",
-    "start": "npm run start --workspace @inkendar/app",
+    "start": "pnpm --filter @inkendar/app run start",
     "test": "vitest run",
     "test:auth:integration": "vitest run packages/infrastructure/src/supabase-auth.integration.test.ts",
     "test:watch": "vitest",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "pnpm --recursive --if-present run typecheck"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

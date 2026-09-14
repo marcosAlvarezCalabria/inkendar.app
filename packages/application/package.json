@@ -8,6 +8,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@inkendar/domain": "0.0.0"
+    "@inkendar/domain": "workspace:*"
   }
 }

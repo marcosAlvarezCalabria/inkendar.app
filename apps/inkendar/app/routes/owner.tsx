@@ -28,7 +28,7 @@ export default function OwnerShell() {
       <section className="shell-panel">
         <h2>Panel del estudio</h2>
         <nav className="owner-nav" aria-label="Operación del estudio">
-          <a href="/app/owner/inbox">Abrir bandeja</a>
+          <a href="/app/owner/conversations">Gestionar conversaciones</a>
           <a href="/app/owner/customers">Gestionar clientes</a>
           <a href="/app/owner/cases">Gestionar casos de tatuaje</a>
         </nav>

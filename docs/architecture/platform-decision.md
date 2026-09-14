@@ -2,7 +2,7 @@
 
 _Estado: aceptada_
 
-_Última actualización: 2026-09-13_
+_Última actualización: 2026-09-14_
 
 La [Especificación de Inkendar](../product/sellable-mvp-spec.md) define el comportamiento y la [Arquitectura de aplicación](application-architecture.md) define la estructura implementable.
 
@@ -11,7 +11,7 @@ La [Especificación de Inkendar](../product/sellable-mvp-spec.md) define el comp
 - PWA React y TypeScript dentro de un monolito modular.
 - React Router 8 en modo framework con renderizado de servidor y su adaptador oficial de Node para unir PWA y API/BFF en un artefacto portable.
 - API/BFF en el mismo producto desplegable.
-- npm workspaces para expresar los módulos internos sin añadir una herramienta de orquestación.
+- pnpm 10.22.0 y sus workspaces para expresar los módulos internos sin añadir una herramienta de orquestación.
 - Node.js 24 LTS en desarrollo y CI; se conserva compatibilidad con la última línea 22.22.x de mantenimiento admitida por React Router 8.
 - Supabase Cloud para Postgres, autenticación, almacenamiento y migraciones.
 - Chatwoot como motor oculto para chat web, Instagram y Facebook.

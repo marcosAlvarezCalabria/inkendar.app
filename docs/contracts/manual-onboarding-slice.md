@@ -94,7 +94,7 @@ But service_role puede ejecutarlas para el alta inicial
 2. GREEN: value objects, errores, puertos y casos de uso mínimos.
 3. RED/GREEN de infraestructura: pruebas del adaptador HTTP con `fetch` falso y CLI/configuración sin secretos en argumentos ni errores.
 4. RED/GREEN de persistencia: migración y pgTAP para atomicidad, permisos y coherencia tenant.
-5. REFACTOR y validación: pruebas enfocadas, `npm run check`, `npm run db:test`, revisión de diff y búsqueda de secretos.
+5. REFACTOR y validación: pruebas enfocadas, `pnpm run check`, `pnpm run db:test`, revisión de diff y búsqueda de secretos.
 
 
 ## Evidencia de implementación

@@ -8,8 +8,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@inkendar/application": "0.0.0",
-    "@inkendar/domain": "0.0.0",
+    "@inkendar/application": "workspace:*",
+    "@inkendar/domain": "workspace:*",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.116.0"
   }

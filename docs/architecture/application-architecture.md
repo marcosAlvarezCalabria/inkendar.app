@@ -38,7 +38,7 @@ La primera base utiliza:
 - React Router 8 en modo framework para renderizado de servidor, rutas de UI y futuros resource routes del API/BFF;
 - el servidor Node oficial de React Router como adaptador inicial portable;
 - React 19 y TypeScript 6;
-- npm workspaces para `apps/inkendar` y los paquetes internos;
+- pnpm workspaces para `apps/inkendar` y los paquetes internos;
 - Node.js 24 LTS en CI, con compatibilidad declarada para la última línea 22.22.x de mantenimiento;
 - Vitest para TDD y una prueba de arquitectura que comprueba el grafo de dependencias declarado por los workspaces.
 
@@ -74,16 +74,17 @@ El panel SSR del owner ofrece listas y formularios para customer y tattoo_case. 
 
 Aplicación depende de CustomerCasesRepositoryPort; infraestructura adapta Supabase/PostgREST con la sesión del request. customer y tattoo_case incluyen studio_id, RLS exclusiva de OWNER y relaciones compuestas que impiden vincular un caso con cliente o artista de otro estudio incluso mediante una escritura privilegiada.
 
-El modelo evita borrado y workflows anticipados: clientes usan ACTIVE / ARCHIVED, casos OPEN / ARCHIVED, y la asignación de artista es opcional. Referencias, archivos, conversaciones, calendario, booking y notificaciones permanecen fuera del slice.
+El modelo evita borrado y workflows anticipados: clientes usan ACTIVE / ARCHIVED, casos OPEN / ARCHIVED, y la asignación de artista es opcional. Referencias, archivos, calendario, booking y notificaciones permanecen fuera del slice.
 
-### Bandeja de conversaciones del owner
-_Estado del slice: `IN_PROGRESS`. El código está listo y `npm run check` pasó lint, typecheck, 161 pruebas y build; faltan la verificación Postgres/pgTAP y el recorrido sintético real con Chatwoot en CI._
+### Conversaciones OWNER
 
+_Estado del slice: `IN_PROGRESS`. El codigo y 155 pruebas estan verdes; faltan Postgres/pgTAP y el recorrido sintetico real con Chatwoot._
 
-React Router protege lista, lectura y respuesta con el guard OWNER, validación same-origin y respuestas `private, no-store`. El BFF obtiene `studioId` de la sesión; cuenta externa, referencia de credencial y URL base proceden exclusivamente de persistencia tenant-scoped y configuración de servidor. Chatwoot conserva mensajes y conversaciones, mientras Supabase guarda solo conexiones, enlaces por identificador externo y operaciones salientes sin contenido.
+La bandeja SSR OWNER resuelve la conexion por `studioId` despues del guard. Si el estudio no tiene conexion devuelve una pagina vacia `private, no-store` sin cargar proveedor, credenciales ni `service_role`. Las conversaciones recorren paginas 1..1000 de 25 filas con `all_count`; el detalle carga hasta 20 mensajes publicos de texto y usa un cursor positivo `before`.
 
-Como Chatwoot no ofrece idempotencia documentada para crear mensajes, una RPC Postgres reclama cada clave UUID. `SUCCEEDED` devuelve el identificador confirmado, `PENDING` bloquea concurrencia, `UNKNOWN` exige refrescar y evita reenvío automático, y `FAILED` conserva el cierre; un reintento consciente requiere una presentación nueva con otra clave. Timeout, aborto, 5xx, payload inválido tras el POST o fallo al confirmar persistencia se tratan como resultado ambiguo.
+Supabase conserva `conversation_link` para customer/tattoo_case, `conversation_webhook_receipt` para entregas firmadas y `conversation_outbound_operation` sin contenido para idempotencia. Las RPC outbound son exclusivas de `service_role`, se componen lazy tras OWNER y serializan una clave UUID: `SUCCEEDED` reutiliza el resultado, `PENDING` bloquea concurrencia y `FAILED`/`UNKNOWN` son finales. Un reintento consciente despues de `FAILED` usa una clave nueva; `UNKNOWN` requiere intervencion manual.
 
+El webhook conserva HMAC-SHA256, frescura de cinco minutos, delivery ID, limite real de 256 KiB, account esperado y actualizacion monotona. RLS y FKs compuestas mantienen el vinculo tenant-safe; mensajes, secretos y payloads brutos no se persisten ni se serializan.
 ## 2. Alternativas consideradas
 
 ### A. Monolito modular TypeScript — aceptada
@@ -249,10 +250,10 @@ La regla se aplica a dominio, casos de uso, permisos, migraciones y defectos. Un
 La validación ejecutable actual es:
 
 ```text
-npm run lint
-npm run typecheck
-npm test
-npm run build
+pnpm run lint
+pnpm run typecheck
+pnpm test
+pnpm run build
 ```
 
 - Pruebas unitarias para reglas de disponibilidad, estados y caducidad.
@@ -279,3 +280,5 @@ La recomendación añade un backend propio delgado, pero concentra allí autoriz
 | 2026-09-13 | React Router 8, Node 24 y npm workspaces como base ejecutable | Unir PWA y API/BFF en un despliegue portable, expresar los límites internos y habilitar validación automática sin añadir infraestructura de producto. |
 | 2026-09-13 | CLI de alta manual, puertos de provisión y compensación Auth/Postgres | Habilitar el servicio gestionado sin endpoint público y conservar roles, secretos y operaciones privilegiadas en el servidor. |
 | 2026-09-13 | Clientes y casos OWNER con estados mínimos, RLS y FKs tenant compuestas | Registrar contexto operativo básico sin borrar datos, abrir acceso del artista ni anticipar booking e integraciones. |
+| 2026-09-14 | pnpm 10.22.0 y un único lockfile para todos los workspaces | Unificar el toolchain con la landing y hacer reproducibles la instalación local y los dos jobs de CI. |
+| 2026-09-14 | Frontera de conversaciones OWNER, vínculo tenant-safe y webhook Chatwoot autenticado | Ocultar Chatwoot, conservarlo como fuente de mensajes y hacer observables/deduplicables los reintentos sin almacenar contenido. |
