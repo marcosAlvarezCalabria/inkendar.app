@@ -4,6 +4,8 @@ import {
   MessagingProviderUnavailableError,
   type ConversationMessage,
   type ConversationSummary,
+  type ConversationBatch,
+  type MessagePage,
   type InboxProviderPort,
   type MessagingConnection,
 } from "@inkendar/application";
@@ -56,25 +58,31 @@ export class ChatwootInboxAdapter implements InboxProviderPort {
     private readonly timeoutMs = 8_000,
   ) {}
 
-  async listOpenConversations(connection: MessagingConnection, signal?: AbortSignal): Promise<readonly ConversationSummary[]> {
+  async listOpenConversations(connection: MessagingConnection, page = 1, signal?: AbortSignal): Promise<ConversationBatch> {
     const accountId = positiveInteger(connection.externalAccountId);
-    const response = await this.read(`${this.baseUrl}/api/v1/accounts/${accountId}/conversations?status=open&page=1`, connection, signal);
+    const boundedPage = conversationPage(page);
+    const response = await this.read(`${this.baseUrl}/api/v1/accounts/${accountId}/conversations?status=open&page=${boundedPage}`, connection, signal);
     try {
       const data = object(object(response).data);
-      return array(data.payload).map(conversation);
+      return { items: array(data.payload).map(conversation), totalCount: nonNegativeInteger(object(data.meta).all_count) };
     } catch { throw new MessagingProviderUnavailableError(); }
   }
 
-  async getMessages(connection: MessagingConnection, externalConversationId: string, signal?: AbortSignal): Promise<readonly ConversationMessage[]> {
+  async getMessages(connection: MessagingConnection, externalConversationId: string, before?: string, signal?: AbortSignal): Promise<MessagePage> {
     const accountId = positiveInteger(connection.externalAccountId);
     const conversationId = positiveInteger(externalConversationId);
-    const response = await this.read(`${this.baseUrl}/api/v1/accounts/${accountId}/conversations/${conversationId}/messages`, connection, signal);
+    const cursor = before === undefined ? undefined : positiveInteger(before);
+    const suffix = cursor === undefined ? "" : `?before=${encodeURIComponent(cursor)}`;
+    const response = await this.read(`${this.baseUrl}/api/v1/accounts/${accountId}/conversations/${conversationId}/messages${suffix}`, connection, signal);
     try {
-      return array(object(response).payload).flatMap((value): ConversationMessage[] => {
+      const payload = array(object(response).payload);
+      const items = payload.flatMap((value): ConversationMessage[] => {
         const row = object(value);
         if (row.private === true || (row.message_type !== 0 && row.message_type !== 1) || row.content_type !== "text" || typeof row.content !== "string" || !row.content) return [];
         return [{ id: numericId(row.id), content: row.content, direction: row.message_type === 0 ? "INCOMING" : "OUTGOING", createdAt: finiteNumber(row.created_at) }];
       });
+      const candidate = payload.length === 20 ? numericId(object(payload[0]).id) : null;
+      return { items, before: candidate === cursor ? null : candidate };
     } catch { throw new MessagingProviderUnavailableError(); }
   }
 
@@ -142,6 +150,7 @@ function timedSignal(signal: AbortSignal | undefined, timeoutMs: number): AbortS
 function positiveInteger(value: string): string { if (!/^[1-9][0-9]*$/.test(value)) throw new MessagingProviderConfigurationError(); return value; }
 function numericId(value: unknown): string { if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) throw new Error(); return String(value); }
 function finiteNumber(value: unknown): number { if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(); return value; }
+function conversationPage(value: number): number { if (!Number.isSafeInteger(value) || value < 1 || value > 1000) throw new MessagingProviderConfigurationError(); return value; }
 function nonNegativeInteger(value: unknown): number { if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) throw new Error(); return value; }
 function object(value: unknown): Record<string, unknown> { if (!isObject(value)) throw new Error(); return value; }
 function array(value: unknown): unknown[] { if (!Array.isArray(value)) throw new Error(); return value; }

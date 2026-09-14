@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { InvalidMessagingInputError, normalizeConversationId, normalizeIdempotencyKey, normalizeReplyText } from "./messaging.js";
+import { InvalidMessagingInputError, normalizeConversationId, normalizeConversationPage, normalizeIdempotencyKey, normalizeMessageBefore, normalizeReplyText } from "./messaging.js";
 
 describe("messaging input", () => {
   it("normalizes provider identifiers and a UUID idempotency key", () => {
@@ -22,5 +22,21 @@ describe("messaging input", () => {
 
   it("rejects a non UUID idempotency key", () => {
     expect(() => normalizeIdempotencyKey("retry-me")).toThrow(InvalidMessagingInputError);
+  });
+
+  it("accepts only conversation pages from 1 through 1000", () => {
+    expect(normalizeConversationPage(null)).toBe(1);
+    expect(normalizeConversationPage("1000")).toBe(1000);
+    for (const value of ["0", "1001", "1.5", "+1", " 1"]) {
+      expect(() => normalizeConversationPage(value)).toThrow(InvalidMessagingInputError);
+    }
+  });
+
+  it("keeps an older-message cursor opaque after validating it is positive", () => {
+    expect(normalizeMessageBefore(null)).toBeUndefined();
+    expect(normalizeMessageBefore("900719925474099312345")).toBe("900719925474099312345");
+    for (const value of ["", "0", "-1", "1.5", "01"]) {
+      expect(() => normalizeMessageBefore(value)).toThrow(InvalidMessagingInputError);
+    }
   });
 });

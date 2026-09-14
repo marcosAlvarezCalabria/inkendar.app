@@ -10,7 +10,7 @@ Como owner de un estudio quiero leer y responder las conversaciones abiertas des
 
 ## Alcance
 
-Este slice incorpora una bandeja SSR exclusiva para `OWNER`, lectura bajo demanda de conversaciones y mensajes y envío de respuestas de texto. Cada estudio se conecta manualmente mediante metadata tenant-scoped y una referencia opaca a una credencial resuelta solo en servidor.
+Este slice incorpora una bandeja SSR exclusiva para `OWNER`, paginación de conversaciones, lectura incremental bajo demanda de mensajes y envío de respuestas de texto. Cada estudio se conecta manualmente mediante metadata tenant-scoped y una referencia opaca a una credencial resuelta solo en servidor.
 
 Quedan fuera webhooks, sincronización entrante persistente, asignación automática, creación de casos desde una conversación, IA, adjuntos, notas privadas, nuevos canales, configuración autoservicio y copia local de mensajes. Chatwoot conserva conversaciones y mensajes como fuente de verdad.
 
@@ -24,10 +24,12 @@ When abre la bandeja
 Then ve únicamente las conversaciones abiertas devueltas por esa conexión
 And Inkendar registra solo los identificadores externos necesarios para volver a abrirlas
 And la interfaz no menciona Chatwoot ni expone cuenta, token o referencia de credencial
+And navega páginas de 25 elementos mediante controles anterior y siguiente
 
 Given un owner sin conexión activa
 When abre la bandeja
 Then ve un estado vacío genérico que indica que la mensajería aún no está disponible
+And no se carga configuración, entorno ni adaptador del proveedor de mensajería
 ```
 
 ### Lectura de mensajes
@@ -37,6 +39,9 @@ Given una conversación enlazada previamente con el estudio del owner
 When el owner la abre
 Then Inkendar obtiene sus mensajes de la fuente de verdad bajo demanda
 And representa dirección, contenido de texto y fecha sin persistir el contenido
+And la carga inicial contiene como máximo 20 mensajes
+And las páginas anteriores usan un único cursor positivo `before` tratado como opaco
+And nunca combinan `before` con `after` ni ofrecen de nuevo el mismo cursor
 
 Given un identificador no enlazado o enlazado con otro estudio
 When el owner intenta abrirlo
@@ -116,16 +121,16 @@ Then la configuración falla cerrada antes de realizar una petición
 
 El adaptador usa la Application API documentada oficialmente por Chatwoot el 14 de septiembre de 2026:
 
-- `GET /api/v1/accounts/{account_id}/conversations?status=open&page=1` devuelve `data.payload` paginado;
-- `GET /api/v1/accounts/{account_id}/conversations/{conversation_id}/messages` devuelve `payload` en orden ascendente;
+- `GET /api/v1/accounts/{account_id}/conversations?status=open&page={page}` acepta páginas enteras de 1 a 1000, devuelve hasta 25 filas en `data.payload` y el total en `data.meta.all_count`;
+- `GET /api/v1/accounts/{account_id}/conversations/{conversation_id}/messages[?before={cursor}]` devuelve lotes de hasta 20 mensajes en orden ascendente y permite recorrer solo hacia mensajes anteriores;
 - `POST /api/v1/accounts/{account_id}/conversations/{conversation_id}/messages` recibe `content`, `message_type: outgoing`, `private: false` y `content_type: text`.
 
 Las tres llamadas autentican mediante `api_access_token`. La documentación del POST no ofrece una clave de idempotencia; Inkendar no envía cabeceras o campos no documentados. El adaptador limita cada llamada con timeout y combina su señal con el `AbortSignal` del request.
 
 ### Límites internos
 
-- Dominio valida identificadores enteros positivos, clave UUID y texto NFKC recortado de 1 a 4000 caracteres sin controles, preservando saltos de línea.
-- Aplicación expone tres casos de uso: `listOpenConversations`, `getConversationMessages` y `sendConversationReply`. Depende de `MessagingRepositoryPort` e `InboxProviderPort`.
+- Dominio valida identificadores y cursores positivos, páginas enteras de 1 a 1000, clave UUID y texto NFKC recortado de 1 a 4000 caracteres sin controles, preservando saltos de línea.
+- Aplicación expone tres casos de uso: `listOpenConversations`, `getConversationMessages` y `sendConversationReply`. La composición del `InboxProviderPort` es lazy y solo ocurre tras encontrar una conexión activa en `MessagingRepositoryPort`.
 - Infraestructura implementa la metadata y operaciones con Supabase bajo la sesión del request. `ChatwootInboxAdapter` es el único módulo que conoce rutas, cabecera y payloads externos.
 - `CredentialResolverPort` recibe `credential_reference`; la implementación inicial resuelve una entrada de un mapa JSON exclusivo del entorno. La URL base procede de `INKENDAR_MESSAGING_BASE_URL` y nunca de Postgres, formularios o cabeceras del request.
 - Los handlers React Router extraen siempre `studioId` del acceso OWNER, verifican same-origin antes de una mutación y no aceptan tenant, account ID o credential reference desde el navegador.
@@ -149,6 +154,6 @@ Las tres tablas tienen RLS OWNER-only. Las claves candidatas y FKs compuestas in
 
 ## Evidencia y gates pendientes
 
-El 14 de septiembre de 2026, las pruebas enfocadas de dominio, aplicación, adaptadores Chatwoot/Supabase y handlers SSR pasaron 50 casos. La validación completa `npm run check` pasó lint, typecheck, 148 pruebas y build de cliente y servidor. El código del slice está listo para revisión de integración.
+El 14 de septiembre de 2026, las pruebas enfocadas de dominio, aplicación, adaptador Chatwoot y handlers SSR pasaron 51 casos. La validación completa `npm run check` pasó lint, typecheck, 156 pruebas y build de cliente y servidor. El código del slice está listo para revisión de integración.
 
 El archivo `supabase/tests/chat_inbox.test.sql` contiene 41 aserciones para esquema, RLS, aislamiento tenant e idempotencia. No se ejecutó localmente porque Docker Desktop no estaba activo. El slice permanece `IN_PROGRESS` hasta verificar migración/pgTAP en CI y completar un recorrido sintético real con Chatwoot; no se usaron datos de clientes ni una conexión live.

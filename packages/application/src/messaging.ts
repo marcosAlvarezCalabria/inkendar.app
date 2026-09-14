@@ -1,4 +1,4 @@
-import { normalizeConversationId, normalizeIdempotencyKey, normalizeReplyText } from "@inkendar/domain";
+import { normalizeConversationId, normalizeConversationPage, normalizeIdempotencyKey, normalizeMessageBefore, normalizeReplyText } from "@inkendar/domain";
 
 export { InvalidMessagingInputError } from "@inkendar/domain";
 
@@ -31,6 +31,22 @@ export type ConversationMessage = Readonly<{
   createdAt: number;
 }>;
 
+export type ConversationPage = Readonly<{
+  items: readonly ConversationSummary[];
+  page: number;
+  pageSize: 25;
+  totalCount: number;
+  previousPage: number | null;
+  nextPage: number | null;
+}>;
+
+export type MessagePage = Readonly<{
+  items: readonly ConversationMessage[];
+  before: string | null;
+}>;
+
+export type ConversationBatch = Readonly<{ items: readonly ConversationSummary[]; totalCount: number }>;
+
 export type OutboundClaim =
   | Readonly<{ kind: "CLAIMED"; operationId: string }>
   | Readonly<{ kind: "SUCCEEDED"; externalMessageId: string }>
@@ -48,8 +64,8 @@ export interface MessagingRepositoryPort {
 }
 
 export interface InboxProviderPort {
-  listOpenConversations(connection: MessagingConnection, signal?: AbortSignal): Promise<readonly ConversationSummary[]>;
-  getMessages(connection: MessagingConnection, externalConversationId: string, signal?: AbortSignal): Promise<readonly ConversationMessage[]>;
+  listOpenConversations(connection: MessagingConnection, page: number, signal?: AbortSignal): Promise<ConversationBatch>;
+  getMessages(connection: MessagingConnection, externalConversationId: string, before?: string, signal?: AbortSignal): Promise<MessagePage>;
   sendReply(connection: MessagingConnection, externalConversationId: string, content: string, signal?: AbortSignal): Promise<{ externalMessageId: string }>;
 }
 
@@ -82,7 +98,9 @@ export class MessagingProviderOutcomeUnknownError extends Error {
   constructor() { super("Messaging provider outcome unknown"); this.name = "MessagingProviderOutcomeUnknownError"; }
 }
 
-export function createMessagingService(repository: MessagingRepositoryPort, provider: InboxProviderPort) {
+export function createMessagingService(repository: MessagingRepositoryPort, providerSource: InboxProviderPort | (() => InboxProviderPort)) {
+  const provider = (): InboxProviderPort => typeof providerSource === "function" ? providerSource() : providerSource;
+
   async function activeConnection(studioId: string): Promise<MessagingConnection> {
     const connection = await repository.findActiveConnection(studioId);
     if (!connection) throw new MessagingConnectionUnavailableError();
@@ -98,18 +116,24 @@ export function createMessagingService(repository: MessagingRepositoryPort, prov
   }
 
   return {
-    async listOpenConversations(studioId: string, signal?: AbortSignal): Promise<readonly ConversationSummary[]> {
+    async listOpenConversations(studioId: string, rawPage: number | string = 1, signal?: AbortSignal): Promise<ConversationPage> {
+      const page = normalizeConversationPage(String(rawPage));
       const connection = await repository.findActiveConnection(studioId);
-      if (!connection) return [];
-      const conversations = await provider.listOpenConversations(connection, signal);
-      await repository.upsertConversationLinks(studioId, connection.id, conversations.map((item) => item.id));
-      return conversations;
+      if (!connection) return { items: [], page, pageSize: 25, totalCount: 0, previousPage: page > 1 ? page - 1 : null, nextPage: null };
+      const conversations = await provider().listOpenConversations(connection, page, signal);
+      await repository.upsertConversationLinks(studioId, connection.id, conversations.items.map((item) => item.id));
+      return {
+        ...conversations, page, pageSize: 25,
+        previousPage: page > 1 ? page - 1 : null,
+        nextPage: page < 1000 && page * 25 < conversations.totalCount ? page + 1 : null,
+      };
     },
 
-    async getConversationMessages(studioId: string, conversationId: string, signal?: AbortSignal): Promise<readonly ConversationMessage[]> {
+    async getConversationMessages(studioId: string, conversationId: string, rawBefore?: string, signal?: AbortSignal): Promise<MessagePage> {
       const externalId = normalizeConversationId(conversationId);
+      const before = normalizeMessageBefore(rawBefore);
       const { connection } = await linkedConnection(studioId, externalId);
-      return await provider.getMessages(connection, externalId, signal);
+      return await provider().getMessages(connection, externalId, before, signal);
     },
 
     async sendConversationReply(studioId: string, conversationId: string, rawContent: string, rawKey: string, signal?: AbortSignal): Promise<{ externalMessageId: string; repeated: boolean }> {
@@ -123,7 +147,7 @@ export function createMessagingService(repository: MessagingRepositoryPort, prov
       if (claim.kind === "UNKNOWN") throw new ReplyOutcomeUnknownError();
 
       try {
-        const sent = await provider.sendReply(connection, externalId, content, signal);
+        const sent = await provider().sendReply(connection, externalId, content, signal);
         try {
           await repository.markOutboundSucceeded(studioId, claim.operationId, sent.externalMessageId);
         } catch {

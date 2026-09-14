@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { MessagingConnectionUnavailableError, ReplyOutcomeUnknownError, type ConversationMessage, type ConversationSummary } from "@inkendar/application";
+import { MessagingConnectionUnavailableError, ReplyOutcomeUnknownError, createMessagingService, type ConversationMessage, type ConversationSummary, type MessagingRepositoryPort } from "@inkendar/application";
 import type { AuthorizedAccess } from "@inkendar/domain";
 import { createOwnerMessagingHandlers } from "./owner-messaging.server.js";
 
@@ -7,8 +7,8 @@ const access: AuthorizedAccess = { displayName: "Owner", role: "OWNER", studioId
 
 function service() {
   return {
-    listOpenConversations: vi.fn(async (): Promise<readonly ConversationSummary[]> => []),
-    getConversationMessages: vi.fn(async (): Promise<readonly ConversationMessage[]> => []),
+    listOpenConversations: vi.fn(async () => ({ items: [] as readonly ConversationSummary[], page: 1, pageSize: 25 as const, totalCount: 0, previousPage: null, nextPage: null })),
+    getConversationMessages: vi.fn(async () => ({ items: [] as readonly ConversationMessage[], before: null })),
     sendConversationReply: vi.fn(async () => ({ externalMessageId: "9", repeated: false })),
   };
 }
@@ -22,7 +22,44 @@ describe("owner messaging handlers", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
     expect(response.headers.get("Set-Cookie")).toContain("session=rotated");
-    expect(messaging.listOpenConversations).toHaveBeenCalledWith(access.studioId, request.signal);
+    expect(messaging.listOpenConversations).toHaveBeenCalledWith(access.studioId, 1, request.signal);
+  });
+
+  it("returns an empty private inbox without composing provider configuration", async () => {
+    const repo: MessagingRepositoryPort = {
+      findActiveConnection: vi.fn(async () => null), upsertConversationLinks: vi.fn(async () => undefined), findConversationLink: vi.fn(async () => null),
+      claimOutboundOperation: vi.fn(async () => ({ kind: "PENDING" as const })), markOutboundSucceeded: vi.fn(async () => undefined),
+      markOutboundFailed: vi.fn(async () => undefined), markOutboundUnknown: vi.fn(async () => undefined),
+    };
+    const createProvider = vi.fn(() => { throw new Error("environment must not be loaded"); });
+    const handlers = createOwnerMessagingHandlers({ authorize: async () => ({ access, headers: new Headers() }), service: () => createMessagingService(repo, createProvider), createKey: crypto.randomUUID });
+    const response = await handlers.inboxLoader(new Request("https://app.inkendar.es/app/owner/inbox"));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+    expect(await response.json()).toEqual({ conversations: { items: [], page: 1, pageSize: 25, totalCount: 0, previousPage: null, nextPage: null } });
+    expect(createProvider).not.toHaveBeenCalled();
+  });
+
+  it("passes bounded conversation pages and one older-message cursor", async () => {
+    const messaging = service();
+    const handlers = createOwnerMessagingHandlers({ authorize: async () => ({ access, headers: new Headers() }), service: () => messaging, createKey: crypto.randomUUID });
+    await handlers.inboxLoader(new Request("https://app.inkendar.es/app/owner/inbox?page=2"));
+    await handlers.conversationLoader(new Request("https://app.inkendar.es/app/owner/inbox/42?before=100"), "42");
+    expect(messaging.listOpenConversations).toHaveBeenCalledWith(access.studioId, 2, expect.any(AbortSignal));
+    expect(messaging.getConversationMessages).toHaveBeenCalledWith(access.studioId, "42", "100", expect.any(AbortSignal));
+  });
+
+  it.each([
+    ["invalid page", "https://app.inkendar.es/app/owner/inbox?page=1001", "inbox"],
+    ["duplicate before", "https://app.inkendar.es/app/owner/inbox/42?before=100&before=99", "conversation"],
+    ["before plus after", "https://app.inkendar.es/app/owner/inbox/42?before=100&after=101", "conversation"],
+  ])("rejects %s without composing messaging", async (_case, url, loader) => {
+    const createService = vi.fn(() => service());
+    const handlers = createOwnerMessagingHandlers({ authorize: async () => ({ access, headers: new Headers() }), service: createService, createKey: crypto.randomUUID });
+    const response = loader === "inbox" ? await handlers.inboxLoader(new Request(url)) : await handlers.conversationLoader(new Request(url), "42");
+    expect(response.status).toBe(400);
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+    expect(createService).not.toHaveBeenCalled();
   });
 
   it("returns the existing guard denial before calling a use case", async () => {

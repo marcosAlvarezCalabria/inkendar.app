@@ -9,11 +9,12 @@ export async function loader({ request, params }: Route.LoaderArgs) { return own
 export async function action({ request, params }: Route.ActionArgs) { return ownerMessagingHandlers.replyAction(request, params.conversationId ?? ""); }
 
 export default function OwnerConversation() {
-  const data = useLoaderData() as { messages: readonly ConversationMessage[]; idempotencyKey: string };
+  const data = useLoaderData() as { messages: readonly ConversationMessage[]; before: string | null; idempotencyKey: string };
   const actionData = useActionData() as { error?: string; blocked?: boolean } | undefined;
   return <main className="shell-page">
     <header className="section-header"><div><p className="eyebrow">Inkendar · Owner</p><h1>Conversación</h1></div><Link to="/app/owner/inbox">Volver a la bandeja</Link></header>
     {actionData?.error ? <p className="form-error" role="alert">{actionData.error}</p> : null}
+    {data.before !== null ? <p><Link to={`?before=${encodeURIComponent(data.before)}`}>Cargar mensajes anteriores</Link></p> : null}
     <section className="shell-panel message-thread" aria-label="Mensajes">
       {data.messages.length === 0 ? <p>Todavía no hay mensajes de texto.</p> : data.messages.map((message) => <article key={message.id} className={`message ${message.direction === "OUTGOING" ? "message-outgoing" : "message-incoming"}`}>
         <p>{message.content}</p><small>{message.direction === "OUTGOING" ? "Estudio" : "Cliente"}</small>

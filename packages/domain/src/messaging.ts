@@ -1,6 +1,6 @@
 export class InvalidMessagingInputError extends Error {
   readonly code = "INVALID_MESSAGING_INPUT";
-  constructor(readonly field: "conversationId" | "idempotencyKey" | "reply") {
+  constructor(readonly field: "conversationId" | "idempotencyKey" | "reply" | "page" | "before") {
     super(`Invalid messaging input: ${field}`);
     this.name = "InvalidMessagingInputError";
   }
@@ -13,6 +13,18 @@ export function normalizeConversationId(value: string): string {
   const normalized = value.trim();
   if (!POSITIVE_INTEGER_PATTERN.test(normalized)) throw new InvalidMessagingInputError("conversationId");
   return normalized;
+}
+
+export function normalizeConversationPage(value: string | null | undefined): number {
+  if (value === null || value === undefined) return 1;
+  if (!/^(?:[1-9][0-9]{0,2}|1000)$/.test(value)) throw new InvalidMessagingInputError("page");
+  return Number(value);
+}
+
+export function normalizeMessageBefore(value: string | null | undefined): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (!POSITIVE_INTEGER_PATTERN.test(value)) throw new InvalidMessagingInputError("before");
+  return value;
 }
 
 export function normalizeIdempotencyKey(value: string): string {

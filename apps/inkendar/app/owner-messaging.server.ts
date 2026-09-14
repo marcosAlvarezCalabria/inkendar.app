@@ -3,7 +3,7 @@ import {
   MessagingProviderRejectedError, MessagingProviderUnavailableError, ReplyAlreadyInProgressError,
   ReplyOutcomeUnknownError, createMessagingService,
 } from "@inkendar/application";
-import { normalizeConversationId, normalizeIdempotencyKey, normalizeReplyText } from "@inkendar/domain";
+import { normalizeConversationId, normalizeConversationPage, normalizeIdempotencyKey, normalizeMessageBefore, normalizeReplyText } from "@inkendar/domain";
 import { ChatwootInboxAdapter, createSupabaseMessagingRequestAdapter, loadMessagingProviderConfig } from "@inkendar/infrastructure";
 import { authHandlers, isTrustedMutationRequest, type AuthorizedRequestAccess } from "./auth.server.js";
 
@@ -14,8 +14,10 @@ type Dependencies = Readonly<{ authorize(request: Request): Promise<Authorizatio
 const defaults: Dependencies = {
   authorize: (request) => authHandlers.requireRole(request, "OWNER"),
   service: (request) => {
-    const config = loadMessagingProviderConfig(process.env);
-    return createMessagingService(createSupabaseMessagingRequestAdapter(request, process.env), new ChatwootInboxAdapter(config.baseUrl, config.resolver));
+    return createMessagingService(createSupabaseMessagingRequestAdapter(request, process.env), () => {
+      const config = loadMessagingProviderConfig(process.env);
+      return new ChatwootInboxAdapter(config.baseUrl, config.resolver);
+    });
   },
   createKey: () => crypto.randomUUID(),
 };
@@ -27,9 +29,13 @@ export function createOwnerMessagingHandlers(dependencies: Dependencies = defaul
       if (authorization instanceof Response) return authorization;
       const headers = privateHeaders(authorization.headers);
       try {
-        const conversations = await dependencies.service(request).listOpenConversations(authorization.access.studioId, request.signal);
+        const page = requestPage(request);
+        const conversations = await dependencies.service(request).listOpenConversations(authorization.access.studioId, page, request.signal);
         return Response.json({ conversations }, { headers });
-      } catch { return Response.json({ conversations: [], error: "No se pudo cargar la bandeja." }, { status: 502, headers }); }
+      } catch (error: unknown) {
+        if (error instanceof InvalidMessagingInputError) return publicError(error, headers);
+        return Response.json({ conversations: emptyConversationPage(), error: "No se pudo cargar la bandeja." }, { status: 502, headers });
+      }
     },
 
     async conversationLoader(request: Request, conversationId: string): Promise<Response> {
@@ -37,8 +43,9 @@ export function createOwnerMessagingHandlers(dependencies: Dependencies = defaul
       if (authorization instanceof Response) return authorization;
       const headers = privateHeaders(authorization.headers);
       try {
-        const messages = await dependencies.service(request).getConversationMessages(authorization.access.studioId, conversationId, request.signal);
-        return Response.json({ conversationId, messages, idempotencyKey: dependencies.createKey() }, { headers });
+        const before = requestBefore(request);
+        const messagePage = await dependencies.service(request).getConversationMessages(authorization.access.studioId, conversationId, before, request.signal);
+        return Response.json({ conversationId, messages: messagePage.items, before: messagePage.before, idempotencyKey: dependencies.createKey() }, { headers });
       } catch (error: unknown) { return publicError(error, headers); }
     },
 
@@ -65,8 +72,22 @@ export function createOwnerMessagingHandlers(dependencies: Dependencies = defaul
 export const ownerMessagingHandlers = createOwnerMessagingHandlers();
 function required(form: FormData, field: string): string { const value = form.get(field); if (typeof value !== "string") throw new InvalidMessagingInputError("reply"); return value; }
 function privateHeaders(source?: Headers): Headers { const headers = new Headers(source); headers.set("Cache-Control", "private, no-store"); return headers; }
+function requestPage(request: Request): number {
+  const values = new URL(request.url).searchParams.getAll("page");
+  if (values.length > 1) throw new InvalidMessagingInputError("page");
+  return normalizeConversationPage(values[0] ?? null);
+}
+function requestBefore(request: Request): string | undefined {
+  const search = new URL(request.url).searchParams;
+  const values = search.getAll("before");
+  if (search.has("after") || values.length > 1) throw new InvalidMessagingInputError("before");
+  return normalizeMessageBefore(values[0] ?? null);
+}
+function emptyConversationPage() {
+  return { items: [], page: 1, pageSize: 25, totalCount: 0, previousPage: null, nextPage: null };
+}
 function publicError(error: unknown, headers: Headers): Response {
-  if (error instanceof InvalidMessagingInputError) return Response.json({ error: "Revisa el texto de la respuesta." }, { status: 400, headers });
+  if (error instanceof InvalidMessagingInputError) return Response.json({ error: "Revisa los datos solicitados." }, { status: 400, headers });
   if (error instanceof ConversationNotFoundError) return Response.json({ error: "No se encontró la conversación." }, { status: 404, headers });
   if (error instanceof ReplyAlreadyInProgressError) return Response.json({ error: "La respuesta ya se está enviando." }, { status: 409, headers });
   if (error instanceof ReplyOutcomeUnknownError) return Response.json({ error: "No se pudo confirmar el envío. Actualiza la conversación antes de responder de nuevo.", blocked: true }, { status: 409, headers });

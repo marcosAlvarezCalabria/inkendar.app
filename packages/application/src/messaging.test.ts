@@ -30,8 +30,8 @@ function repository(): MessagingRepositoryPort {
 
 function provider(): InboxProviderPort {
   return {
-    listOpenConversations: vi.fn(async () => [{ id: "42", title: "Consulta", lastMessagePreview: "Hola", lastActivityAt: 1_700_000_000, unreadCount: 2 }]),
-    getMessages: vi.fn(async () => [{ id: "4", content: "Hola", direction: "INCOMING" as const, createdAt: 1_700_000_000 }]),
+    listOpenConversations: vi.fn(async () => ({ items: [{ id: "42", title: "Consulta", lastMessagePreview: "Hola", lastActivityAt: 1_700_000_000, unreadCount: 2 }], totalCount: 26 })),
+    getMessages: vi.fn(async () => ({ items: [{ id: "4", content: "Hola", direction: "INCOMING" as const, createdAt: 1_700_000_000 }], before: null })),
     sendReply: vi.fn(async () => ({ externalMessageId: "99" })),
   };
 }
@@ -39,16 +39,17 @@ function provider(): InboxProviderPort {
 describe("messaging service", () => {
   it("lists only through the tenant connection and records opaque links", async () => {
     const repo = repository(); const upstream = provider();
-    const result = await createMessagingService(repo, upstream).listOpenConversations(studioId);
-    expect(result).toHaveLength(1);
-    expect(upstream.listOpenConversations).toHaveBeenCalledWith(connection, undefined);
+    const result = await createMessagingService(repo, upstream).listOpenConversations(studioId, 2);
+    expect(result).toEqual({ items: expect.arrayContaining([expect.objectContaining({ id: "42" })]), page: 2, pageSize: 25, totalCount: 26, previousPage: 1, nextPage: null });
+    expect(upstream.listOpenConversations).toHaveBeenCalledWith(connection, 2, undefined);
     expect(repo.upsertConversationLinks).toHaveBeenCalledWith(studioId, connection.id, ["42"]);
   });
 
   it("returns an empty list without resolving credentials when the studio has no connection", async () => {
-    const repo = repository(); vi.mocked(repo.findActiveConnection).mockResolvedValue(null); const upstream = provider();
-    expect(await createMessagingService(repo, upstream).listOpenConversations(studioId)).toEqual([]);
-    expect(upstream.listOpenConversations).not.toHaveBeenCalled();
+    const repo = repository(); vi.mocked(repo.findActiveConnection).mockResolvedValue(null);
+    const createProvider = vi.fn(() => { throw new Error("provider config must stay lazy"); });
+    expect(await createMessagingService(repo, createProvider).listOpenConversations(studioId, 1)).toEqual({ items: [], page: 1, pageSize: 25, totalCount: 0, previousPage: null, nextPage: null });
+    expect(createProvider).not.toHaveBeenCalled();
   });
 
   it("checks the tenant link before reading provider messages", async () => {
@@ -59,9 +60,9 @@ describe("messaging service", () => {
 
   it("reads messages through the active connection matching the link", async () => {
     const repo = repository(); const upstream = provider();
-    const result = await createMessagingService(repo, upstream).getConversationMessages(studioId, "42");
-    expect(result[0]?.direction).toBe("INCOMING");
-    expect(upstream.getMessages).toHaveBeenCalledWith(connection, "42", undefined);
+    const result = await createMessagingService(repo, upstream).getConversationMessages(studioId, "42", "100");
+    expect(result.items[0]?.direction).toBe("INCOMING");
+    expect(upstream.getMessages).toHaveBeenCalledWith(connection, "42", "100", undefined);
   });
 
   it("validates content before touching persistence or credentials", async () => {

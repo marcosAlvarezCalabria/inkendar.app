@@ -8,13 +8,13 @@ const resolver = { resolve: vi.fn(async () => "secret-token") };
 
 describe("Chatwoot inbox HTTP adapter", () => {
   it("lists open conversations through the documented account endpoint", async () => {
-    const fetcher = vi.fn<(input: string, init?: RequestInit) => Promise<Response>>(async () => Response.json({ data: { payload: [{ id: 42, status: "open", last_activity_at: 1700000000, unread_count: 2, meta: { sender: { name: "Consulta web" } }, last_non_activity_message: { content: "Hola" } }] } }));
-    const result = await new ChatwootInboxAdapter("https://messages.example", resolver, fetcher).listOpenConversations(connection);
+    const fetcher = vi.fn<(input: string, init?: RequestInit) => Promise<Response>>(async () => Response.json({ data: { meta: { all_count: 26 }, payload: [{ id: 42, status: "open", last_activity_at: 1700000000, unread_count: 2, meta: { sender: { name: "Consulta web" } }, last_non_activity_message: { content: "Hola" } }] } }));
+    const result = await new ChatwootInboxAdapter("https://messages.example", resolver, fetcher).listOpenConversations(connection, 2);
     const [url, init] = fetcher.mock.calls[0] ?? [];
-    expect(url).toBe("https://messages.example/api/v1/accounts/7/conversations?status=open&page=1");
+    expect(url).toBe("https://messages.example/api/v1/accounts/7/conversations?status=open&page=2");
     expect((init as RequestInit).headers).toEqual({ Accept: "application/json", api_access_token: "secret-token" });
     expect((init as RequestInit).signal).toBeInstanceOf(AbortSignal);
-    expect(result).toEqual([{ id: "42", title: "Consulta web", lastMessagePreview: "Hola", lastActivityAt: 1700000000, unreadCount: 2 }]);
+    expect(result).toEqual({ items: [{ id: "42", title: "Consulta web", lastMessagePreview: "Hola", lastActivityAt: 1700000000, unreadCount: 2 }], totalCount: 26 });
   });
 
   it("reads messages and maps only documented text fields", async () => {
@@ -25,10 +25,22 @@ describe("Chatwoot inbox HTTP adapter", () => {
     ] }));
     const result = await new ChatwootInboxAdapter("https://messages.example", resolver, fetcher).getMessages(connection, "42");
     expect(fetcher.mock.calls[0]?.[0]).toBe("https://messages.example/api/v1/accounts/7/conversations/42/messages");
-    expect(result).toEqual([
+    expect(result).toEqual({ items: [
       { id: "4", content: "Hola", direction: "INCOMING", createdAt: 1700000000 },
       { id: "5", content: "Respuesta", direction: "OUTGOING", createdAt: 1700000001 },
-    ]);
+    ], before: null });
+  });
+
+  it("loads older messages with one opaque before cursor and stops repeated-cursor loops", async () => {
+    const payload = Array.from({ length: 20 }, (_, index) => ({ id: 100 + index, content: `Mensaje ${index}`, conversation_id: 42, message_type: 0, content_type: "text", created_at: 1700000000 + index, private: false }));
+    const fetcher = vi.fn<(input: string, init?: RequestInit) => Promise<Response>>(async () => Response.json({ payload }));
+    const subject = new ChatwootInboxAdapter("https://messages.example", resolver, fetcher);
+    const page = await subject.getMessages(connection, "42", "120");
+    expect(fetcher.mock.calls[0]?.[0]).toBe("https://messages.example/api/v1/accounts/7/conversations/42/messages?before=120");
+    expect(page.items).toHaveLength(20);
+    expect(page.before).toBe("100");
+    const repeated = await subject.getMessages(connection, "42", "100");
+    expect(repeated.before).toBeNull();
   });
 
   it("creates the documented public outgoing text message without invented idempotency fields", async () => {
