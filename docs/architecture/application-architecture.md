@@ -78,7 +78,7 @@ El modelo evita borrado y workflows anticipados: clientes usan ACTIVE / ARCHIVED
 
 ### Conversaciones OWNER
 
-_Estado del slice: `IN_PROGRESS`. El codigo y 155 pruebas estan verdes; faltan Postgres/pgTAP y el recorrido sintetico real con Chatwoot._
+_Estado tecnico del slice: `DONE`. GitHub Actions verifico 156 pruebas, build, migraciones limpias y pgTAP en el run 34883809683. El recorrido live de la PWA con Chatwoot permanece `IN_PROGRESS`._
 
 La bandeja SSR OWNER resuelve la conexion por `studioId` despues del guard. Si el estudio no tiene conexion devuelve una pagina vacia `private, no-store` sin cargar proveedor, credenciales ni `service_role`. Las conversaciones recorren paginas 1..1000 de 25 filas con `all_count`; el detalle carga hasta 20 mensajes publicos de texto y usa un cursor positivo `before`.
 

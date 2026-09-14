@@ -1,6 +1,8 @@
 # Contrato del slice: conversaciones OWNER
 
-_Estado: IN_PROGRESS_
+_Estado tecnico: DONE_
+
+_Recorrido live con Chatwoot: IN_PROGRESS_
 
 _Ultima actualizacion: 2026-09-14_
 
@@ -168,3 +170,9 @@ Cada formulario lleva una clave UUID. `SUCCEEDED` reutiliza el ID confirmado sin
 - [Verifying webhooks](https://www.chatwoot.com/hc/user-guide/articles/1677693021-how-to-use-webhooks#verifying-webhooks)
 
 Estas referencias fijan solo el contrato del adaptador de infraestructura. La spec, este contrato y los puertos internos siguen siendo la autoridad de Inkendar.
+
+## Evidencia de cierre tecnico
+
+El PR #9 verifico en GitHub Actions la instalacion reproducible, lint, tipos, 156 pruebas y los builds cliente/SSR. El job `database` aplico todas las migraciones sobre Supabase limpio y paso las suites pgTAP acumuladas, incluida `conversation_outbound_idempotency.test.sql`, junto con el smoke autenticado. Evidencia: [run 34883809683](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34883809683).
+
+Esta evidencia cierra el contrato tecnico. No se ejecuto un recorrido live de la PWA contra una conexion Chatwoot sintetica; esa validacion operativa permanece `IN_PROGRESS` y no se usaron datos de clientes.
