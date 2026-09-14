@@ -1,4 +1,4 @@
-import { Link, useActionData, useLoaderData, useSearchParams } from "react-router";
+import { isRouteErrorResponse, Link, useActionData, useLoaderData, useRouteError, useSearchParams } from "react-router";
 import type { ArtistCalendarAssignment, GoogleCalendar, GoogleConnectionStatus } from "@inkendar/application";
 import type { Route } from "./+types/owner-calendars";
 import { ownerGoogleCalendarHandlers } from "../owner-google-calendar.server.js";
@@ -11,7 +11,11 @@ type View = Readonly<{
 
 export function meta(): Route.MetaDescriptors { return [{ title: "Google Calendar | Inkendar" }]; }
 export function headers() { return { "Cache-Control": "private, no-store" }; }
-export async function loader({ request }: Route.LoaderArgs) { return ownerGoogleCalendarHandlers.loader(request); }
+export async function loader({ request }: Route.LoaderArgs) {
+  const response = await ownerGoogleCalendarHandlers.loader(request);
+  if (response.status >= 400) throw response;
+  return response;
+}
 export async function action({ request }: Route.ActionArgs) { return ownerGoogleCalendarHandlers.action(request); }
 
 export default function OwnerCalendars() {
@@ -22,6 +26,17 @@ export default function OwnerCalendars() {
     <header className="section-header"><div><p className="eyebrow">Inkendar · Owner</p><h1>Google Calendar</h1></div><Link to="/app/owner">Volver al panel</Link></header>
     {actionData?.error ? <p className="form-error" role="alert">{actionData.error}</p> : null}
     <CalendarManagement data={data} result={params.get("result")} />
+  </main>;
+}
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+  const unavailable = isRouteErrorResponse(error) && error.status === 503;
+  return <main className="status-page">
+    <p className="eyebrow">Inkendar</p>
+    <h1>Google Calendar no disponible</h1>
+    <p>{unavailable ? "Inténtalo de nuevo más tarde." : "No se pudo cargar la configuración de calendarios."}</p>
+    <Link to="/app/owner">Volver al panel</Link>
   </main>;
 }
 
