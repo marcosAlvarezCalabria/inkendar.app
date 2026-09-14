@@ -71,14 +71,31 @@ describe("Chatwoot conversation adapter", () => {
     await expect(adapter.listConversations(1)).rejects.toBeInstanceOf(ConversationProviderUnavailableError);
   });
 
+  it("loads the initial 20-message batch from the messages endpoint", async () => {
+    const detailMessages = Array.from({ length: 21 }, (_, index) => ({ id: index + 1 }));
+    const batch = [{ id: 84, account_id: 3, inbox_id: 7, conversation_id: 42, content: "Latest", message_type: 0, content_type: "text", private: false, created_at: 84 }];
+    const request = vi.fn(async (url: string) => url.endsWith("/messages")
+      ? json({ payload: batch })
+      : json({ id: 42, account_id: 3, inbox_id: 7, can_reply: true, messages: detailMessages }));
+    const thread = await new ChatwootConversationAdapter(connection, request).getConversation("42");
+    expect(thread.messages.map((message) => message.id)).toEqual(["84"]);
+    expect(request.mock.calls.map(([url]) => url)).toEqual([
+      "https://chat.example.test/api/v1/accounts/3/conversations/42",
+      "https://chat.example.test/api/v1/accounts/3/conversations/42/messages",
+    ]);
+  });
+
   it("returns only public incoming/outgoing text messages in chronological order", async () => {
-    const request = vi.fn(async () => json({ id: 42, account_id: 3, inbox_id: 7, can_reply: true, messages: [
+    const messages = [
       { id: 3, account_id: 3, inbox_id: 7, conversation_id: 42, content: "Respuesta", message_type: 1, content_type: "text", private: false, created_at: 30 },
       { id: 1, content: "Nota", message_type: 1, content_type: "text", private: true, created_at: 10 },
       { id: 4, content: "Actividad", message_type: 2, content_type: "text", private: false, created_at: 40 },
       { id: 2, account_id: 3, inbox_id: 7, conversation_id: 42, content: "Hola", message_type: 0, content_type: "text", private: false, created_at: 20 },
       { id: 5, content: "Archivo", message_type: 0, content_type: "image", private: false, created_at: 50 },
-    ] }));
+    ];
+    const request = vi.fn(async (url: string) => url.endsWith("/messages")
+      ? json({ payload: messages })
+      : json({ id: 42, account_id: 3, inbox_id: 7, can_reply: true, messages: [] }));
     const adapter = new ChatwootConversationAdapter(connection, request);
 
     const thread = await adapter.getConversation("42");
@@ -103,7 +120,8 @@ describe("Chatwoot conversation adapter", () => {
     const adapter = new ChatwootConversationAdapter(connection, request);
     await expect(adapter.getConversation("42")).rejects.toBeInstanceOf(ConversationProviderUnavailableError);
 
-    request.mockResolvedValueOnce(json({ id: 42, account_id: 3, inbox_id: 7, can_reply: true, messages: [
+    request.mockResolvedValueOnce(json({ id: 42, account_id: 3, inbox_id: 7, can_reply: true, messages: [] }));
+    request.mockResolvedValueOnce(json({ payload: [
       { id: 2, account_id: 3, inbox_id: 7, conversation_id: 43, content: "Wrong thread", message_type: 0, content_type: "text", private: false, created_at: 20 },
     ] }));
     await expect(adapter.getConversation("42")).rejects.toBeInstanceOf(ConversationProviderUnavailableError);

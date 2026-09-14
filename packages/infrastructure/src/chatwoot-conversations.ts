@@ -85,9 +85,8 @@ export class ChatwootConversationAdapter implements ConversationProviderPort {
     const externalConversationId = id(body.id);
     const externalInboxId = id(body.inbox_id);
     if (externalAccountId !== this.#connection.accountId || externalConversationId !== normalizedId) throw new ConversationProviderUnavailableError();
-    const messages = before === undefined
-      ? body.messages
-      : object(await this.#get(`/api/v1/accounts/${this.#connection.accountId}/conversations/${normalizedId}/messages?before=${encodeURIComponent(before)}`, signal)).payload;
+    const beforeQuery = before === undefined ? "" : `?before=${encodeURIComponent(before)}`;
+    const messages = object(await this.#get(`/api/v1/accounts/${this.#connection.accountId}/conversations/${normalizedId}/messages${beforeQuery}`, signal)).payload;
     if (!Array.isArray(messages) || messages.length > 20) throw new ConversationProviderUnavailableError();
     const normalizedMessages = messages
       .map((item) => message(item, { externalAccountId, externalConversationId, externalInboxId }))
