@@ -1,6 +1,8 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
-import { GOOGLE_CALENDAR_LIST_SCOPE, type GoogleCalendar, type GoogleCalendarAccessRole, type GoogleCalendarProviderPort, type GoogleOAuthSecurityPort, type GoogleTokenProtectorPort } from "@inkendar/application";
+import { GOOGLE_CALENDAR_LIST_SCOPE, GoogleCalendarCredentialInvalidError, type GoogleCalendar, type GoogleCalendarAccessRole, type GoogleCalendarProviderPort, type GoogleOAuthSecurityPort, type GoogleTokenProtectorPort } from "@inkendar/application";
+
+export { GoogleCalendarCredentialInvalidError } from "@inkendar/application";
 
 export type GoogleCalendarConfig = Readonly<{ clientId: string; clientSecret: string; redirectUri: string }>;
 type Fetcher = (input: string | URL, init?: RequestInit) => Promise<Response>;
@@ -41,9 +43,10 @@ export class AesGcmGoogleTokenProtector implements GoogleTokenProtectorPort {
   private readonly key: Buffer;
 
   constructor(encodedKey: string) {
+    if (!/^[A-Za-z0-9+/]{43}=$/u.test(encodedKey)) throw new Error("Invalid GOOGLE_TOKEN_ENCRYPTION_KEY");
     let key: Buffer;
     try { key = Buffer.from(encodedKey, "base64"); } catch { throw new Error("Invalid GOOGLE_TOKEN_ENCRYPTION_KEY"); }
-    if (key.byteLength !== 32 || !encodedKey.trim()) throw new Error("Invalid GOOGLE_TOKEN_ENCRYPTION_KEY");
+    if (key.byteLength !== 32 || key.toString("base64") !== encodedKey) throw new Error("Invalid GOOGLE_TOKEN_ENCRYPTION_KEY");
     this.key = key;
   }
 
@@ -109,7 +112,7 @@ export class GoogleCalendarHttpAdapter implements GoogleCalendarProviderPort {
       client_secret: this.config.clientSecret,
       refresh_token: refreshToken,
       grant_type: "refresh_token",
-    }));
+    }), true);
     const accessToken = string(token.access_token);
     const calendars: GoogleCalendar[] = [];
     let pageToken: string | null = null;
@@ -137,26 +140,30 @@ export class GoogleCalendarHttpAdapter implements GoogleCalendarProviderPort {
     if (!response.ok) throw new GoogleCalendarInfrastructureError();
   }
 
-  private async postToken(body: URLSearchParams): Promise<Record<string, unknown>> {
+  private async postToken(body: URLSearchParams, invalidGrantMeansCredentialInvalid = false): Promise<Record<string, unknown>> {
     const response = await this.fetcher(TOKEN_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
       body,
     });
-    return json(response);
+    return json(response, invalidGrantMeansCredentialInvalid);
   }
 }
 
-async function json(response: Response): Promise<Record<string, unknown>> {
-  if (!response.ok) throw new GoogleCalendarInfrastructureError();
+async function json(response: Response, invalidGrantMeansCredentialInvalid = false): Promise<Record<string, unknown>> {
+  let value: unknown;
   try {
-    const value: unknown = await response.json();
-    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid response");
-    return value as Record<string, unknown>;
-  } catch (error) {
-    if (error instanceof GoogleCalendarInfrastructureError) throw error;
+    value = await response.json();
+  } catch {
     throw new GoogleCalendarInfrastructureError();
   }
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new GoogleCalendarInfrastructureError();
+  const payload = value as Record<string, unknown>;
+  if (!response.ok) {
+    if (invalidGrantMeansCredentialInvalid && payload.error === "invalid_grant") throw new GoogleCalendarCredentialInvalidError();
+    throw new GoogleCalendarInfrastructureError();
+  }
+  return payload;
 }
 function calendar(value: unknown): GoogleCalendar {
   const row = object(value);
@@ -178,7 +185,7 @@ function nullableString(value: unknown): string | null { return value === undefi
 function optionalString(value: unknown): string | null { return typeof value === "string" && value.length > 0 ? value : null; }
 function scopes(value: unknown): readonly string[] { return typeof value === "string" ? value.split(/\s+/u).filter(Boolean) : []; }
 function role(value: unknown): GoogleCalendarAccessRole {
-  if (value === "freeBusyReader" || value === "reader" || value === "writer" || value === "owner") return value;
+  if (value === "freeBusyReader" || value === "reader" || value === "writer" || value === "writerWithoutPrivateAccess" || value === "owner") return value;
   throw new GoogleCalendarInfrastructureError();
 }
 function decodeBase64Url(value: string): Buffer {

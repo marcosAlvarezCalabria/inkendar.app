@@ -2,7 +2,7 @@
 export const GOOGLE_CALENDAR_LIST_SCOPE = "https://www.googleapis.com/auth/calendar.calendarlist.readonly";
 
 export type GoogleConnectionStatus = "ACTIVE" | "REAUTH_REQUIRED" | "DISCONNECTED";
-export type GoogleCalendarAccessRole = "freeBusyReader" | "reader" | "writer" | "owner";
+export type GoogleCalendarAccessRole = "freeBusyReader" | "reader" | "writer" | "writerWithoutPrivateAccess" | "owner";
 
 export type GoogleCalendar = Readonly<{
   id: string;
@@ -69,6 +69,10 @@ export class GoogleCalendarNotAssignableError extends Error {
 export class GoogleCalendarConnectionUnavailableError extends Error {
   readonly code = "GOOGLE_CALENDAR_CONNECTION_UNAVAILABLE";
   constructor() { super("Google Calendar connection is unavailable"); this.name = "GoogleCalendarConnectionUnavailableError"; }
+}
+export class GoogleCalendarCredentialInvalidError extends Error {
+  readonly code = "GOOGLE_CALENDAR_CREDENTIAL_INVALID";
+  constructor() { super("Google Calendar credential is invalid"); this.name = "GoogleCalendarCredentialInvalidError"; }
 }
 export class InvalidGoogleCalendarInputError extends Error {
   readonly code = "INVALID_GOOGLE_CALENDAR_INPUT";
@@ -150,9 +154,12 @@ export function createGoogleCalendarService(dependencies: Dependencies) {
       try {
         const calendars = await dependencies.provider.listCalendars(dependencies.tokens.decrypt(connection.encryptedRefreshToken));
         return { connectionStatus: "ACTIVE", calendars, artists };
-      } catch {
-        await dependencies.repository.markReauthRequired(studioId);
-        return { connectionStatus: "REAUTH_REQUIRED", calendars: [], artists };
+      } catch (error) {
+        if (error instanceof GoogleCalendarCredentialInvalidError) {
+          await dependencies.repository.markReauthRequired(studioId);
+          return { connectionStatus: "REAUTH_REQUIRED", calendars: [], artists };
+        }
+        throw new GoogleCalendarConnectionUnavailableError();
       }
     },
 
@@ -167,7 +174,7 @@ export function createGoogleCalendarService(dependencies: Dependencies) {
       const { refreshToken } = await active(studioId);
       const calendars = await dependencies.provider.listCalendars(refreshToken);
       const selected = calendars.find((calendar) => calendar.id === calendarId);
-      if (!selected || (selected.accessRole !== "writer" && selected.accessRole !== "owner")) {
+      if (!selected || (selected.accessRole !== "writer" && selected.accessRole !== "writerWithoutPrivateAccess" && selected.accessRole !== "owner")) {
         throw new GoogleCalendarNotAssignableError();
       }
       await dependencies.repository.assignCalendar(studioId, artistId, calendarId);
@@ -176,7 +183,7 @@ export function createGoogleCalendarService(dependencies: Dependencies) {
     async disconnect(studioIdValue: string): Promise<void> {
       const studioId = resource("studioId", studioIdValue);
       const connection = await dependencies.repository.getConnection(studioId);
-      if (connection?.status === "ACTIVE" && connection.encryptedRefreshToken) {
+      if (connection?.encryptedRefreshToken) {
         try { await dependencies.provider.revokeToken(dependencies.tokens.decrypt(connection.encryptedRefreshToken)); } catch { /* local disconnect remains authoritative */ }
       }
       await dependencies.repository.disconnect(studioId);

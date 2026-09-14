@@ -38,8 +38,13 @@ export function createOwnerGoogleCalendarHandlers(dependencies: Dependencies = d
       const authorization = await dependencies.authorize(request);
       if (authorization instanceof Response) return authorization;
       const headers = privateHeaders(authorization.headers);
-      const view = await dependencies.createService(authorization.access).getManagementView(authorization.access.studioId);
-      return Response.json(view, { headers });
+      try {
+        const view = await dependencies.createService(authorization.access).getManagementView(authorization.access.studioId);
+        return Response.json(view, { headers });
+      } catch (error) {
+        if (error instanceof GoogleCalendarConnectionUnavailableError) return Response.json({ error: "Google Calendar no está disponible temporalmente." }, { status: 503, headers });
+        return Response.json({ error: "No se pudo cargar Google Calendar." }, { status: 500, headers });
+      }
     },
 
     async action(request: Request): Promise<Response> {

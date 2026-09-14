@@ -22,7 +22,7 @@ create table public.google_calendar_connection (
   connected_at timestamptz,
   updated_at timestamptz not null default now(),
   constraint google_calendar_connection_studio_unique unique (studio_id),
-  constraint google_calendar_connection_identity_unique unique (id, studio_id, status),
+  constraint google_calendar_connection_identity_unique unique (id, studio_id),
   constraint google_calendar_connection_active_has_token check (
     status <> 'ACTIVE' or (
       refresh_token_ciphertext is not null
@@ -39,7 +39,6 @@ create table public.artist_calendar_assignment (
   artist_profile_id uuid primary key,
   studio_id uuid not null references public.studio(id) on delete restrict,
   connection_id uuid not null,
-  connection_status public.google_calendar_connection_status not null default 'ACTIVE' check (connection_status = 'ACTIVE'),
   calendar_id text not null check (char_length(calendar_id) between 1 and 1024 and calendar_id !~ '[[:cntrl:]]'),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -47,9 +46,9 @@ create table public.artist_calendar_assignment (
     foreign key (artist_profile_id, studio_id)
     references public.artist_profile(id, studio_id)
     on delete cascade,
-  constraint artist_calendar_assignment_active_connection_fk
-    foreign key (connection_id, studio_id, connection_status)
-    references public.google_calendar_connection(id, studio_id, status)
+  constraint artist_calendar_assignment_connection_fk
+    foreign key (connection_id, studio_id)
+    references public.google_calendar_connection(id, studio_id)
     on delete cascade
 );
 
@@ -138,7 +137,6 @@ create or replace function public.mark_google_calendar_reauth_required(p_studio_
 returns void language plpgsql security definer set search_path = '' as $$
 begin
   perform private.assert_studio_owner(p_studio_id, p_owner_user_id);
-  delete from public.artist_calendar_assignment where studio_id = p_studio_id;
   update public.google_calendar_connection set status = 'REAUTH_REQUIRED', updated_at = now()
     where studio_id = p_studio_id;
 end;
@@ -184,7 +182,7 @@ begin
   insert into public.artist_calendar_assignment(artist_profile_id, studio_id, connection_id, calendar_id)
   values (p_artist_profile_id, p_studio_id, connection.id, p_calendar_id)
   on conflict (artist_profile_id) do update set connection_id = excluded.connection_id,
-    connection_status = 'ACTIVE', calendar_id = excluded.calendar_id, updated_at = now();
+    calendar_id = excluded.calendar_id, updated_at = now();
 end;
 $$;
 

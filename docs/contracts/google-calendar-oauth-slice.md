@@ -37,7 +37,9 @@ Se solicita acceso offline con autorización incremental (`include_granted_scope
 
 Google documenta PKCE S256 para aplicaciones instaladas, pero su contrato oficial vigente de aplicaciones web de servidor no admite `code_challenge` ni `code_verifier` entre los parámetros publicados. Este cliente web confidencial usa client secret solo en servidor y no inventa una extensión no documentada; el contrato se revisará si Google incorpora PKCE al flujo web server.
 
-El inicio usa `access_type=offline`, `prompt=consent` y autorización incremental para recuperar un refresh token incluso al reconectar. Si Google no devuelve refresh token, omite el scope requerido, rechaza la concesión, revoca el token o responde `invalid_grant`, la conexión queda desconectada o requiere reconexión sin exponer el detalle del proveedor. Una reconexión sustituye de forma atómica el token cifrado anterior.
+El inicio usa `access_type=offline`, `prompt=consent` y autorización incremental para recuperar un refresh token incluso al reconectar. `writerWithoutPrivateAccess`, `writer` y `owner` son los roles oficiales de `CalendarList` que permiten escribir y por tanto asignar el calendario; los roles de solo lectura se muestran como metadata pero no se pueden asignar.
+
+Solo `invalid_grant` recibido al refrescar el access token aporta evidencia de credencial inválida y cambia la conexión a `REAUTH_REQUIRED`. Ese estado conserva el refresh token cifrado y las asignaciones existentes, pero bloquea listado y cambios hasta reconectar. Una caída, límite o respuesta inválida del proveedor devuelve un error seguro sin mutar la conexión ni las asignaciones. La reconexión sustituye de forma atómica el token cifrado y conserva las selecciones. La desconexión explícita intenta revocar cualquier token retenido, incluso en `REAUTH_REQUIRED`, y después elimina siempre credenciales y asignaciones locales.
 
 Fuentes oficiales consultadas:
 
@@ -48,7 +50,7 @@ Fuentes oficiales consultadas:
 
 ## Persistencia y límites de confianza
 
-`google_oauth_attempt` guarda únicamente el hash SHA-256 del state, tenant, usuario, expiración y consumo. `google_calendar_connection` contiene estado mínimo (`ACTIVE`, `REAUTH_REQUIRED`, `DISCONNECTED`), scopes concedidos y refresh token cifrado en formato versionado con AES-256-GCM; la clave `GOOGLE_TOKEN_ENCRYPTION_KEY` es base64 de 32 bytes y nunca se persiste. `artist_calendar_assignment` referencia por claves compuestas al artista y a la conexión del mismo estudio y mantiene una fila por artista.
+`google_oauth_attempt` guarda únicamente el hash SHA-256 del state, tenant, usuario, expiración y consumo. `google_calendar_connection` contiene estado mínimo (`ACTIVE`, `REAUTH_REQUIRED`, `DISCONNECTED`), scopes concedidos y refresh token cifrado en formato versionado con AES-256-GCM; la clave `GOOGLE_TOKEN_ENCRYPTION_KEY` es Base64 estándar canónico con padding, que decodifica exactamente 32 bytes y nunca se persiste. `artist_calendar_assignment` referencia por claves compuestas al artista y a la conexión del mismo estudio y mantiene una fila por artista.
 
 Las tres tablas tienen RLS habilitada y no conceden acceso a `anon` ni `authenticated`. Las operaciones sensibles pasan por un cliente de servidor con `service_role` compuesto solo tras autorización OWNER. Las RPC mutadoras son `SECURITY DEFINER`, fijan `search_path = ''`, comprueban tenant, conexión activa y artista, revocan `public`, `anon` y `authenticated`, y conceden únicamente `service_role`.
 

@@ -7,7 +7,7 @@ describe("owner Calendar management view", () => {
     const html = renderToStaticMarkup(<CalendarManagement data={{
       connectionStatus: "ACTIVE",
       calendars: [
-        { id: "ana@example.test", summary: "Agenda Ana", timeZone: "Europe/Madrid", accessRole: "writer", primary: false },
+        { id: "ana@example.test", summary: "Agenda Ana", timeZone: "Europe/Madrid", accessRole: "writerWithoutPrivateAccess", primary: false },
         { id: "readonly@example.test", summary: "Solo lectura", timeZone: null, accessRole: "reader", primary: false },
       ],
       artists: [{ id: "50000000-0000-4000-8000-000000000001", displayName: "Ana", calendarId: "ana@example.test" }],

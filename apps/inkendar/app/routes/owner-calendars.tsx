@@ -26,7 +26,7 @@ export default function OwnerCalendars() {
 }
 
 export function CalendarManagement({ data, result }: Readonly<{ data: View; result: string | null }>) {
-  const writable = data.calendars.filter((calendar) => calendar.accessRole === "writer" || calendar.accessRole === "owner");
+  const writable = data.calendars.filter((calendar) => calendar.accessRole === "writer" || calendar.accessRole === "writerWithoutPrivateAccess" || calendar.accessRole === "owner");
   return <>
     {message(result) ? <p className="shell-panel" role="status">{message(result)}</p> : null}
     <section className="shell-panel">

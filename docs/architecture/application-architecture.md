@@ -94,7 +94,7 @@ El panel SSR OWNER inicia Authorization Code para aplicaciones web de servidor y
 
 Aplicación depende de puertos para OAuth/Calendar y persistencia; infraestructura adapta los endpoints oficiales y Supabase. El refresh token se cifra con AES-256-GCM y una clave de entorno independiente. Las tablas de intentos, conexión y asignación no conceden acceso al browser; las mutaciones privilegiadas usan RPC `SECURITY DEFINER`, `search_path` vacío y ejecución exclusiva de `service_role`.
 
-Este corte pide solo `calendar.calendarlist.readonly` y lista metadata de calendarios sin leer eventos. Los futuros casos de uso solicitarán incrementalmente `calendar.events.freebusy` al consultar ocupación y `calendar.events` al crear citas. Una asignación referencia un único calendario por artista y exige artista, conexión activa y estudio coincidentes. Desconectar retira credenciales y asignaciones locales después de intentar revocación.
+Este corte pide solo `calendar.calendarlist.readonly` y lista metadata de calendarios sin leer eventos. `writerWithoutPrivateAccess`, `writer` y `owner` son asignables. Los futuros casos de uso solicitarán incrementalmente `calendar.events.freebusy` al consultar ocupación y `calendar.events` al crear citas. Una asignación referencia un único calendario por artista y exige artista, conexión activa y estudio coincidentes. `invalid_grant` al refrescar marca `REAUTH_REQUIRED`, conserva asignaciones y bloquea su gestión hasta reconectar; los fallos transitorios no mutan estado. Desconectar intenta revocar cualquier token retenido y después retira credenciales y asignaciones locales.
 
 ## 2. Alternativas consideradas
 

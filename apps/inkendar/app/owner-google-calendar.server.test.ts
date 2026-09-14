@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { GoogleCalendarConnectionUnavailableError } from "@inkendar/application";
 import type { AuthorizedAccess } from "@inkendar/domain";
 import { createOwnerGoogleCalendarHandlers, type OwnerGoogleCalendarService } from "./owner-google-calendar.server.js";
 
@@ -36,6 +37,18 @@ describe("owner Google Calendar handlers", () => {
     expect(response.status).toBe(403);
     expect(response.headers.get("Location")).toBeNull();
     expect(createService).not.toHaveBeenCalled();
+  });
+
+  it("returns a private safe 503 for a transient Calendar provider failure", async () => {
+    const current = service();
+    vi.mocked(current.getManagementView).mockRejectedValueOnce(new GoogleCalendarConnectionUnavailableError());
+    const handlers = createOwnerGoogleCalendarHandlers({ authorize, createService: () => current, now: () => new Date() });
+
+    const response = await handlers.loader(new Request("https://app.inkendar.es/app/owner/calendars"));
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+    expect(await response.text()).not.toContain("provider");
   });
 
   it("starts OAuth only after authorization and redirects to the provider URL", async () => {

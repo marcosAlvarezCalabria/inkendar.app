@@ -4,6 +4,7 @@ import {
   AesGcmGoogleTokenProtector,
   GoogleCalendarHttpAdapter,
   NodeGoogleOAuthSecurity,
+  GoogleCalendarCredentialInvalidError,
   loadGoogleCalendarConfig,
 } from "./google-calendar.js";
 
@@ -54,19 +55,35 @@ describe("Google Calendar infrastructure", () => {
     const fetcher = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "short-lived-access" }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ items: [{ id: "one@example.test", summary: "One", description: "must not escape", timeZone: "Europe/Madrid", accessRole: "owner", primary: true }], nextPageToken: "next" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ items: [{ id: "two@example.test", summaryOverride: "Two", accessRole: "writer" }] }), { status: 200 }));
+      .mockResolvedValueOnce(new Response(JSON.stringify({ items: [{ id: "two@example.test", summaryOverride: "Two", accessRole: "writerWithoutPrivateAccess" }] }), { status: 200 }));
     const adapter = new GoogleCalendarHttpAdapter(config, fetcher);
 
     const calendars = await adapter.listCalendars("refresh-secret");
 
     expect(calendars).toEqual([
       { id: "one@example.test", summary: "One", timeZone: "Europe/Madrid", accessRole: "owner", primary: true },
-      { id: "two@example.test", summary: "Two", timeZone: null, accessRole: "writer", primary: false },
+      { id: "two@example.test", summary: "Two", timeZone: null, accessRole: "writerWithoutPrivateAccess", primary: false },
     ]);
     const firstListUrl = new URL(vi.mocked(fetcher).mock.calls[1]?.[0] as string);
     expect(firstListUrl.searchParams.get("fields")).toBe("items(id,summary,summaryOverride,timeZone,accessRole,primary),nextPageToken");
     expect(firstListUrl.searchParams.has("singleEvents")).toBe(false);
     expect(JSON.stringify(calendars)).not.toContain("description");
+  });
+
+  it("classifies invalid_grant on refresh separately from transient provider errors", async () => {
+    const invalidGrant = new GoogleCalendarHttpAdapter(config, vi.fn(async () => new Response(JSON.stringify({ error: "invalid_grant" }), { status: 400 })));
+    await expect(invalidGrant.listCalendars("revoked-refresh-token")).rejects.toBeInstanceOf(GoogleCalendarCredentialInvalidError);
+
+    const unavailable = new GoogleCalendarHttpAdapter(config, vi.fn(async () => new Response(JSON.stringify({ error: "temporarily_unavailable" }), { status: 503 })));
+    await expect(unavailable.listCalendars("valid-refresh-token")).rejects.not.toBeInstanceOf(GoogleCalendarCredentialInvalidError);
+  });
+
+  it("rejects non-canonical or malformed encryption keys even when Buffer can decode 32 bytes", () => {
+    const key = Buffer.alloc(32, 255).toString("base64");
+    expect(() => new AesGcmGoogleTokenProtector(`${key}!!!!`)).toThrow("Invalid GOOGLE_TOKEN_ENCRYPTION_KEY");
+    expect(() => new AesGcmGoogleTokenProtector(key.slice(0, -1))).toThrow("Invalid GOOGLE_TOKEN_ENCRYPTION_KEY");
+    expect(() => new AesGcmGoogleTokenProtector(`${key}=`)).toThrow("Invalid GOOGLE_TOKEN_ENCRYPTION_KEY");
+    expect(() => new AesGcmGoogleTokenProtector(key.replaceAll("/", "_"))).toThrow("Invalid GOOGLE_TOKEN_ENCRYPTION_KEY");
   });
 
   it("encrypts refresh tokens with randomized AES-256-GCM and rejects tampering", () => {
