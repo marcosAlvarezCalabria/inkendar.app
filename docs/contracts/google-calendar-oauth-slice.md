@@ -1,6 +1,6 @@
 # Contrato técnico: conexión Google OAuth y calendarios por artista
 
-_Estado técnico: `IN_PROGRESS` hasta que el agente de integración verifique CI. El recorrido con una cuenta Google real permanece `CONNECTED` o `IN_PROGRESS` hasta disponer de credenciales y evidencia live._
+_Estado técnico: `DONE`. El recorrido con una cuenta Google real permanece `IN_PROGRESS` hasta disponer de credenciales y evidencia live._
 
 ## Necesidad y alcance
 
@@ -63,4 +63,4 @@ Variables de servidor:
 
 ## Evidencia y gates
 
-La implementación debe conservar evidencia RED previa y cubrir dominio/aplicación, OAuth/AEAD, adaptador Supabase, handlers/UI y pgTAP. El agente de implementación ejecuta pruebas enfocadas y `pnpm run check`; intenta Supabase local si está disponible. Solo el agente de integración puede marcar el contrato `DONE` tras migración limpia, pgTAP y CI verdes. Ninguna prueba sintética acredita una conexión Google live.
+El [PR #10](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/10) verificó dominio/aplicación, OAuth/AEAD, adaptadores, handlers y UI SSR: `pnpm run check` pasó con 188 pruebas, lint, typecheck y build. El job `database` del [run 34894832675](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34894832675) levantó Supabase desde cero y pasó las 34 aserciones pgTAP del slice junto con el resto de políticas y smokes. Ninguna prueba sintética acredita una conexión Google live.

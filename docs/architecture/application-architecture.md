@@ -88,7 +88,7 @@ El webhook conserva HMAC-SHA256, frescura de cinco minutos, delivery ID, limite 
 
 ### Conexión Google Calendar
 
-_Estado técnico del slice: `IN_PROGRESS`; falta validación de integración y recorrido live._
+_Estado técnico del slice: `DONE`; el recorrido con una cuenta Google real permanece `IN_PROGRESS`._
 
 El panel SSR OWNER inicia Authorization Code para aplicaciones web de servidor y recibe el callback fijo `/auth/google/callback`. El estado OAuth es aleatorio, ligado al estudio y usuario, expira y se consume una sola vez antes del exchange. La configuración, el cliente Google y `service_role` se componen de forma lazy después del guard OWNER. El redirect URI se valida contra los dos valores canónicos registrados y no se deriva de cabeceras del request.
 
