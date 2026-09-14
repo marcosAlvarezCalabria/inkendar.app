@@ -74,7 +74,17 @@ El panel SSR del owner ofrece listas y formularios para customer y tattoo_case. 
 
 Aplicación depende de CustomerCasesRepositoryPort; infraestructura adapta Supabase/PostgREST con la sesión del request. customer y tattoo_case incluyen studio_id, RLS exclusiva de OWNER y relaciones compuestas que impiden vincular un caso con cliente o artista de otro estudio incluso mediante una escritura privilegiada.
 
-El modelo evita borrado y workflows anticipados: clientes usan ACTIVE / ARCHIVED, casos OPEN / ARCHIVED, y la asignación de artista es opcional. Referencias, archivos, conversaciones, calendario, booking y notificaciones permanecen fuera del slice.
+El modelo evita borrado y workflows anticipados: clientes usan ACTIVE / ARCHIVED, casos OPEN / ARCHIVED, y la asignación de artista es opcional. Referencias, archivos, calendario, booking y notificaciones permanecen fuera del slice.
+
+### Conversaciones OWNER
+
+La bandeja SSR OWNER compone `ConversationProviderPort` con el adaptador Chatwoot por `studioId`; el navegador nunca recibe URL, token, secreto ni payload bruto. La primera página normaliza conversaciones, el detalle filtra mensajes públicos de texto y las respuestas se envían una sola vez sin reintento automático ante resultado remoto ambiguo.
+
+Supabase conserva únicamente `conversation_link` para relacionar el identificador externo con customer y tattoo_case del mismo tenant, y `conversation_webhook_receipt` para deduplicación técnica sin contenido. RLS limita vínculos a OWNER y FKs compuestas impiden combinar tenant, cliente y caso incluso con escritura privilegiada.
+
+El resource route público del webhook resuelve una conexión opaca, verifica sobre el cuerpo bruto la firma HMAC-SHA256, una frescura máxima de cinco minutos, delivery ID y account esperado. Solo después crea el adaptador `service_role`; una RPC transaccional devuelve `ACCEPTED` o `DUPLICATE` y actualiza actividad como máximo una vez.
+
+La configuración multi-tenant se inyecta en servidor mediante `INKENDAR_CHATWOOT_CONNECTIONS_JSON`. La prueba Postgres local permanece pendiente cuando Docker no está disponible; no se considera evidencia `PASS` hasta ejecutar migración y pgTAP en el job `database`.
 
 ## 2. Alternativas consideradas
 
@@ -272,3 +282,4 @@ La recomendación añade un backend propio delgado, pero concentra allí autoriz
 | 2026-09-13 | CLI de alta manual, puertos de provisión y compensación Auth/Postgres | Habilitar el servicio gestionado sin endpoint público y conservar roles, secretos y operaciones privilegiadas en el servidor. |
 | 2026-09-13 | Clientes y casos OWNER con estados mínimos, RLS y FKs tenant compuestas | Registrar contexto operativo básico sin borrar datos, abrir acceso del artista ni anticipar booking e integraciones. |
 | 2026-09-14 | pnpm 10.22.0 y un único lockfile para todos los workspaces | Unificar el toolchain con la landing y hacer reproducibles la instalación local y los dos jobs de CI. |
+| 2026-09-14 | Frontera de conversaciones OWNER, vínculo tenant-safe y webhook Chatwoot autenticado | Ocultar Chatwoot, conservarlo como fuente de mensajes y hacer observables/deduplicables los reintentos sin almacenar contenido. |
