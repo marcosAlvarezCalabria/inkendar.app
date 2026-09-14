@@ -2,8 +2,10 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 import {
   ConversationNotFoundError,
+  ConversationProviderRejectedError,
   ConversationProviderUnavailableError,
   InvalidConversationWebhookError,
+  type ConversationBatch,
   type ConversationChannel,
   type ConversationMessage,
   type ConversationProviderPort,
@@ -29,9 +31,13 @@ export class ChatwootConnections {
   readonly #connections: readonly ChatwootConnection[];
 
   constructor(serialized: string | undefined) {
+    if (serialized === undefined || serialized.trim() === "") {
+      this.#connections = [];
+      return;
+    }
     try {
-      const parsed: unknown = JSON.parse(serialized ?? "");
-      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error();
+      const parsed: unknown = JSON.parse(serialized);
+      if (!Array.isArray(parsed)) throw new Error();
       this.#connections = parsed.map(connection);
       if (new Set(this.#connections.map((item) => item.studioId)).size !== this.#connections.length) throw new Error();
       if (new Set(this.#connections.map((item) => item.connectionId)).size !== this.#connections.length) throw new Error();
@@ -41,10 +47,8 @@ export class ChatwootConnections {
     }
   }
 
-  forStudio(studioId: string): ChatwootConnection {
-    const found = this.#connections.find((item) => item.studioId === studioId);
-    if (!found) throw new ConversationProviderUnavailableError();
-    return found;
+  forStudio(studioId: string): ChatwootConnection | null {
+    return this.#connections.find((item) => item.studioId === studioId) ?? null;
   }
 
   forWebhook(connectionId: string): ChatwootConnection {
@@ -63,47 +67,55 @@ export class ChatwootConversationAdapter implements ConversationProviderPort {
     this.#fetch = fetcher;
   }
 
-  async listConversations(): Promise<readonly ConversationSummary[]> {
-    const body = await this.#get(`/api/v1/accounts/${this.#connection.accountId}/conversations?status=all&page=1`);
-    const payload = object(object(body).data).payload;
-    if (!Array.isArray(payload)) throw new ConversationProviderUnavailableError();
-    return payload.map((item) => summary(item, this.#connection.accountId)).sort((left, right) => right.lastActivityAt.localeCompare(left.lastActivityAt));
+  async listConversations(page: number, signal?: AbortSignal): Promise<ConversationBatch> {
+    const body = await this.#get(`/api/v1/accounts/${this.#connection.accountId}/conversations?status=all&page=${page}`, signal);
+    const data = object(object(body).data);
+    const payload = data.payload;
+    if (!Array.isArray(payload) || payload.length > 25) throw new ConversationProviderUnavailableError();
+    return {
+      items: payload.map((item) => summary(item, this.#connection.accountId)).sort((left, right) => right.lastActivityAt.localeCompare(left.lastActivityAt)),
+      totalCount: nonNegativeInteger(object(data.meta).all_count),
+    };
   }
 
-  async getConversation(conversationId: string): Promise<ConversationThread> {
+  async getConversation(conversationId: string, before?: string, signal?: AbortSignal): Promise<ConversationThread> {
     const normalizedId = normalizeExternalConversationId(conversationId);
-    const body = object(await this.#get(`/api/v1/accounts/${this.#connection.accountId}/conversations/${normalizedId}`));
+    const body = object(await this.#get(`/api/v1/accounts/${this.#connection.accountId}/conversations/${normalizedId}`, signal));
     const externalAccountId = id(body.account_id);
     const externalConversationId = id(body.id);
     const externalInboxId = id(body.inbox_id);
     if (externalAccountId !== this.#connection.accountId || externalConversationId !== normalizedId) throw new ConversationProviderUnavailableError();
-    const messages = body.messages;
-    if (!Array.isArray(messages)) throw new ConversationProviderUnavailableError();
+    const beforeQuery = before === undefined ? "" : `?before=${encodeURIComponent(before)}`;
+    const messages = object(await this.#get(`/api/v1/accounts/${this.#connection.accountId}/conversations/${normalizedId}/messages${beforeQuery}`, signal)).payload;
+    if (!Array.isArray(messages) || messages.length > 20) throw new ConversationProviderUnavailableError();
     const normalizedMessages = messages
       .map((item) => message(item, { externalAccountId, externalConversationId, externalInboxId }))
       .filter((item): item is ConversationMessage => item !== null)
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
-    return { id: externalConversationId, inboxId: externalInboxId, canReply: boolean(body.can_reply), messages: normalizedMessages };
+    const nextBefore = messages.length === 20 ? id(object(messages[0]).id) : null;
+    return { id: externalConversationId, inboxId: externalInboxId, canReply: boolean(body.can_reply), messages: normalizedMessages, before: nextBefore === before ? null : nextBefore };
   }
 
-  async sendReply(conversationId: string, content: string): Promise<void> {
+  async sendReply(conversationId: string, content: string, signal?: AbortSignal): Promise<Readonly<{ externalMessageId: string }>> {
     const normalizedId = normalizeExternalConversationId(conversationId);
     const response = await this.#request(`/api/v1/accounts/${this.#connection.accountId}/conversations/${normalizedId}/messages`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ content, message_type: "outgoing", private: false, content_type: "text" }),
-    });
+    }, signal);
     const body = await json(response);
     if (!response.ok) {
       if (response.status === 404) throw new ConversationNotFoundError();
+      if (response.status >= 400 && response.status < 500) throw new ConversationProviderRejectedError();
       throw new ConversationProviderUnavailableError();
     }
     const row = object(body);
     if (id(row.account_id) !== this.#connection.accountId || id(row.conversation_id) !== normalizedId) throw new ConversationProviderUnavailableError();
+    return { externalMessageId: id(row.id) };
   }
 
-  async #get(path: string): Promise<unknown> {
-    const response = await this.#request(path);
+  async #get(path: string, signal?: AbortSignal): Promise<unknown> {
+    const response = await this.#request(path, {}, signal);
     const body = await json(response);
     if (!response.ok) {
       if (response.status === 404) throw new ConversationNotFoundError();
@@ -112,11 +124,12 @@ export class ChatwootConversationAdapter implements ConversationProviderPort {
     return body;
   }
 
-  async #request(path: string, init: RequestInit = {}): Promise<Response> {
+  async #request(path: string, init: RequestInit = {}, signal?: AbortSignal): Promise<Response> {
     try {
       return await this.#fetch(`${this.#connection.baseUrl}${path}`, {
         ...init,
         headers: { api_access_token: this.#connection.apiAccessToken, ...init.headers },
+        signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(8_000)]) : AbortSignal.timeout(8_000),
       });
     } catch {
       throw new ConversationProviderUnavailableError();

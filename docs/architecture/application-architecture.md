@@ -78,14 +78,13 @@ El modelo evita borrado y workflows anticipados: clientes usan ACTIVE / ARCHIVED
 
 ### Conversaciones OWNER
 
-La bandeja SSR OWNER compone `ConversationProviderPort` con el adaptador Chatwoot por `studioId`; el navegador nunca recibe URL, token, secreto ni payload bruto. La primera página normaliza conversaciones, el detalle filtra mensajes públicos de texto y las respuestas se envían una sola vez sin reintento automático ante resultado remoto ambiguo.
+_Estado tecnico del slice: `DONE`. GitHub Actions verifico 156 pruebas, build, migraciones limpias y pgTAP en el run 34883809683. El recorrido live de la PWA con Chatwoot permanece `IN_PROGRESS`._
 
-Supabase conserva únicamente `conversation_link` para relacionar el identificador externo con customer y tattoo_case del mismo tenant, y `conversation_webhook_receipt` para deduplicación técnica sin contenido. RLS limita vínculos a OWNER y FKs compuestas impiden combinar tenant, cliente y caso incluso con escritura privilegiada.
+La bandeja SSR OWNER resuelve la conexion por `studioId` despues del guard. Si el estudio no tiene conexion devuelve una pagina vacia `private, no-store` sin cargar proveedor, credenciales ni `service_role`. Las conversaciones recorren paginas 1..1000 de 25 filas con `all_count`; el detalle carga hasta 20 mensajes publicos de texto y usa un cursor positivo `before`.
 
-El resource route público del webhook resuelve una conexión opaca, verifica sobre el cuerpo bruto la firma HMAC-SHA256, una frescura máxima de cinco minutos, delivery ID y account esperado. Solo después crea el adaptador `service_role`; una RPC transaccional devuelve `ACCEPTED` o `DUPLICATE` y actualiza actividad como máximo una vez.
+Supabase conserva `conversation_link` para customer/tattoo_case, `conversation_webhook_receipt` para entregas firmadas y `conversation_outbound_operation` sin contenido para idempotencia. Las RPC outbound son exclusivas de `service_role`, se componen lazy tras OWNER y serializan una clave UUID: `SUCCEEDED` reutiliza el resultado, `PENDING` bloquea concurrencia y `FAILED`/`UNKNOWN` son finales. Un reintento consciente despues de `FAILED` usa una clave nueva; `UNKNOWN` requiere intervencion manual.
 
-La configuración multi-tenant se inyecta en servidor mediante `INKENDAR_CHATWOOT_CONNECTIONS_JSON` y rechaza asignar la misma cuenta de un mismo origen Chatwoot a estudios distintos. La prueba Postgres local permanece pendiente cuando Docker no está disponible; no se considera evidencia `PASS` hasta ejecutar migración y pgTAP en el job `database`.
-
+El webhook conserva HMAC-SHA256, frescura de cinco minutos, delivery ID, limite real de 256 KiB, account esperado y actualizacion monotona. RLS y FKs compuestas mantienen el vinculo tenant-safe; mensajes, secretos y payloads brutos no se persisten ni se serializan.
 ## 2. Alternativas consideradas
 
 ### A. Monolito modular TypeScript — aceptada

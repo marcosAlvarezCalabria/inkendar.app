@@ -1,6 +1,8 @@
 # Contrato del slice: conversaciones OWNER
 
-_Estado: IN_PROGRESS_
+_Estado tecnico: DONE_
+
+_Recorrido live con Chatwoot: IN_PROGRESS_
 
 _Ultima actualizacion: 2026-09-14_
 
@@ -10,9 +12,9 @@ Como owner de un estudio quiero consultar y responder conversaciones desde Inken
 
 ## Alcance
 
-Este slice incorpora una bandeja SSR exclusiva para OWNER con la primera pagina de conversaciones, lectura de sus mensajes publicos de texto, respuesta publica de texto y un vinculo tenant-scoped con `customer` y `tattoo_case`. Chatwoot permanece como fuente de verdad de conversaciones y mensajes; Inkendar solo persiste identificadores externos, relaciones de dominio y estado tecnico de ingesta.
+Este slice incorpora una bandeja SSR exclusiva para OWNER con paginacion explicita de conversaciones, lectura de sus mensajes publicos de texto, respuesta publica de texto y un vinculo tenant-scoped con `customer` y `tattoo_case`. Chatwoot permanece como fuente de verdad de conversaciones y mensajes; Inkendar solo persiste identificadores externos, relaciones de dominio y estado tecnico de ingesta.
 
-El webhook acepta unicamente `message_created`, exige la firma oficial de Chatwoot y registra una recepcion idempotente sin copiar contenido. No incorpora asignacion, cambio de estado, adjuntos, notas privadas, busqueda, paginacion interactiva, tiempo real en navegador, WhatsApp, booking, calendario, galeria ni acceso ARTIST.
+El webhook acepta unicamente `message_created`, exige la firma oficial de Chatwoot y registra una recepcion idempotente sin copiar contenido. No incorpora asignacion, cambio de estado, adjuntos, notas privadas, busqueda, tiempo real en navegador, WhatsApp, booking, calendario, galeria ni acceso ARTIST.
 
 ## Criterios de aceptacion
 
@@ -21,8 +23,9 @@ El webhook acepta unicamente `message_created`, exige la firma oficial de Chatwo
 ```gherkin
 Given un usuario autenticado con membresia OWNER y una conexion configurada para su estudio
 When abre la bandeja de conversaciones
-Then Inkendar solicita al proveedor la primera pagina con todos los estados
+Then Inkendar solicita al proveedor la pagina indicada, entre 1 y 1000, con todos los estados
 And muestra canal, contacto, estado, no leidos y ultima actividad normalizados
+And muestra 25 elementos por pagina, el total y controles anterior/siguiente
 And indica el cliente y caso vinculados cuando existen
 And no expone el token, la URL del proveedor ni su payload bruto
 ```
@@ -31,13 +34,16 @@ And no expone el token, la URL del proveedor ni su payload bruto
 Given una conversacion visible para la conexion del estudio
 When el owner abre su detalle
 Then ve en orden cronologico solo mensajes publicos de texto entrantes y salientes
+And la carga inicial contiene como maximo 20 mensajes
+And los lotes anteriores usan un unico cursor positivo opaco `before`
 And las notas privadas, actividades y contenidos no soportados no se muestran como mensajes del cliente
 ```
 
 ```gherkin
 Given una conversacion visible y con capacidad de respuesta
 When el owner envia texto valido mediante una peticion same-origin
-Then Inkendar envia un unico mensaje publico saliente a traves del puerto de conversaciones
+Then Inkendar reclama atomicamente una clave UUID antes de llamar al proveedor
+And Inkendar envia un unico mensaje publico saliente a traves del puerto de conversaciones
 And redirige al detalle sin incluir el texto en la URL
 ```
 
@@ -103,9 +109,10 @@ And las rutas OWNER mantienen Cache-Control private, no-store
 
 ### Puertos de aplicacion
 
-- `ConversationProviderPort`: `listConversations`, `listMessages`, `sendReply`. Usa IDs externos opacos y DTOs normalizados; no menciona Chatwoot.
+- `ConversationProviderPort`: `listConversations`, `getConversation`, `sendReply`. Usa IDs externos opacos y DTOs normalizados; no menciona Chatwoot.
 - `ConversationLinksRepositoryPort`: lista y guarda vinculos del estudio, comprueba cliente/caso y conserva el estado de ingesta.
 - `ConversationWebhookRepositoryPort`: registra atomicamente una entrega normalizada y devuelve `ACCEPTED | DUPLICATE`.
+- `ConversationOutboundRepositoryPort`: reclama y transiciona operaciones sin contenido mediante RPCs exclusivas de `service_role`.
 - La composicion resuelve una conexion por `studioId` para OWNER o por `connectionId` opaco para webhook. La configuracion y los secretos solo existen en variables de entorno de servidor.
 
 ### Modelo persistente
@@ -116,6 +123,7 @@ And las rutas OWNER mantienen Cache-Control private, no-store
 - `conversation_webhook_receipt`: `studio_id`, `provider`, `delivery_id`, `event_name`, IDs externos y `received_at`; no almacena contenido ni payload bruto.
 - La unicidad `(studio_id, provider, delivery_id)` deduplica reintentos. Una funcion transaccional exclusiva de `service_role` inserta la recepcion y actualiza el vinculo ya existente.
 - La actualizacion del vinculo es monotona por fecha e ID de mensaje: una entrega autentica retrasada conserva su recepcion, pero no puede hacer retroceder la ultima actividad conocida.
+- `conversation_outbound_operation` conserva cuenta/conversacion, clave UUID, estado y message ID confirmado; `PENDING` solo transiciona una vez a `SUCCEEDED`, `FAILED` o `UNKNOWN`.
 - RLS de `conversation_link` concede `select`, `insert` y `update` solo a OWNER del mismo estudio; no hay `delete`. La tabla de recepciones y su RPC no conceden acceso a `anon` o `authenticated`.
 
 ### Normalizacion
@@ -135,7 +143,7 @@ And las rutas OWNER mantienen Cache-Control private, no-store
 - `ConversationProviderUnavailableError`: fallo de red, configuracion o contrato externo; no incluye respuesta, URL ni token.
 - `InvalidConversationWebhookError`: autenticacion, frescura, delivery, account, evento o cuerpo invalidos; el transporte lo traduce sin detalles sensibles.
 
-Si `sendReply` termina con resultado remoto ambiguo, Inkendar no reintenta automaticamente porque la API de cuenta de Chatwoot no ofrece una clave de idempotencia documentada para esta operacion. El owner recibe un error generico y debe refrescar la conversacion antes de decidir un nuevo envio.
+Cada formulario lleva una clave UUID. `SUCCEEDED` reutiliza el ID confirmado sin proveedor; `PENDING`, `FAILED` y `UNKNOWN` no reenvian. `FAILED` requiere refrescar para obtener una clave nueva y `UNKNOWN` queda para intervencion manual porque Chatwoot no ofrece idempotencia documentada en esta operacion.
 
 ## Fronteras de confianza
 
@@ -162,3 +170,9 @@ Si `sendReply` termina con resultado remoto ambiguo, Inkendar no reintenta autom
 - [Verifying webhooks](https://www.chatwoot.com/hc/user-guide/articles/1677693021-how-to-use-webhooks#verifying-webhooks)
 
 Estas referencias fijan solo el contrato del adaptador de infraestructura. La spec, este contrato y los puertos internos siguen siendo la autoridad de Inkendar.
+
+## Evidencia de cierre tecnico
+
+El PR #9 verifico en GitHub Actions la instalacion reproducible, lint, tipos, 156 pruebas y los builds cliente/SSR. El job `database` aplico todas las migraciones sobre Supabase limpio y paso las suites pgTAP acumuladas, incluida `conversation_outbound_idempotency.test.sql`, junto con el smoke autenticado. Evidencia: [run 34883809683](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34883809683).
+
+Esta evidencia cierra el contrato tecnico. No se ejecuto un recorrido live de la PWA contra una conexion Chatwoot sintetica; esa validacion operativa permanece `IN_PROGRESS` y no se usaron datos de clientes.

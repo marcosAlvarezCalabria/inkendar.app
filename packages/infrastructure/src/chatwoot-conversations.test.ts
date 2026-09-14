@@ -24,6 +24,11 @@ function json(body: unknown, status = 200): Response {
 }
 
 describe("Chatwoot conversation adapter", () => {
+  it("represents missing owner configuration as no connection", () => {
+    expect(new ChatwootConnections(undefined).forStudio(studioId)).toBeNull();
+    expect(new ChatwootConnections("[]").forStudio(studioId)).toBeNull();
+  });
+
   it("loads a validated server-only connection by studio and opaque webhook id", () => {
     const registry = new ChatwootConnections(JSON.stringify([connection]));
     expect(registry.forStudio(studioId)).toEqual(connection);
@@ -38,20 +43,21 @@ describe("Chatwoot conversation adapter", () => {
     ]))).toThrow(ConversationProviderUnavailableError);
   });
 
-  it("lists and normalizes the first page without returning the provider payload", async () => {
+  it("lists and normalizes a bounded page and its all_count metadata", async () => {
     const request = vi.fn(async () => json({ data: { payload: [{
       id: 42, account_id: 3, inbox_id: 7, status: "open", can_reply: true, unread_count: 2, last_activity_at: 1_757_841_600,
       meta: { channel: "Channel::Instagram", sender: { name: "Synthetic client" } },
-    }] } }));
+    }], meta: { all_count: 26 } } }));
     const adapter = new ChatwootConversationAdapter(connection, request);
 
-    await expect(adapter.listConversations()).resolves.toEqual([{
-      id: "42", inboxId: "7", status: "open", channel: "instagram", contactName: "Synthetic client",
-      unreadCount: 2, lastActivityAt: "2025-09-14T09:20:00.000Z", canReply: true,
-    }]);
+    await expect(adapter.listConversations(2)).resolves.toEqual({
+      items: [{ id: "42", inboxId: "7", status: "open", channel: "instagram", contactName: "Synthetic client",
+        unreadCount: 2, lastActivityAt: "2025-09-14T09:20:00.000Z", canReply: true }],
+      totalCount: 26,
+    });
     expect(request).toHaveBeenCalledWith(
-      "https://chat.example.test/api/v1/accounts/3/conversations?status=all&page=1",
-      { headers: { api_access_token: "synthetic-api-token" } },
+      "https://chat.example.test/api/v1/accounts/3/conversations?status=all&page=2",
+      expect.objectContaining({ headers: { api_access_token: "synthetic-api-token" }, signal: expect.any(AbortSignal) }),
     );
   });
 
@@ -59,20 +65,37 @@ describe("Chatwoot conversation adapter", () => {
     const request = vi.fn(async () => json({ data: { payload: [{
       id: 42, account_id: 4, inbox_id: 7, status: "open", can_reply: true, unread_count: 2, last_activity_at: 1_757_841_600,
       meta: { channel: "Channel::Instagram", sender: { name: "Synthetic client" } },
-    }] } }));
+    }], meta: { all_count: 1 } } }));
     const adapter = new ChatwootConversationAdapter(connection, request);
 
-    await expect(adapter.listConversations()).rejects.toBeInstanceOf(ConversationProviderUnavailableError);
+    await expect(adapter.listConversations(1)).rejects.toBeInstanceOf(ConversationProviderUnavailableError);
+  });
+
+  it("loads the initial 20-message batch from the messages endpoint", async () => {
+    const detailMessages = Array.from({ length: 21 }, (_, index) => ({ id: index + 1 }));
+    const batch = [{ id: 84, account_id: 3, inbox_id: 7, conversation_id: 42, content: "Latest", message_type: 0, content_type: "text", private: false, created_at: 84 }];
+    const request = vi.fn(async (url: string) => url.endsWith("/messages")
+      ? json({ payload: batch })
+      : json({ id: 42, account_id: 3, inbox_id: 7, can_reply: true, messages: detailMessages }));
+    const thread = await new ChatwootConversationAdapter(connection, request).getConversation("42");
+    expect(thread.messages.map((message) => message.id)).toEqual(["84"]);
+    expect(request.mock.calls.map(([url]) => url)).toEqual([
+      "https://chat.example.test/api/v1/accounts/3/conversations/42",
+      "https://chat.example.test/api/v1/accounts/3/conversations/42/messages",
+    ]);
   });
 
   it("returns only public incoming/outgoing text messages in chronological order", async () => {
-    const request = vi.fn(async () => json({ id: 42, account_id: 3, inbox_id: 7, can_reply: true, messages: [
+    const messages = [
       { id: 3, account_id: 3, inbox_id: 7, conversation_id: 42, content: "Respuesta", message_type: 1, content_type: "text", private: false, created_at: 30 },
       { id: 1, content: "Nota", message_type: 1, content_type: "text", private: true, created_at: 10 },
       { id: 4, content: "Actividad", message_type: 2, content_type: "text", private: false, created_at: 40 },
       { id: 2, account_id: 3, inbox_id: 7, conversation_id: 42, content: "Hola", message_type: 0, content_type: "text", private: false, created_at: 20 },
       { id: 5, content: "Archivo", message_type: 0, content_type: "image", private: false, created_at: 50 },
-    ] }));
+    ];
+    const request = vi.fn(async (url: string) => url.endsWith("/messages")
+      ? json({ payload: messages })
+      : json({ id: 42, account_id: 3, inbox_id: 7, can_reply: true, messages: [] }));
     const adapter = new ChatwootConversationAdapter(connection, request);
 
     const thread = await adapter.getConversation("42");
@@ -81,12 +104,24 @@ describe("Chatwoot conversation adapter", () => {
     ]);
   });
 
+  it("loads at most 20 older messages with one positive before cursor", async () => {
+    const messages = Array.from({ length: 20 }, (_, index) => ({ id: index + 1, account_id: 3, inbox_id: 7, conversation_id: 42, content: `Message ${index + 1}`, message_type: 0, content_type: "text", private: false, created_at: index + 1 }));
+    const request = vi.fn(async (url: string) => url.endsWith("?before=21")
+      ? json({ payload: messages })
+      : json({ id: 42, account_id: 3, inbox_id: 7, can_reply: true, messages: [] }));
+    const thread = await new ChatwootConversationAdapter(connection, request).getConversation("42", "21");
+    expect(thread.before).toBe("1");
+    expect(thread.messages).toHaveLength(20);
+    expect(request.mock.calls[1]?.[0]).toContain("/messages?before=21");
+  });
+
   it("rejects inconsistent conversation and public-message ownership", async () => {
     const request = vi.fn(async () => json({ id: 43, account_id: 3, inbox_id: 7, can_reply: true, messages: [] }));
     const adapter = new ChatwootConversationAdapter(connection, request);
     await expect(adapter.getConversation("42")).rejects.toBeInstanceOf(ConversationProviderUnavailableError);
 
-    request.mockResolvedValueOnce(json({ id: 42, account_id: 3, inbox_id: 7, can_reply: true, messages: [
+    request.mockResolvedValueOnce(json({ id: 42, account_id: 3, inbox_id: 7, can_reply: true, messages: [] }));
+    request.mockResolvedValueOnce(json({ payload: [
       { id: 2, account_id: 3, inbox_id: 7, conversation_id: 43, content: "Wrong thread", message_type: 0, content_type: "text", private: false, created_at: 20 },
     ] }));
     await expect(adapter.getConversation("42")).rejects.toBeInstanceOf(ConversationProviderUnavailableError);
