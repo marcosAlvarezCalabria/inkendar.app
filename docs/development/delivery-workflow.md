@@ -2,7 +2,7 @@
 
 _Estado: aceptado_
 
-_Última actualización: 2026-09-13_
+_Última actualización: 2026-09-14_
 
 Este documento define cómo se entrega código en Inkendar. Complementa la [especificación viva](../product/sellable-mvp-spec.md) y la [arquitectura de aplicación](../architecture/application-architecture.md).
 
@@ -59,17 +59,17 @@ No cambia reglas de producto ni debilita pruebas para conseguir un resultado ver
 
 ## 4. CI obligatorio
 
-El workflow se ejecuta en cada Pull Request y en cada push a `main`, con permiso de solo lectura sobre el contenido. Utiliza Node.js 24 LTS y la caché de npm basada en `package-lock.json`. La validación mínima actual es:
+El workflow se ejecuta en cada Pull Request y en cada push a `main`, con permiso de solo lectura sobre el contenido. Utiliza Node.js 24 LTS, pnpm 10.22.0 y la caché de pnpm basada en `pnpm-lock.yaml`. La validación mínima actual es:
 
 ```text
-npm ci
-npm run lint
-npm run typecheck
-npm test
-npm run build
+pnpm install --frozen-lockfile
+pnpm run lint
+pnpm run typecheck
+pnpm test
+pnpm run build
 ```
 
-`npm run check` agrupa esas cuatro comprobaciones. A medida que se implemente producto se incorporarán como checks requeridos:
+`pnpm run check` agrupa esas cuatro comprobaciones. A medida que se implemente producto se incorporarán como checks requeridos:
 
 - pruebas unitarias del dominio;
 - pruebas de casos de uso;
@@ -166,3 +166,4 @@ Un cambio está integrado cuando:
 | 2026-09-13 | Se limita cada chat de agente a un slice y 32.000 tokens | Reducir contexto irrelevante y reiniciar mediante handoffs verificables antes de mezclar objetivos. |
 | 2026-09-13 | Se adopta Engram en modo piloto como memoria auxiliar local | Recuperar solo decisiones relevantes entre sesiones sin convertir la memoria automática en fuente de verdad. |
 | 2026-09-13 | Se implementa el primer workflow del software | Ejecutar instalación limpia, lint, tipos, pruebas y build sobre Node.js 24 con permisos mínimos y caché reproducible. |
+| 2026-09-14 | Se migra el toolchain del software a pnpm 10.22.0 | Unificar el gestor con la landing y fijar instalación, workspaces, lockfile y caché de CI reproducibles. |

@@ -2,9 +2,9 @@
 
 _Estado: especificación viva y fuente de verdad para alcance, comportamiento y progreso_
 
-_Versión: 1.5.1_
+_Versión: 1.5.2_
 
-_Última actualización: 2026-09-13_
+_Última actualización: 2026-09-14_
 
 _La fase anterior al desarrollo se define en [Plan de validación y lanzamiento](validation-and-launch-plan.md)._
 
@@ -32,7 +32,8 @@ Estados utilizados:
 - `CONNECTED`: proveedor conectado, pendiente de prueba extremo a extremo;
 - `PASS`: aceptación verificada;
 - `DEFERRED`: retirado del alcance actual sin descartarlo definitivamente;
-- `DONE`: implementado, verificado y documentado.
+- `DONE`: implementado, verificado y documentado;
+- `SUPERSEDED`: decisión histórica reemplazada por otra decisión vigente.
 
 Las correcciones editoriales pueden agruparse en una entrada. Los cambios de comportamiento deben tener una entrada propia con su motivo.
 
@@ -79,11 +80,12 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | 2026-09-13 | DEC-018 | `ACCEPTED` | Se retira el backlog contradictorio de los documentos activos y se autoriza iniciar la base técnica con datos sintéticos mientras continúa la validación comercial. | Reducir contexto obsoleto y permitir progreso verificable sin anunciar ni operar capacidades que aún no han superado sus gates. |
 | 2026-09-13 | DEC-019 | `ACCEPTED` | La landing permanece en el repositorio actual y el software se construye en un repositorio independiente, cada uno con su propio CI y despliegue. | Evitar mezclar ciclos de vida, dependencias y datos del producto con el sitio comercial. |
 | 2026-09-13 | DEC-020 | `ACCEPTED` | Este repositorio `inkendar.app` pasa a ser la fuente de verdad del software; el repositorio `inkendar` conserva la landing y su documentación de marketing. | Evitar que dos repositorios mantengan copias divergentes de la spec técnica y del estado de implementación. |
-| 2026-09-13 | DEC-021 | `ACCEPTED` | La base full-stack usa React Router 8 sobre Node.js LTS y npm workspaces, con un adaptador de servidor reemplazable. | Ejecutar PWA y API/BFF en un solo artefacto portable y expresar los límites del monolito sin acoplar el dominio al alojamiento. |
+| 2026-09-13 | DEC-021 | `SUPERSEDED` | La base full-stack usa React Router 8 sobre Node.js LTS y npm workspaces, con un adaptador de servidor reemplazable. | Sustituida por DEC-026 únicamente en la elección del gestor de paquetes; React Router, Node.js y el adaptador portable continúan vigentes. |
 | 2026-09-13 | DEC-022 | `ACCEPTED` | La identidad inicial usa `auth.users` y tablas tenant-scoped `user_profile`, `membership` y `artist_profile`; los únicos roles son `OWNER` y `ARTIST`, y Postgres RLS aplica el aislamiento mediante helpers privados con `search_path` vacío. | Hacer que el owner administre solo su estudio, limitar al artista a lectura propia y evitar escalación o recursión en políticas antes de conectar UI o Supabase Cloud. |
 | 2026-09-13 | DEC-023 | `ACCEPTED` | El alta inicial es una operación gestionada mediante CLI de servidor, Supabase Admin detrás de puertos y RPC transaccionales idempotentes exclusivas de `service_role`; los roles son fijos, un fallo confirmado compensa Auth y un resultado ambiguo conserva la identidad para recuperación segura. | Provisionar pilotos sin superficie pública ni secretos versionados y hacer explícita la recuperación ante la falta de una transacción distribuida entre Auth y Postgres. |
 | 2026-09-13 | DEC-024 | `ACCEPTED` | La sesión PWA usa `@supabase/ssr` y cookies en loaders/actions; `auth.getUser()` verifica la identidad y la aplicación exige una membership coherente bajo RLS antes de exponer un shell por rol. | Mantener tokens y autorización fuera del bundle y fallar cerrado ante identidades ambiguas. |
 | 2026-09-13 | DEC-025 | `ACCEPTED` | El modelo operativo mínimo usa `customer` con estado `ACTIVE` / `ARCHIVED` y `tattoo_case` con estado `OPEN` / `ARCHIVED`; solo OWNER accede, el artista asignado es opcional y no se borran filas en este slice. | Registrar clientes y casos sin anticipar booking ni un workflow complejo, conservando retirada explícita y aislamiento tenant mediante RLS y FKs compuestas. |
+| 2026-09-14 | DEC-026 | `ACCEPTED` | El toolchain de `inkendar.app` usa pnpm 10.22.0, un workspace explícito y un único `pnpm-lock.yaml`; CI instala con lockfile congelado y caché de pnpm. | Unificar el gestor de paquetes con la landing y mantener instalaciones locales y remotas reproducibles sin cambiar la arquitectura ni el comportamiento del producto. |
 
 La arquitectura técnica está en [Arquitectura de aplicación](../architecture/application-architecture.md) y el proceso de entrega en [Flujo de desarrollo, revisión e integración](../development/delivery-workflow.md).
 
@@ -91,6 +93,7 @@ La arquitectura técnica está en [Arquitectura de aplicación](../architecture/
 
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
+| 2026-09-14 | 1.5.2 | El toolchain del software migra de npm a pnpm 10.22.0 con workspace, lockfile y CI sincronizados. | Unificar el gestor con la landing y mantener una instalación reproducible sin alterar contratos de producto. |
 | 2026-09-13 | 1.5.1 | Clientes y casos de tatuaje pasaron a `PASS` tras verificar migración limpia, seed, 117 aserciones pgTAP —58 del slice— y el smoke Auth/RLS en CI. | Cerrar el slice con evidencia real de Postgres, aislamiento tenant, permisos y relaciones compuestas sin confundirlo con booking o integraciones posteriores. |
 | 2026-09-13 | 1.5.0 | Se implementó el slice owner de clientes y casos con estados mínimos, formularios SSR privados, aislamiento RLS y relaciones tenant compuestas; la prueba Postgres real queda pendiente. | Habilitar el contexto operativo básico sin introducir Chatwoot, archivos, calendario, booking, notificaciones ni acceso del artista. |
 | 2026-09-13 | 1.4.1 | La autenticación PWA pasó a `PASS` tras verificar en CI el registro público cerrado y el recorrido Auth/RLS/cookies/guards/logout de OWNER y ARTIST en dos tenants. | Cerrar el slice con evidencia real del proveedor y del aislamiento sin declarar implementados el service worker ni la suspensión explícita de accesos. |
