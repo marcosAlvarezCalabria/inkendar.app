@@ -52,11 +52,16 @@ export function createOwnerConversationsHandlers(dependencies: Dependencies = de
         ]);
         return Response.json({ conversations, customers, cases, thread }, { headers });
       } catch (error) {
-        return publicError(error, headers);
+        throw publicError(error, headers);
       }
     },
 
     async action(request: Request): Promise<Response> {
+      if (request.method !== "POST") {
+        const headers = privateHeaders();
+        headers.set("Allow", "POST");
+        return new Response("Solicitud no admitida", { status: 405, headers });
+      }
       if (!isTrustedMutationRequest(request)) return new Response("Solicitud rechazada", { status: 403, headers: privateHeaders() });
       const authorization = await dependencies.authorize(request);
       if (authorization instanceof Response) return authorization;

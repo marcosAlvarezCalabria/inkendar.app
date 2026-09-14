@@ -84,7 +84,7 @@ Supabase conserva únicamente `conversation_link` para relacionar el identificad
 
 El resource route público del webhook resuelve una conexión opaca, verifica sobre el cuerpo bruto la firma HMAC-SHA256, una frescura máxima de cinco minutos, delivery ID y account esperado. Solo después crea el adaptador `service_role`; una RPC transaccional devuelve `ACCEPTED` o `DUPLICATE` y actualiza actividad como máximo una vez.
 
-La configuración multi-tenant se inyecta en servidor mediante `INKENDAR_CHATWOOT_CONNECTIONS_JSON`. La prueba Postgres local permanece pendiente cuando Docker no está disponible; no se considera evidencia `PASS` hasta ejecutar migración y pgTAP en el job `database`.
+La configuración multi-tenant se inyecta en servidor mediante `INKENDAR_CHATWOOT_CONNECTIONS_JSON` y rechaza asignar la misma cuenta de un mismo origen Chatwoot a estudios distintos. La prueba Postgres local permanece pendiente cuando Docker no está disponible; no se considera evidencia `PASS` hasta ejecutar migración y pgTAP en el job `database`.
 
 ## 2. Alternativas consideradas
 

@@ -38,4 +38,32 @@ describe("conversation webhook handler", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ status: "duplicate" });
   });
+
+  it("rejects an oversized streamed body before verification or privileged persistence", async () => {
+    const verify = vi.fn(() => event);
+    const repository = vi.fn();
+    const handler = createConversationWebhookHandler({ connection: () => connection, verify, repository });
+    const response = await handler(new Request("https://app.inkendar.es/api/webhooks/chatwoot/north-connection-2026", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "x".repeat(262_145),
+    }), "north-connection-2026");
+
+    expect(response.status).toBe(413);
+    expect(verify).not.toHaveBeenCalled();
+    expect(repository).not.toHaveBeenCalled();
+  });
+
+  it("rejects JSON-like media types that are not application/json", async () => {
+    const verify = vi.fn(() => event);
+    const handler = createConversationWebhookHandler({ connection: () => connection, verify, repository: vi.fn() });
+    const response = await handler(new Request("https://app.inkendar.es/api/webhooks/chatwoot/north-connection-2026", {
+      method: "POST",
+      headers: { "Content-Type": "application/jsonp" },
+      body: "{}",
+    }), "north-connection-2026");
+
+    expect(response.status).toBe(415);
+    expect(verify).not.toHaveBeenCalled();
+  });
 });

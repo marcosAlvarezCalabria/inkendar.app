@@ -41,12 +41,23 @@ export class SupabaseConversationsAdapter implements ConversationLinksRepository
   async listLinks(studioId: string, externalAccountId: string): Promise<readonly ConversationLink[]> {
     const result = await this.data.listLinks({ studio_id: studioId, provider: "chatwoot", external_account_id: externalAccountId });
     if (result.error || !Array.isArray(result.data)) throw new SupabaseConversationsAdapterError();
-    return result.data.map(link);
+    const links = result.data.map(link);
+    if (links.some((item) => item.studioId !== studioId || item.externalAccountId !== externalAccountId)) throw new SupabaseConversationsAdapterError();
+    return links;
   }
   async saveLink(input: Readonly<{ studioId: string; externalAccountId: string; externalInboxId: string; externalConversationId: string; customerId: string; tattooCaseId: string | null }>): Promise<ConversationLink> {
     const result = await this.data.upsertLink({ studio_id: input.studioId, provider: "chatwoot", external_account_id: input.externalAccountId, external_inbox_id: input.externalInboxId, external_conversation_id: input.externalConversationId, customer_id: input.customerId, tattoo_case_id: input.tattooCaseId });
     if (result.error || result.data === null) throw new SupabaseConversationsAdapterError();
-    return link(result.data);
+    const saved = link(result.data);
+    if (
+      saved.studioId !== input.studioId
+      || saved.externalAccountId !== input.externalAccountId
+      || saved.externalInboxId !== input.externalInboxId
+      || saved.externalConversationId !== input.externalConversationId
+      || saved.customerId !== input.customerId
+      || saved.tattooCaseId !== input.tattooCaseId
+    ) throw new SupabaseConversationsAdapterError();
+    return saved;
   }
   async record(studioId: string, event: ConversationWebhookEvent): Promise<WebhookIngestionResult> {
     const result = await this.data.recordWebhook({ p_studio_id: studioId, p_provider: "chatwoot", p_delivery_id: event.deliveryId, p_event_name: "message_created", p_external_account_id: event.externalAccountId, p_external_inbox_id: event.externalInboxId, p_external_conversation_id: event.externalConversationId, p_external_message_id: event.externalMessageId, p_occurred_at: event.occurredAt });

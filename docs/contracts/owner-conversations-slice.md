@@ -115,6 +115,7 @@ And las rutas OWNER mantienen Cache-Control private, no-store
 - FKs compuestas fijan estudio para cliente y caso, y el caso opcional debe pertenecer al cliente elegido.
 - `conversation_webhook_receipt`: `studio_id`, `provider`, `delivery_id`, `event_name`, IDs externos y `received_at`; no almacena contenido ni payload bruto.
 - La unicidad `(studio_id, provider, delivery_id)` deduplica reintentos. Una funcion transaccional exclusiva de `service_role` inserta la recepcion y actualiza el vinculo ya existente.
+- La actualizacion del vinculo es monotona por fecha e ID de mensaje: una entrega autentica retrasada conserva su recepcion, pero no puede hacer retroceder la ultima actividad conocida.
 - RLS de `conversation_link` concede `select`, `insert` y `update` solo a OWNER del mismo estudio; no hay `delete`. La tabla de recepciones y su RPC no conceden acceso a `anon` o `authenticated`.
 
 ### Normalizacion
@@ -139,9 +140,9 @@ Si `sendReply` termina con resultado remoto ambiguo, Inkendar no reintenta autom
 ## Fronteras de confianza
 
 - El navegador no es confiable: `studioId` procede exclusivamente del acceso OWNER resuelto en servidor; IDs y formularios se validan; toda mutacion de sesion exige same-origin.
-- La configuracion de conexion no es publica: URL base HTTPS, account ID, token, webhook secret y connection ID se validan al componer y nunca se serializan al cliente ni se escriben en logs.
+- La configuracion de conexion no es publica: URL base HTTPS, account ID, token, webhook secret y connection ID se validan al componer, y una misma cuenta del mismo origen Chatwoot no puede asignarse a dos estudios; estos valores nunca se serializan al cliente ni se escriben en logs.
 - Chatwoot es externo y sus respuestas son no confiables: infraestructura valida status HTTP, JSON y campos antes de normalizarlos.
-- El webhook es publico y falla cerrado: se firma sobre `timestamp.raw_body`, se compara en tiempo constante, se limita a cinco minutos y exige delivery ID antes de parsear o persistir.
+- El webhook es publico y falla cerrado: acepta como maximo 256 KiB reales, se firma sobre `timestamp.raw_body`, se compara en tiempo constante, se limita a cinco minutos y exige delivery ID antes de parsear o persistir.
 - La ruta webhook usa `service_role` solo despues de autenticar y normalizar el evento. Las rutas OWNER usan el cliente Supabase sujeto a cookies/RLS.
 - HTML y respuestas con datos privados usan `Cache-Control: private, no-store`; no se guardan mensajes, PII, tokens, firmas ni cuerpos brutos en Postgres, URLs o memoria de agentes.
 

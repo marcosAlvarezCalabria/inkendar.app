@@ -35,6 +35,7 @@ export class ChatwootConnections {
       this.#connections = parsed.map(connection);
       if (new Set(this.#connections.map((item) => item.studioId)).size !== this.#connections.length) throw new Error();
       if (new Set(this.#connections.map((item) => item.connectionId)).size !== this.#connections.length) throw new Error();
+      if (new Set(this.#connections.map(providerAccountKey)).size !== this.#connections.length) throw new Error();
     } catch {
       throw new ConversationProviderUnavailableError();
     }
@@ -66,16 +67,23 @@ export class ChatwootConversationAdapter implements ConversationProviderPort {
     const body = await this.#get(`/api/v1/accounts/${this.#connection.accountId}/conversations?status=all&page=1`);
     const payload = object(object(body).data).payload;
     if (!Array.isArray(payload)) throw new ConversationProviderUnavailableError();
-    return payload.map(summary).sort((left, right) => right.lastActivityAt.localeCompare(left.lastActivityAt));
+    return payload.map((item) => summary(item, this.#connection.accountId)).sort((left, right) => right.lastActivityAt.localeCompare(left.lastActivityAt));
   }
 
   async getConversation(conversationId: string): Promise<ConversationThread> {
     const normalizedId = normalizeExternalConversationId(conversationId);
     const body = object(await this.#get(`/api/v1/accounts/${this.#connection.accountId}/conversations/${normalizedId}`));
+    const externalAccountId = id(body.account_id);
+    const externalConversationId = id(body.id);
+    const externalInboxId = id(body.inbox_id);
+    if (externalAccountId !== this.#connection.accountId || externalConversationId !== normalizedId) throw new ConversationProviderUnavailableError();
     const messages = body.messages;
     if (!Array.isArray(messages)) throw new ConversationProviderUnavailableError();
-    const normalizedMessages = messages.map(message).filter((item): item is ConversationMessage => item !== null).sort((left, right) => left.createdAt.localeCompare(right.createdAt));
-    return { id: id(body.id), inboxId: id(body.inbox_id), canReply: boolean(body.can_reply), messages: normalizedMessages };
+    const normalizedMessages = messages
+      .map((item) => message(item, { externalAccountId, externalConversationId, externalInboxId }))
+      .filter((item): item is ConversationMessage => item !== null)
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    return { id: externalConversationId, inboxId: externalInboxId, canReply: boolean(body.can_reply), messages: normalizedMessages };
   }
 
   async sendReply(conversationId: string, content: string): Promise<void> {
@@ -90,7 +98,8 @@ export class ChatwootConversationAdapter implements ConversationProviderPort {
       if (response.status === 404) throw new ConversationNotFoundError();
       throw new ConversationProviderUnavailableError();
     }
-    if (id(object(body).conversation_id) !== normalizedId) throw new ConversationProviderUnavailableError();
+    const row = object(body);
+    if (id(row.account_id) !== this.#connection.accountId || id(row.conversation_id) !== normalizedId) throw new ConversationProviderUnavailableError();
   }
 
   async #get(path: string): Promise<unknown> {
@@ -134,11 +143,15 @@ export function verifyChatwootWebhook(input: Readonly<{ connection: ChatwootConn
     if (payload.event !== "message_created") invalidWebhook();
     const externalAccountId = id(object(payload.account).id);
     if (externalAccountId !== input.connection.accountId) invalidWebhook();
+    const inbox = object(payload.inbox);
+    const conversation = object(payload.conversation);
+    const externalInboxId = id(inbox.id);
+    if (id(conversation.account_id) !== externalAccountId || id(conversation.inbox_id) !== externalInboxId) invalidWebhook();
     return {
       deliveryId,
       externalAccountId,
-      externalInboxId: id(object(payload.inbox).id),
-      externalConversationId: id(object(payload.conversation).id),
+      externalInboxId,
+      externalConversationId: id(conversation.id),
       externalMessageId: id(payload.id),
       occurredAt: timestampIso(payload.created_at),
     };
@@ -159,14 +172,19 @@ function connection(value: unknown): ChatwootConnection {
   return { connectionId, studioId: normalizeResourceId("id", string(row.studioId)), baseUrl, accountId: id(row.accountId), apiAccessToken, webhookSecret };
 }
 
+function providerAccountKey(value: ChatwootConnection): string {
+  return `${value.baseUrl}\u0000${value.accountId}`;
+}
+
 function url(value: string): string {
   const parsed = new URL(value);
   if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.search || parsed.hash || parsed.pathname !== "/") throw new Error();
   return parsed.origin;
 }
 
-function summary(value: unknown): ConversationSummary {
+function summary(value: unknown, expectedAccountId: string): ConversationSummary {
   const row = object(value);
+  if (id(row.account_id) !== expectedAccountId) throw new ConversationProviderUnavailableError();
   const meta = object(row.meta);
   const sender = object(meta.sender);
   return {
@@ -175,9 +193,14 @@ function summary(value: unknown): ConversationSummary {
   };
 }
 
-function message(value: unknown): ConversationMessage | null {
+function message(value: unknown, expected: Readonly<{ externalAccountId: string; externalConversationId: string; externalInboxId: string }>): ConversationMessage | null {
   const row = object(value);
   if (row.private !== false || row.content_type !== "text" || (row.message_type !== 0 && row.message_type !== 1)) return null;
+  if (
+    id(row.account_id) !== expected.externalAccountId
+    || id(row.conversation_id) !== expected.externalConversationId
+    || id(row.inbox_id) !== expected.externalInboxId
+  ) throw new ConversationProviderUnavailableError();
   const content = string(row.content).normalize("NFKC").trim();
   if (content.length === 0 || content.length > 10_000) throw new ConversationProviderUnavailableError();
   return { id: id(row.id), direction: row.message_type === 0 ? "incoming" : "outgoing", content, createdAt: timestampIso(row.created_at) };

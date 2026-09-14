@@ -7,6 +7,8 @@ type Dependencies = Readonly<{
   repository(): ConversationWebhookRepositoryPort;
 }>;
 
+const MAX_BODY_BYTES = 262_144;
+
 const defaults: Dependencies = {
   connection: (connectionId) => new ChatwootConnections(process.env.INKENDAR_CHATWOOT_CONNECTIONS_JSON).forWebhook(connectionId),
   verify: verifyChatwootWebhook,
@@ -17,9 +19,15 @@ export function createConversationWebhookHandler(dependencies: Dependencies = de
   return async (request: Request, connectionId: string): Promise<Response> => {
     const headers = new Headers({ "Cache-Control": "no-store" });
     if (request.method !== "POST") return Response.json({ error: "Solicitud no admitida." }, { status: 405, headers });
-    if (!(request.headers.get("Content-Type") ?? "").toLowerCase().startsWith("application/json")) return Response.json({ error: "Contenido no admitido." }, { status: 415, headers });
-    const declaredSize = Number(request.headers.get("Content-Length") ?? "0");
-    if (!Number.isFinite(declaredSize) || declaredSize > 262_144) return Response.json({ error: "Solicitud no válida." }, { status: 413, headers });
+    const mediaType = (request.headers.get("Content-Type") ?? "").split(";", 1)[0]?.trim().toLowerCase();
+    if (mediaType !== "application/json") return Response.json({ error: "Contenido no admitido." }, { status: 415, headers });
+    const contentLength = request.headers.get("Content-Length");
+    if (contentLength !== null) {
+      const declaredSize = Number(contentLength);
+      if (!Number.isSafeInteger(declaredSize) || declaredSize < 0 || declaredSize > MAX_BODY_BYTES) {
+        return Response.json({ error: "Solicitud no válida." }, { status: 413, headers });
+      }
+    }
 
     let connection: ChatwootConnection;
     try {
@@ -29,7 +37,8 @@ export function createConversationWebhookHandler(dependencies: Dependencies = de
       return Response.json({ error: "Recurso no encontrado." }, { status: 404, headers });
     }
 
-    const rawBody = await request.text();
+    const rawBody = await readLimitedBody(request);
+    if (rawBody === null) return Response.json({ error: "Solicitud no válida." }, { status: 413, headers });
     let event: ConversationWebhookEvent;
     try {
       event = dependencies.verify({ connection, rawBody, headers: request.headers });
@@ -46,6 +55,34 @@ export function createConversationWebhookHandler(dependencies: Dependencies = de
       return Response.json({ error: "No se pudo registrar la entrega." }, { status: 503, headers });
     }
   };
+}
+
+async function readLimitedBody(request: Request): Promise<string | null> {
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_BODY_BYTES) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(value);
+    }
+    const body = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      body.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return new TextDecoder("utf-8", { fatal: true }).decode(body);
+  } catch {
+    return null;
+  }
 }
 
 export const conversationWebhookHandler = createConversationWebhookHandler();

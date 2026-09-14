@@ -84,12 +84,13 @@ export function createConversationsService(dependencies: Dependencies) {
     async link(studioId: string, input: Readonly<{ conversationId: string; customerId: string; tattooCaseId?: string | undefined }>): Promise<ConversationLink> {
       const conversationId = normalizeExternalConversationId(input.conversationId);
       const customerId = normalizeResourceId("customerId", input.customerId);
-      if (!(await dependencies.customerCases.findCustomer(studioId, customerId))) throw new ConversationCustomerNotFoundError();
+      const customer = await dependencies.customerCases.findCustomer(studioId, customerId);
+      if (!customer || customer.id !== customerId || customer.studioId !== studioId) throw new ConversationCustomerNotFoundError();
       let tattooCaseId: string | null = null;
       if (input.tattooCaseId !== undefined && input.tattooCaseId.trim().length > 0) {
         tattooCaseId = normalizeResourceId("id", input.tattooCaseId);
         const tattooCase = await dependencies.customerCases.findTattooCase(studioId, tattooCaseId);
-        if (!tattooCase) throw new ConversationCaseNotFoundError();
+        if (!tattooCase || tattooCase.id !== tattooCaseId || tattooCase.studioId !== studioId) throw new ConversationCaseNotFoundError();
         if (tattooCase.customerId !== customerId) throw new ConversationCaseCustomerMismatchError();
       }
       const thread = await dependencies.provider.getConversation(conversationId);

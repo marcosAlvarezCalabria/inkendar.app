@@ -9,6 +9,7 @@ import {
 } from "./chatwoot-conversations.js";
 
 const studioId = "20000000-0000-4000-8000-000000000001";
+const otherStudioId = "20000000-0000-4000-8000-000000000002";
 const connection = {
   connectionId: "north-connection-2026",
   studioId,
@@ -30,9 +31,16 @@ describe("Chatwoot conversation adapter", () => {
     expect(() => registry.forWebhook("unknown")).toThrow(ConversationProviderUnavailableError);
   });
 
+  it("rejects assigning one provider account to more than one studio", () => {
+    expect(() => new ChatwootConnections(JSON.stringify([
+      connection,
+      { ...connection, connectionId: "south-connection-2026", studioId: otherStudioId },
+    ]))).toThrow(ConversationProviderUnavailableError);
+  });
+
   it("lists and normalizes the first page without returning the provider payload", async () => {
     const request = vi.fn(async () => json({ data: { payload: [{
-      id: 42, inbox_id: 7, status: "open", can_reply: true, unread_count: 2, last_activity_at: 1_757_841_600,
+      id: 42, account_id: 3, inbox_id: 7, status: "open", can_reply: true, unread_count: 2, last_activity_at: 1_757_841_600,
       meta: { channel: "Channel::Instagram", sender: { name: "Synthetic client" } },
     }] } }));
     const adapter = new ChatwootConversationAdapter(connection, request);
@@ -47,12 +55,22 @@ describe("Chatwoot conversation adapter", () => {
     );
   });
 
+  it("rejects a conversation summary attributed to another account", async () => {
+    const request = vi.fn(async () => json({ data: { payload: [{
+      id: 42, account_id: 4, inbox_id: 7, status: "open", can_reply: true, unread_count: 2, last_activity_at: 1_757_841_600,
+      meta: { channel: "Channel::Instagram", sender: { name: "Synthetic client" } },
+    }] } }));
+    const adapter = new ChatwootConversationAdapter(connection, request);
+
+    await expect(adapter.listConversations()).rejects.toBeInstanceOf(ConversationProviderUnavailableError);
+  });
+
   it("returns only public incoming/outgoing text messages in chronological order", async () => {
-    const request = vi.fn(async () => json({ id: 42, inbox_id: 7, can_reply: true, messages: [
-      { id: 3, content: "Respuesta", message_type: 1, content_type: "text", private: false, created_at: 30 },
+    const request = vi.fn(async () => json({ id: 42, account_id: 3, inbox_id: 7, can_reply: true, messages: [
+      { id: 3, account_id: 3, inbox_id: 7, conversation_id: 42, content: "Respuesta", message_type: 1, content_type: "text", private: false, created_at: 30 },
       { id: 1, content: "Nota", message_type: 1, content_type: "text", private: true, created_at: 10 },
       { id: 4, content: "Actividad", message_type: 2, content_type: "text", private: false, created_at: 40 },
-      { id: 2, content: "Hola", message_type: 0, content_type: "text", private: false, created_at: 20 },
+      { id: 2, account_id: 3, inbox_id: 7, conversation_id: 42, content: "Hola", message_type: 0, content_type: "text", private: false, created_at: 20 },
       { id: 5, content: "Archivo", message_type: 0, content_type: "image", private: false, created_at: 50 },
     ] }));
     const adapter = new ChatwootConversationAdapter(connection, request);
@@ -63,8 +81,19 @@ describe("Chatwoot conversation adapter", () => {
     ]);
   });
 
+  it("rejects inconsistent conversation and public-message ownership", async () => {
+    const request = vi.fn(async () => json({ id: 43, account_id: 3, inbox_id: 7, can_reply: true, messages: [] }));
+    const adapter = new ChatwootConversationAdapter(connection, request);
+    await expect(adapter.getConversation("42")).rejects.toBeInstanceOf(ConversationProviderUnavailableError);
+
+    request.mockResolvedValueOnce(json({ id: 42, account_id: 3, inbox_id: 7, can_reply: true, messages: [
+      { id: 2, account_id: 3, inbox_id: 7, conversation_id: 43, content: "Wrong thread", message_type: 0, content_type: "text", private: false, created_at: 20 },
+    ] }));
+    await expect(adapter.getConversation("42")).rejects.toBeInstanceOf(ConversationProviderUnavailableError);
+  });
+
   it("sends one public outgoing text message and does not retry an ambiguous failure", async () => {
-    const request = vi.fn<(input: string, init?: RequestInit) => Promise<Response>>(async () => json({ id: 84, conversation_id: 42 }));
+    const request = vi.fn<(input: string, init?: RequestInit) => Promise<Response>>(async () => json({ id: 84, account_id: 3, conversation_id: 42 }));
     const adapter = new ChatwootConversationAdapter(connection, request);
     await adapter.sendReply("42", "Hola");
     expect(request).toHaveBeenCalledTimes(1);
@@ -76,11 +105,18 @@ describe("Chatwoot conversation adapter", () => {
     expect(String(error)).not.toContain("synthetic-api-token");
     expect(request).toHaveBeenCalledTimes(2);
   });
+
+  it("rejects a successful-looking reply attributed to another account", async () => {
+    const request = vi.fn(async () => json({ id: 84, account_id: 4, conversation_id: 42 }));
+    const adapter = new ChatwootConversationAdapter(connection, request);
+
+    await expect(adapter.sendReply("42", "Hola")).rejects.toBeInstanceOf(ConversationProviderUnavailableError);
+  });
 });
 
 describe("Chatwoot webhook verifier", () => {
   it("authenticates the raw body and normalizes a recent message_created event", () => {
-    const body = JSON.stringify({ event: "message_created", id: 84, created_at: 1_757_841_600, account: { id: 3 }, inbox: { id: 7 }, conversation: { id: 42 } });
+    const body = JSON.stringify({ event: "message_created", id: 84, created_at: 1_757_841_600, account: { id: 3 }, inbox: { id: 7 }, conversation: { id: 42, account_id: 3, inbox_id: 7 } });
     const timestamp = "1757841600";
     const signature = `sha256=${createHmac("sha256", connection.webhookSecret).update(`${timestamp}.${body}`).digest("hex")}`;
 
@@ -92,12 +128,22 @@ describe("Chatwoot webhook verifier", () => {
     });
   });
 
+  it("rejects inconsistent account and inbox identifiers inside a signed event", () => {
+    const body = JSON.stringify({ event: "message_created", id: 84, created_at: 1_757_841_600, account: { id: 3 }, inbox: { id: 7 }, conversation: { id: 42, account_id: 4, inbox_id: 8 } });
+    const timestamp = "1757841600";
+    const signature = `sha256=${createHmac("sha256", connection.webhookSecret).update(`${timestamp}.${body}`).digest("hex")}`;
+
+    expect(() => verifyChatwootWebhook({ connection, rawBody: body, headers: new Headers({
+      "X-Chatwoot-Signature": signature, "X-Chatwoot-Timestamp": timestamp, "X-Chatwoot-Delivery": "delivery-1",
+    }), now: new Date("2025-09-14T09:22:00.000Z") })).toThrow(InvalidConversationWebhookError);
+  });
+
   it.each([
     { name: "bad signature", signature: "sha256=" + "0".repeat(64), timestamp: "1757841600", delivery: "delivery-1" },
     { name: "stale timestamp", signature: "valid", timestamp: "1757841000", delivery: "delivery-1" },
     { name: "missing delivery", signature: "valid", timestamp: "1757841600", delivery: "" },
   ])("fails closed for $name", ({ signature, timestamp, delivery }) => {
-    const body = JSON.stringify({ event: "message_created", id: 84, created_at: 1_757_841_600, account: { id: 3 }, inbox: { id: 7 }, conversation: { id: 42 } });
+    const body = JSON.stringify({ event: "message_created", id: 84, created_at: 1_757_841_600, account: { id: 3 }, inbox: { id: 7 }, conversation: { id: 42, account_id: 3, inbox_id: 7 } });
     const signed = `sha256=${createHmac("sha256", connection.webhookSecret).update(`${timestamp}.${body}`).digest("hex")}`;
     expect(() => verifyChatwootWebhook({ connection, rawBody: body, headers: new Headers({
       "X-Chatwoot-Signature": signature === "valid" ? signed : signature, "X-Chatwoot-Timestamp": timestamp, "X-Chatwoot-Delivery": delivery,

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createConversationsService, createCustomerCasesService, type ConversationLinksRepositoryPort, type ConversationProviderPort, type ConversationWebhookRepositoryPort, type CustomerCasesRepositoryPort } from "@inkendar/application";
+import { ConversationProviderUnavailableError, createConversationsService, createCustomerCasesService, type ConversationLinksRepositoryPort, type ConversationProviderPort, type ConversationWebhookRepositoryPort, type CustomerCasesRepositoryPort } from "@inkendar/application";
 import type { AuthorizedAccess } from "@inkendar/domain";
 import { createOwnerConversationsHandlers, type OwnerConversationsContext } from "./owner-conversations.server.js";
 
@@ -62,6 +62,35 @@ describe("owner conversations handlers", () => {
     expect(response.status).toBe(303);
     expect(response.headers.get("Location")).toBe("/app/owner/conversations?conversation=42");
     expect(response.headers.get("Location")).not.toContain("Private");
+  });
+
+  it("throws a private generic response when loading the provider fails", async () => {
+    const current = context();
+    vi.spyOn(current.conversations, "listInbox").mockRejectedValueOnce(new ConversationProviderUnavailableError());
+    const handlers = createOwnerConversationsHandlers({ authorize: async () => ({ access, headers: new Headers() }), createContext: () => current });
+
+    const caught = await handlers.loader(new Request("https://app.inkendar.es/app/owner/conversations")).then(
+      () => null,
+      (error: unknown) => error,
+    );
+
+    expect(caught).toBeInstanceOf(Response);
+    expect((caught as Response).status).toBe(503);
+    expect((caught as Response).headers.get("Cache-Control")).toBe("private, no-store");
+    expect(await (caught as Response).text()).not.toContain("provider");
+  });
+
+  it("does not accept non-POST mutations", async () => {
+    const authorize = vi.fn(async () => ({ access, headers: new Headers() }));
+    const handlers = createOwnerConversationsHandlers({ authorize, createContext: () => context() });
+    const response = await handlers.action(new Request("https://app.inkendar.es/app/owner/conversations", {
+      method: "PUT",
+      headers: { Origin: "https://app.inkendar.es", "Sec-Fetch-Site": "same-origin" },
+      body: new URLSearchParams({ intent: "reply", conversationId: "42", content: "Hola" }),
+    }));
+
+    expect(response.status).toBe(405);
+    expect(authorize).not.toHaveBeenCalled();
   });
 });
 

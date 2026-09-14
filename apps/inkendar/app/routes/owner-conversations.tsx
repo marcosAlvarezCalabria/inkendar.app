@@ -1,4 +1,4 @@
-import { Form, Link, useActionData, useLoaderData } from "react-router";
+import { Form, Link, useActionData, useLoaderData, useRouteError } from "react-router";
 import type { ConversationThread, Customer, LinkedConversationSummary, TattooCase } from "@inkendar/application";
 import type { Route } from "./+types/owner-conversations";
 
@@ -25,6 +25,7 @@ export default function OwnerConversations() {
           <article className="shell-panel" key={conversation.id}>
             <h3><Link to={`?conversation=${encodeURIComponent(conversation.id)}`}>{conversation.contactName}</Link></h3>
             <p>{channelLabel(conversation.channel)} · {conversation.status} · {conversation.unreadCount} sin leer</p>
+            <ConversationActivity at={conversation.lastActivityAt} />
             <p>{conversation.link ? `Cliente vinculado${conversation.link.tattooCaseId ? " y caso vinculado" : ""}` : "Sin vincular"}</p>
           </article>
         ))}
@@ -49,6 +50,15 @@ export default function OwnerConversations() {
       </section> : null}
     </main>
   );
+}
+
+export function ConversationActivity({ at }: { at: string }) {
+  return <p>Última actividad: <time dateTime={at}>{at}</time></p>;
+}
+
+export function ErrorBoundary() {
+  useRouteError();
+  return <main className="status-page"><p className="eyebrow">Inkendar</p><h1>Conversaciones no disponibles</h1><p>No se pudo cargar la bandeja del estudio.</p></main>;
 }
 
 function channelLabel(channel: LinkedConversationSummary["channel"]): string {

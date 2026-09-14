@@ -125,7 +125,15 @@ begin
   where studio_id = p_studio_id
     and provider = p_provider
     and external_account_id = p_external_account_id
-    and external_conversation_id = p_external_conversation_id;
+    and external_conversation_id = p_external_conversation_id
+    and (
+      last_activity_at is null
+      or p_occurred_at > last_activity_at
+      or (
+        p_occurred_at = last_activity_at
+        and p_external_message_id::numeric > coalesce(last_external_message_id, '0')::numeric
+      )
+    );
 
   return 'ACCEPTED';
 end;

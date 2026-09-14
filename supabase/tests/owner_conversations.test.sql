@@ -1,6 +1,6 @@
 begin;
 
-select plan(32);
+select plan(34);
 
 select has_table('public', 'conversation_link', 'conversation links exist');
 select has_table('public', 'conversation_webhook_receipt', 'webhook receipts exist');
@@ -88,6 +88,15 @@ select results_eq(
   $$ select last_external_message_id, last_activity_at from public.conversation_link where id = '80000000-0000-0000-0000-000000000011' $$,
   $$ values ('84'::text, '2026-09-14T10:00:00Z'::timestamptz) $$,
   'duplicate does not update the linked conversation twice'
+);
+select is(
+  public.ingest_conversation_webhook('20000000-0000-0000-0000-000000000001', 'chatwoot', 'delivery-old', 'message_created', '3', '7', '42', '83', '2026-09-14T09:00:00Z'),
+  'ACCEPTED', 'an out-of-order authentic delivery is recorded'
+);
+select results_eq(
+  $$ select last_external_message_id, last_activity_at from public.conversation_link where id = '80000000-0000-0000-0000-000000000011' $$,
+  $$ values ('84'::text, '2026-09-14T10:00:00Z'::timestamptz) $$,
+  'an older delivery cannot move linked activity backwards'
 );
 select throws_ok(
   $$ insert into public.conversation_webhook_receipt (studio_id, provider, delivery_id, event_name, external_account_id, external_inbox_id, external_conversation_id, external_message_id, occurred_at) values ('20000000-0000-0000-0000-000000000001', 'chatwoot', 'delivery-1', 'message_created', '3', '7', '42', '84', now()) $$,

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   ConversationCannotReplyError,
   ConversationCaseCustomerMismatchError,
+  ConversationCustomerNotFoundError,
   createConversationsService,
   type ConversationLinksRepositoryPort,
   type ConversationProviderPort,
@@ -86,6 +87,19 @@ describe("conversations service", () => {
     const service = createConversationsService({ ...deps, externalAccountId: "3" });
 
     await expect(service.link(studioId, { conversationId: "42", customerId, tattooCaseId: caseId })).rejects.toBeInstanceOf(ConversationCaseCustomerMismatchError);
+    expect(deps.links.saveLink).not.toHaveBeenCalled();
+  });
+
+  it("rejects lookup results that do not match the authorized tenant", async () => {
+    const deps = dependencies();
+    vi.mocked(deps.customerCases.findCustomer).mockResolvedValueOnce({
+      id: customerId,
+      studioId: "20000000-0000-4000-8000-000000000002",
+    });
+    const service = createConversationsService({ ...deps, externalAccountId: "3" });
+
+    await expect(service.link(studioId, { conversationId: "42", customerId })).rejects.toBeInstanceOf(ConversationCustomerNotFoundError);
+    expect(deps.provider.getConversation).not.toHaveBeenCalled();
     expect(deps.links.saveLink).not.toHaveBeenCalled();
   });
 
