@@ -16,7 +16,7 @@ _La visión general se conserva aquí. La fuente de verdad para el alcance vendi
 - El owner gestiona la galería general y las imágenes por artista; se publican tanto en webs creadas por Incamdi como en webs existentes mediante un componente o feed.
 - Supabase Cloud será la base multi-tenant; WhatsApp queda fuera del MVP.
 - Precio provisional interno: 149 €/mes, 690 € de implantación y 99 €/mes durante seis meses para pilotos.
-- Web e Instagram pasaron la prueba bidireccional; Facebook está conectado pero pendiente de prueba final; la PWA, Supabase y Google Calendar aún no están implementados.
+- Web e Instagram pasaron la prueba bidireccional; Facebook está conectado pero pendiente de prueba final. La PWA/autenticación y Supabase superaron sus gates técnicos; OAuth, listado y asignación de Google Calendar están `DONE` con evidencia live local, mientras FreeBusy continúa `IN_PROGRESS`.
 
 Las secciones posteriores conservan la visión amplia y capacidades candidatas. Su alcance y orden de entrega quedan subordinados a la [especificación vigente](docs/product/sellable-mvp-spec.md).
 
