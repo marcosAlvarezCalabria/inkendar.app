@@ -38,7 +38,9 @@ Una coincidencia parcial es una colisión/mismatch y falla cerrada. Un payload m
 
 ## OAuth incremental y recuperación pública
 
-La autorización añade `https://www.googleapis.com/auth/calendar.events` a los scopes existentes y conserva `include_granted_scopes=true`. Una concesión antigua sin este scope no llama Events ni FreeBusy: deja la selección pendiente y pide al estudio reconectar. La reconexión conserva la asignación existente.
+La autorización añade `https://www.googleapis.com/auth/calendar.events` a los scopes existentes y conserva `include_granted_scopes=true`. El claim exige antes de fijar o renovar una operación una conexión `ACTIVE`, refresh token y los dos scopes operativos `calendar.events.freebusy` y `calendar.events`; `calendar.calendarlist.readonly` se conserva como parte de la concesión incremental. Una concesión antigua sin cualquiera de los scopes operativos no llama Events ni FreeBusy: deja la selección pendiente y pide al estudio reconectar. La reconexión conserva la asignación existente.
+
+Si ya existe una operación durable y la conexión pierde cualquiera de esos scopes, el claim devuelve `RECONNECT_REQUIRED` sin renovar el lease ni modificar `READY`, `INSERTING` o el binding original. Una reconexión posterior recupera exactamente esa operación; nunca consulta de nuevo la asignación mutable para `beginInsert`.
 
 El listado mantiene metadata de todos los roles conocidos, incluido `writerWithoutPrivateAccess`, pero una asignación apta para confirmaciones privadas solo puede guardarse con `writer` u `owner`. Las asignaciones históricas sin capacidad probada se muestran como incompatibles, no se usan para un claim inicial y deben guardarse de nuevo eligiendo un calendario apto.
 
@@ -130,7 +132,19 @@ And la UI comunica de forma segura que el horario requiere revisión
 ```
 
 ```gherkin
-Given una concesión antigua sin calendar.events o un refresh invalid_grant
+Given una conexión ACTIVE con token y asignación writer u owner
+But la concesión carece de calendar.events.freebusy o calendar.events
+When se intenta reclamar una confirmación nueva
+Then el resultado es RECONNECT_REQUIRED
+And no se crea operación, lease ni binding
+
+Given una operación durable cuyo binding ya fue fijado
+But la concesión actual carece de cualquiera de los dos scopes operativos
+When se reintenta después de vencer el lease
+Then el resultado es RECONNECT_REQUIRED
+And lease, estado y binding permanecen idénticos
+
+Given una concesión antigua sin cualquiera de los scopes operativos o un refresh invalid_grant
 When se intenta confirmar
 Then la opción seleccionada y su enlace se conservan
 And se exige reconexión sin afirmar confirmación
@@ -156,6 +170,6 @@ And la disponibilidad conserva una exclusión local inmutable además de observa
 
 ## Evidencia y gates
 
-La evidencia anterior quedó obsoleta tras los defectos encontrados en revisión. Esta vuelta demostró RED funcional para la carrera `create_booking_offer`/`beginInsert`: la selección previa no se materializaba, un begin atrasado aún cruzaba el fence y quedaban dos holds. Después pasó el gate local completo con 314 pruebas Vitest (más una integración omitida), lint, typecheck y build, y 420 aserciones pgTAP sobre la base local migrada forward-only; el lint SQL no encontró errores. `scripts/booking-confirmation-races.integration.ps1` pasó con dos conexiones reales los cuatro órdenes begin/create y begin/expiry, `lock_timeout=8s`, `statement_timeout=9s`, sin deadlock y con cleanup sintético. Revisión de integración y CI siguen pendientes, por lo que el estado no avanza a `DONE`.
+La evidencia anterior quedó obsoleta tras los defectos encontrados en revisión. Las vueltas de corrección demostraron RED funcional tanto para la carrera `create_booking_offer`/`beginInsert` como para el claim con `calendar.events` pero sin `calendar.events.freebusy`: este último creaba una operación nueva y renovaba el lease de una operación existente. Después pasó el gate local completo con 314 pruebas Vitest (más una integración omitida), lint, typecheck y build, y 442 aserciones pgTAP sobre la base local migrada forward-only; el lint SQL no encontró errores. `scripts/booking-confirmation-races.integration.ps1` volvió a pasar con dos conexiones reales los cuatro órdenes begin/create y begin/expiry, `lock_timeout=8s`, `statement_timeout=9s`, sin deadlock y con cleanup sintético. Revisión de integración y CI siguen pendientes, por lo que el estado no avanza a `DONE`.
 
 No se usaron credenciales ni cuenta Google y no se ejecutó una prueba live. Revisión, integración/CI, Google Events live y el recorrido extremo a extremo permanecen `IN_PROGRESS`.
