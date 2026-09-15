@@ -4,6 +4,7 @@ export default [
   index("routes/home.tsx"),
   route("login", "routes/login.tsx"),
   route("logout", "routes/logout.tsx"),
+  route("offers/:token", "routes/public-offer.tsx"),
   route("app", "routes/app.tsx"),
   route("app/owner", "routes/owner.tsx"),
   route("app/owner/conversations", "routes/owner-conversations.tsx"),
