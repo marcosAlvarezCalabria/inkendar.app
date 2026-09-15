@@ -48,4 +48,3 @@ language plpgsql stable security definer set search_path='' as $$ begin
 end $$;
 revoke all on function public.save_artist_availability_rules(uuid,uuid,uuid,text,integer,integer,integer,jsonb), public.get_artist_availability_configuration(uuid,uuid,uuid) from public,anon,authenticated;
 grant execute on function public.save_artist_availability_rules(uuid,uuid,uuid,text,integer,integer,integer,jsonb), public.get_artist_availability_configuration(uuid,uuid,uuid) to service_role;
-

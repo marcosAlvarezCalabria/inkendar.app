@@ -4,6 +4,7 @@ export type AvailabilityRules = Readonly<{ timeZone: string; windows: readonly W
 export type BusyInterval = Readonly<{ startUtc: string; endUtc: string }>;
 export type AvailabilitySlot = Readonly<{ startUtc: string; endUtc: string; startLocal: string; endLocal: string }>;
 type CivilDate = Readonly<{ year: number; month: number; day: number }>;
+const MAX_CIVIL_GAP_MINUTES = 24 * 60;
 
 export class InvalidAvailabilityInputError extends Error {
   readonly code = "INVALID_AVAILABILITY_INPUT";
@@ -50,7 +51,7 @@ export function validateRules(rules: AvailabilityRules): void {
 
 function resolveBoundary(date: CivilDate, clockValue: string, timeZone: string, preference: "EARLIEST" | "LATEST"): number {
   let localSerial = Date.UTC(date.year, date.month - 1, date.day, ...clockValue.split(":").map(Number) as [number, number]);
-  for (let shifted = 0; shifted <= 180; shifted += 1, localSerial += 60_000) {
+  for (let shifted = 0; shifted <= MAX_CIVIL_GAP_MINUTES; shifted += 1, localSerial += 60_000) {
     const shiftedDate = new Date(localSerial);
     const matches = matchingInstants({ year: shiftedDate.getUTCFullYear(), month: shiftedDate.getUTCMonth() + 1, day: shiftedDate.getUTCDate() }, `${pad(shiftedDate.getUTCHours())}:${pad(shiftedDate.getUTCMinutes())}`, timeZone);
     if (matches.length > 0) return preference === "EARLIEST" ? matches[0]! : matches.at(-1)!;

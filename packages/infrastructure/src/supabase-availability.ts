@@ -15,5 +15,3 @@ function array(v:unknown):unknown[]{if(!Array.isArray(v))throw new Error("Availa
 
 
 export function createSupabaseAvailabilityRepository(environment:Record<string,string|undefined>,ownerUserId:string):SupabaseAvailabilityRepository { const url=environment.SUPABASE_URL?.trim(),key=environment.SUPABASE_SERVICE_ROLE_KEY?.trim(); if(!url||!key)throw new Error("Availability persistence failed"); const client=createClient(url,key,{auth:{autoRefreshToken:false,persistSession:false}}); return new SupabaseAvailabilityRepository(new SupabaseAvailabilityGateway(async(name,parameters)=>{const {data,error}=await client.rpc(name,parameters);return {data,error};}),ownerUserId); }
-
-
