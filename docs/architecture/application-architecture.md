@@ -112,7 +112,7 @@ La disponibilidad carga mediante RPC únicamente holds `HELD` de ofertas `OPEN` 
 
 ### Acceso público de solo lectura a ofertas
 
-_Estado técnico del slice: `IN_PROGRESS`; implementación y validación local completas, pendientes de revisión independiente y CI. No existe selección ni evidencia live._
+_Estado técnico del slice: `DONE`; el PR #16 y el CI posterior al merge verificaron código, build, migraciones limpias, pgTAP y Auth/RLS con datos sintéticos. No existe selección ni evidencia live._
 
 El OWNER emite o rota mediante `POST` same-origin una credencial base64url de 32 bytes para una oferta `OPEN` vigente de su tenant. Aplicación recibe reloj, aleatoriedad y SHA-256 por dependencias; solo el hash llega a una tabla tenant-safe inaccesible al browser. Dos RPCs `SECURITY DEFINER`, con `search_path` vacío y ejecución exclusiva de `service_role`, rotan el hash bajo autorización OWNER y resuelven una vista pública mínima. `/offers/:token` compone persistencia solo tras validar la forma canónica, no redirige y devuelve exclusivamente caducidad, nombre del artista, zona opcional y uno a tres intervalos `HELD`, con no-store/no-referrer y errores uniformes. Selección, confirmación, Google Events y notificaciones permanecen fuera.
 
