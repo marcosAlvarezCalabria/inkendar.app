@@ -1,6 +1,6 @@
 # Contrato técnico: confirmación recuperable con Google Calendar
 
-_Estado técnico: `IN_PROGRESS` (candidato local). El candidato incorpora exclusión mutua externa, binding durable, ACL privada, CAS de credencial y recuperación de `INSERTING` después de la caducidad original. Integración/CI y la prueba live de Google Events y del booking extremo a extremo permanecen `IN_PROGRESS`._
+_Estado técnico: `IN_PROGRESS` (candidato local). El candidato incorpora exclusión mutua externa, binding durable, ACL privada, CAS de credencial, recuperación de `INSERTING` después de la caducidad original y serialización con la creación posterior de ofertas. Integración/CI y la prueba live de Google Events y del booking extremo a extremo permanecen `IN_PROGRESS`._
 
 ## Necesidad y alcance
 
@@ -97,6 +97,16 @@ And si existe y coincide puede finalizar CONFIRMED aunque haya pasado expires_at
 ```
 
 ```gherkin
+Given una selección READY cuyo plazo vence mientras otro worker intenta beginInsert
+When una creación posterior solicita un intervalo solapado
+Then create_booking_offer conserva primero el lock advisory del artista
+And materializa bajo locks offer→operation las ofertas vencidas en orden de ID
+And si beginInsert ganó, observa INSERTING y rechaza el nuevo intervalo con 23P01
+And si la creación ganó, expira y libera la selección previa antes de crear y beginInsert devuelve false aunque conserve un p_now anterior
+And ambos órdenes terminan antes de 10 segundos sin deadlock
+```
+
+```gherkin
 Given que el calendario del artista cambia de A a B después del claim
 When se recupera una confirmación ambigua
 Then Events.get usa siempre la conexión y el calendario A fijados
@@ -146,6 +156,6 @@ And la disponibilidad conserva una exclusión local inmutable además de observa
 
 ## Evidencia y gates
 
-La evidencia anterior quedó obsoleta tras los defectos encontrados en revisión. El candidato demostró RED para doble inserción, destino mutable, rol privado insuficiente, `invalid_grant` tardío, reset inseguro de `INSERTING` y, en esta vuelta, expiración/liberación incorrecta de una operación `INSERTING` y copy público con una fecha límite ya vencida. Después pasó las 5 pruebas enfocadas de UI, el gate local completo con 314 pruebas Vitest (más una integración omitida), lint, typecheck y build, y 406 aserciones pgTAP sobre la base local migrada forward-only. El lint SQL no encontró errores. Revisión de integración y CI siguen pendientes, por lo que el estado no avanza a `DONE`.
+La evidencia anterior quedó obsoleta tras los defectos encontrados en revisión. Esta vuelta demostró RED funcional para la carrera `create_booking_offer`/`beginInsert`: la selección previa no se materializaba, un begin atrasado aún cruzaba el fence y quedaban dos holds. Después pasó el gate local completo con 314 pruebas Vitest (más una integración omitida), lint, typecheck y build, y 420 aserciones pgTAP sobre la base local migrada forward-only; el lint SQL no encontró errores. `scripts/booking-confirmation-races.integration.ps1` pasó con dos conexiones reales los cuatro órdenes begin/create y begin/expiry, `lock_timeout=8s`, `statement_timeout=9s`, sin deadlock y con cleanup sintético. Revisión de integración y CI siguen pendientes, por lo que el estado no avanza a `DONE`.
 
 No se usaron credenciales ni cuenta Google y no se ejecutó una prueba live. Revisión, integración/CI, Google Events live y el recorrido extremo a extremo permanecen `IN_PROGRESS`.
