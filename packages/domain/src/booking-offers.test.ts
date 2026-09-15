@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   InvalidBookingOfferInputError,
+  InvalidPublicBookingOptionSelectorError,
   InvalidPublicBookingOfferTokenError,
   PUBLIC_BOOKING_OFFER_TOKEN_BYTES,
   bookingOfferExpiry,
   encodePublicBookingOfferToken,
   normalizePublicBookingOfferHash,
+  normalizePublicBookingOptionSelector,
   normalizePublicBookingOfferToken,
   validateBookingOptions,
 } from "./booking-offers.js";
@@ -63,5 +65,20 @@ describe("booking offer domain", () => {
     expect(normalizePublicBookingOfferHash(hash)).toBe(hash);
     expect(() => normalizePublicBookingOfferHash(hash.toUpperCase())).toThrow(InvalidPublicBookingOfferTokenError);
     expect(() => normalizePublicBookingOfferHash("a".repeat(63))).toThrow(InvalidPublicBookingOfferTokenError);
+  });
+
+  it("accepts only a canonical lowercase UUID v4 public option selector", () => {
+    const selector = "a0000000-0000-4000-8000-000000000001";
+    expect(normalizePublicBookingOptionSelector(selector)).toBe(selector);
+  });
+
+  it.each([
+    "90000000-0000-0000-0000-000000000001",
+    "A0000000-0000-4000-8000-000000000001",
+    "a0000000-0000-3000-8000-000000000001",
+    "a0000000-0000-4000-7000-000000000001",
+    " a0000000-0000-4000-8000-000000000001",
+  ])("rejects internal-looking or non-canonical public option selectors", (selector) => {
+    expect(() => normalizePublicBookingOptionSelector(selector)).toThrow(InvalidPublicBookingOptionSelectorError);
   });
 });
