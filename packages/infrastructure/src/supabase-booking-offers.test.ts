@@ -31,3 +31,14 @@ describe("Supabase booking offer repository", () => {
     await expect(new SupabaseBookingOfferRepository(data, ownerId).createOffer({ studioId, tattooCaseId: "70000000-0000-4000-8000-000000000001", artistProfileId: "50000000-0000-4000-8000-000000000001", options: [{ startUtc: "2026-09-16T09:00:00.000Z", endUtc: "2026-09-16T10:00:00.000Z" }], nowUtc: "2026-09-15T10:00:00.000Z" })).rejects.toBeInstanceOf(BookingHoldConflictError);
   });
 });
+
+  it("maps the selected-pending-confirmation offer and chosen option without calling it confirmed", async () => {
+    const data = gateway();
+    vi.mocked(data.getManagement).mockResolvedValueOnce({ data: { expiry_hours: 24, cases: [], artists: [], offers: [{ id: "90000000-0000-4000-8000-000000000001", tattoo_case_id: "70000000-0000-4000-8000-000000000001", artist_profile_id: "50000000-0000-4000-8000-000000000001", status: "SELECTED_PENDING_CONFIRMATION", expires_at: "2026-09-16T10:00:00.000Z", created_at: "2026-09-15T10:00:00.000Z", options: [{ id: "91000000-0000-4000-8000-000000000001", start_at: "2026-09-20T09:00:00.000Z", end_at: "2026-09-20T10:00:00.000Z", status: "SELECTED" }] }] }, error: null });
+
+    const result = await new SupabaseBookingOfferRepository(data, ownerId).getManagement(studioId);
+
+    expect(result.offers[0]?.status).toBe("SELECTED_PENDING_CONFIRMATION");
+    expect(result.offers[0]?.options[0]?.status).toBe("SELECTED");
+    expect(JSON.stringify(result)).not.toContain("CONFIRMED");
+  });

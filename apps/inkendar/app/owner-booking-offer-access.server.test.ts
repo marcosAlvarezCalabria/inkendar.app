@@ -9,7 +9,7 @@ const token = "A".repeat(43);
 describe("owner public booking offer access", () => {
   it("returns a newly issued path URL only in the same-origin POST response without redirecting", async () => {
     const issue = vi.fn(async () => ({ token, expiresAt: "2026-09-16T10:00:00.000Z" }));
-    const createAccessService = vi.fn(() => ({ issue, getPublic: vi.fn() }));
+    const createAccessService = vi.fn(() => ({ issue, getPublic: vi.fn(), selectPublic: vi.fn() }));
     const createService = vi.fn();
     const handlers = createOwnerBookingOfferHandlers({ authorize: async () => ({ access, headers: new Headers() }), createService, createAccessService });
     const form = new FormData();

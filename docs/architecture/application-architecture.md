@@ -106,15 +106,17 @@ El dominio enumera los días civiles IANA que intersectan el rango UTC y resuelv
 
 _Estado técnico del slice: `DONE`; el PR #14 y el CI posterior al merge verificaron código, build, migraciones limpias, pgTAP y Auth/RLS con datos sintéticos. No existe evidencia live._
 
-El módulo de booking introduce `BookingOfferRepositoryPort` y un reloj inyectable en aplicación. Supabase conserva el plazo positivo por estudio —24 horas por defecto—, ofertas `OPEN | EXPIRED` y opciones `HELD | RELEASED`. RPCs `SECURITY DEFINER` exclusivas de `service_role` validan OWNER, tenant, caso `OPEN` y artista, y crean de una a tres opciones en una transacción serializada por estudio/artista para rechazar holds solapados.
+El módulo de booking introduce `BookingOfferRepositoryPort` y un reloj inyectable en aplicación. Supabase conserva el plazo positivo por estudio —24 horas por defecto—, ofertas `OPEN | SELECTED_PENDING_CONFIRMATION | EXPIRED` y opciones `HELD | SELECTED | RELEASED`. RPCs `SECURITY DEFINER` exclusivas de `service_role` validan OWNER, tenant, caso `OPEN` y artista, y crean de una a tres opciones en una transacción serializada por estudio/artista para rechazar holds solapados, incluida una selección pendiente vigente.
 
-La disponibilidad carga mediante RPC únicamente holds `HELD` de ofertas `OPEN` cuyo `expires_at` continúa en el futuro y los combina con `freeBusy`. La expiración materializa de forma atómica e idempotente la oferta y todas sus opciones. El panel SSR OWNER usa mutaciones same-origin; selección pública, elección libre, confirmación, eventos Google, notificaciones y scheduler permanecen fuera.
+La disponibilidad carga mediante RPC los holds `HELD` de ofertas `OPEN` y el único `SELECTED` de ofertas `SELECTED_PENDING_CONFIRMATION` cuyo `expires_at` continúa en el futuro, y los combina con `freeBusy`. La expiración materializa de forma atómica e idempotente ambos estados y libera todas sus opciones. El panel SSR OWNER usa mutaciones same-origin; elección libre, confirmación, eventos Google, notificaciones y scheduler permanecen fuera.
 
-### Acceso público de solo lectura a ofertas
+### Acceso y selección pública de ofertas
 
-_Estado técnico del slice: `DONE`; el PR #16 y el CI posterior al merge verificaron código, build, migraciones limpias, pgTAP y Auth/RLS con datos sintéticos. No existe selección ni evidencia live._
+_Estado técnico del acceso de solo lectura: `DONE`. Estado técnico de la selección: `IN_PROGRESS`, con implementación local pendiente de revisión independiente y CI. No existe evidencia live._
 
-El OWNER emite o rota mediante `POST` same-origin una credencial base64url de 32 bytes para una oferta `OPEN` vigente de su tenant. Aplicación recibe reloj, aleatoriedad y SHA-256 por dependencias; solo el hash llega a una tabla tenant-safe inaccesible al browser. Dos RPCs `SECURITY DEFINER`, con `search_path` vacío y ejecución exclusiva de `service_role`, rotan el hash bajo autorización OWNER y resuelven una vista pública mínima. `/offers/:token` compone persistencia solo tras validar la forma canónica, no redirige y devuelve exclusivamente caducidad, nombre del artista, zona opcional y uno a tres intervalos `HELD`, con no-store/no-referrer y errores uniformes. Selección, confirmación, Google Events y notificaciones permanecen fuera.
+El OWNER emite o rota mediante `POST` same-origin una credencial base64url de 32 bytes para una oferta `OPEN` vigente de su tenant. Aplicación recibe reloj, aleatoriedad y SHA-256 por dependencias; solo el hash llega a una tabla tenant-safe inaccesible al browser. RPCs `SECURITY DEFINER`, con `search_path` vacío y ejecución exclusiva de `service_role`, rotan el hash bajo autorización OWNER y resuelven una vista pública mínima. `/offers/:token` compone persistencia solo tras validar formas canónicas y conserva no-store/no-referrer, errores uniformes y ausencia de redirects.
+
+Cada opción usa un UUID v4 público separado de su ID. El GET abierto entrega ese selector y el intervalo; el POST same-origin acepta exclusivamente un selector en un cuerpo acotado. La RPC de selección bloquea la oferta resuelta por hash: la primera elección conserva una opción `SELECTED`, libera las alternativas y mueve la oferta a `SELECTED_PENDING_CONFIRMATION`; la misma elección es idempotente y una competidora no sustituye a la ganadora. El GET posterior expone solo el intervalo elegido como `SELECTION_PENDING_CONFIRMATION`. Confirmación, Google Events y notificaciones permanecen fuera.
 
 ## 2. Alternativas consideradas
 
@@ -317,3 +319,4 @@ La recomendación añade un backend propio delgado, pero concentra allí autoriz
 | 2026-09-15 | Disponibilidad semanal por artista y FreeBusy incremental | Generar candidatos tenant-safe sin leer eventos ni anticipar ofertas, holds o booking. |
 | 2026-09-15 | Ofertas preaprobadas y holds tenant-safe con caducidad configurable | Reservar provisionalmente opciones y excluirlas de disponibilidad sin acoplar selección, eventos, confirmación ni notificaciones. |
 | 2026-09-15 | Acceso público hash-only de solo lectura a ofertas vigentes | Mostrar opciones reservadas provisionalmente mediante una credencial rotatoria sin exponer datos del cliente/caso ni anticipar selección o confirmación. |
+| 2026-09-15 | Selección pública atómica con selector por opción y estado pendiente de confirmación | Registrar una única elección preaprobada, conservar su hold y liberar alternativas sin exponer IDs ni afirmar una cita antes de Google Events. |

@@ -67,4 +67,4 @@ And la autorización transaccional de Postgres rechaza el tenant ajeno
 
 ## Fuera de alcance
 
-No incluye selección o escritura pública, elección libre, aprobación owner, revalidación Google, creación o borrado de eventos, confirmación de cita, notificaciones, scheduler ni pruebas live. Tampoco introduce contacto con el cliente, auditoría nueva ni afirma que ninguna cita esté confirmada.
+Este slice original no incluye selección o escritura pública. El corte posterior [selección pública](public-offer-selection-slice.md) añade una única elección preaprobada pendiente de confirmación; elección libre, aprobación owner, revalidación Google, creación o borrado de eventos, confirmación de cita, notificaciones, scheduler y pruebas live permanecen fuera. Ningún corte afirma todavía una cita confirmada.

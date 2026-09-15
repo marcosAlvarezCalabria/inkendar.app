@@ -2,8 +2,8 @@ import { normalizeBookingResourceId, validateBookingExpiryHours, validateBooking
 
 export { InvalidBookingOfferInputError } from "@inkendar/domain";
 
-export type BookingOfferStatus = "OPEN" | "EXPIRED";
-export type BookingOptionStatus = "HELD" | "RELEASED";
+export type BookingOfferStatus = "OPEN" | "SELECTED_PENDING_CONFIRMATION" | "EXPIRED";
+export type BookingOptionStatus = "HELD" | "SELECTED" | "RELEASED";
 export type BookingOfferOption = BookingOptionDraft & Readonly<{ id: string; status: BookingOptionStatus }>;
 export type BookingOffer = Readonly<{ id: string; studioId: string; tattooCaseId: string; artistProfileId: string; status: BookingOfferStatus; expiresAt: string; createdAt: string; options: readonly BookingOfferOption[] }>;
 export type BookingOfferCase = Readonly<{ id: string; summary: string; artistProfileId: string | null }>;

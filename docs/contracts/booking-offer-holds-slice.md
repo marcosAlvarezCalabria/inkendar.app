@@ -54,4 +54,4 @@ And las claves foráneas y los RPCs impiden relaciones entre tenants
 
 ## Fuera de alcance
 
-Este slice original no incluye enlace público ni selección del cliente. El corte posterior [acceso público de solo lectura](public-offer-access-slice.md) añade únicamente emisión/rotación y consulta; elección libre, aprobación, revalidación final contra Google, creación o borrado de eventos, confirmación de cita, notificaciones y scheduler continúan fuera. Tampoco declara ejecutada ninguna prueba live.
+Este slice original no incluye enlace público ni selección del cliente. El corte posterior [acceso público de solo lectura](public-offer-access-slice.md) añade emisión/rotación y consulta; [selección pública](public-offer-selection-slice.md) amplía estados para conservar una única opción elegida como hold pendiente. Elección libre, aprobación, revalidación final contra Google, creación o borrado de eventos, confirmación de cita, notificaciones y scheduler continúan fuera. Tampoco declara ejecutada ninguna prueba live.

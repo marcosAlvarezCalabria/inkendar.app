@@ -14,7 +14,13 @@ export class InvalidPublicBookingOfferTokenError extends Error {
   constructor() { super("Public booking offer token is invalid"); this.name = "InvalidPublicBookingOfferTokenError"; }
 }
 
+export class InvalidPublicBookingOptionSelectorError extends Error {
+  readonly code = "INVALID_PUBLIC_BOOKING_OPTION_SELECTOR";
+  constructor() { super("Public booking option selector is invalid"); this.name = "InvalidPublicBookingOptionSelectorError"; }
+}
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+const PUBLIC_OPTION_SELECTOR_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const PUBLIC_TOKEN_PATTERN = /^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/u;
 const SHA_256_HEX_PATTERN = /^[0-9a-f]{64}$/u;
 const BASE64URL_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
@@ -73,6 +79,11 @@ export function normalizePublicBookingOfferToken(value: string): string {
 
 export function normalizePublicBookingOfferHash(value: string): string {
   if (!SHA_256_HEX_PATTERN.test(value)) invalidPublicToken();
+  return value;
+}
+
+export function normalizePublicBookingOptionSelector(value: string): string {
+  if (!PUBLIC_OPTION_SELECTOR_PATTERN.test(value)) throw new InvalidPublicBookingOptionSelectorError();
   return value;
 }
 
