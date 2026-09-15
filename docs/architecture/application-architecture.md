@@ -120,7 +120,7 @@ Cada opción usa un UUID v4 público separado de su ID. El GET abierto entrega e
 
 ### Confirmación recuperable con Google Events
 
-_Estado técnico del slice: candidato local `IN_PROGRESS`; requiere revisión, integración y CI. Google Events live y booking extremo a extremo permanecen `IN_PROGRESS`._
+_Estado técnico del slice: `DONE`; el PR #20 y el CI posterior al merge verificaron código, build, migraciones limpias, pgTAP y Auth/RLS con datos sintéticos. Google Events live y booking extremo a extremo permanecen `IN_PROGRESS`._
 
 Aplicación deriva de la opción un `eventId` SHA-256/base32hex y una correlación privada separados. Una RPC de claim bloquea la oferta y, antes de crear o renovar una operación, exige la conexión fijada `ACTIVE`, token y los scopes `calendar.events.freebusy` y `calendar.events`; si falta alguno devuelve `RECONNECT_REQUIRED` sin tocar lease, estado ni binding. El claim inicial persiste antes de Google el tuple inmutable estudio/artista/oferta/opción/conexión/calendario/evento/correlación. Un lease `READY` puede recuperarse solo antes de `expires_at`; `beginInsert` bloquea primero la oferta y realiza el CAS único `READY → INSERTING`, serializado con la expiración y sin reconsultar la asignación mutable. A partir de `INSERTING`, incluso tras `expires_at`, crash o lease vencida, la selección y su exclusión permanecen recuperables y los siguientes workers reciben `RECONCILE_ONLY`: consultan `Events.get` pero nunca adquieren una segunda autoridad de insert.
 
