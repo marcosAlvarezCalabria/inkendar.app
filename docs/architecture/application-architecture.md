@@ -88,13 +88,19 @@ El webhook conserva HMAC-SHA256, frescura de cinco minutos, delivery ID, limite 
 
 ### Conexión Google Calendar
 
-_Estado técnico del slice: `DONE`; el recorrido con una cuenta Google real permanece `IN_PROGRESS`._
+_Estado técnico del slice: `DONE`; OAuth, listado y asignación live pasaron localmente el 2026-09-15 con owner sintético._
 
 El panel SSR OWNER inicia Authorization Code para aplicaciones web de servidor y recibe el callback fijo `/auth/google/callback`. El estado OAuth es aleatorio, ligado al estudio y usuario, expira y se consume una sola vez antes del exchange. La configuración, el cliente Google y `service_role` se componen de forma lazy después del guard OWNER. El redirect URI se valida contra los dos valores canónicos registrados y no se deriva de cabeceras del request.
 
 Aplicación depende de puertos para OAuth/Calendar y persistencia; infraestructura adapta los endpoints oficiales y Supabase. El refresh token se cifra con AES-256-GCM y una clave de entorno independiente. Las tablas de intentos, conexión y asignación no conceden acceso al browser; las mutaciones privilegiadas usan RPC `SECURITY DEFINER`, `search_path` vacío y ejecución exclusiva de `service_role`.
 
-Este corte pide solo `calendar.calendarlist.readonly` y lista metadata de calendarios sin leer eventos. `writerWithoutPrivateAccess`, `writer` y `owner` son asignables. Los futuros casos de uso solicitarán incrementalmente `calendar.events.freebusy` al consultar ocupación y `calendar.events` al crear citas. Una asignación referencia un único calendario por artista y exige artista, conexión activa y estudio coincidentes. `invalid_grant` al refrescar marca `REAUTH_REQUIRED`, conserva asignaciones y bloquea su gestión hasta reconectar; los fallos transitorios no mutan estado. Desconectar intenta revocar cualquier token retenido y después retira credenciales y asignaciones locales.
+El corte OAuth inicial pide solo `calendar.calendarlist.readonly` y lista metadata de calendarios sin leer eventos. `writerWithoutPrivateAccess`, `writer` y `owner` son asignables. El slice de disponibilidad añade incrementalmente `calendar.events.freebusy`; `calendar.events` permanece reservado para crear citas en un slice posterior. Una asignación referencia un único calendario por artista y exige artista, conexión activa y estudio coincidentes. `invalid_grant` al refrescar marca `REAUTH_REQUIRED`, conserva asignaciones y bloquea su gestión hasta reconectar; los fallos transitorios no mutan estado. Desconectar intenta revocar cualquier token retenido y después retira credenciales y asignaciones locales.
+
+### Disponibilidad por artista
+
+_Estado técnico del slice: `IN_PROGRESS` hasta validación completa/CI; la prueba live de FreeBusy sigue pendiente._
+
+El dominio enumera los días civiles IANA que intersectan el rango UTC y resuelve folds con inicio temprano/final tardío y gaps avanzando al primer minuto válido; genera slots desde reglas y busy UTC sin depender de Google ni Supabase. Aplicación coordina ArtistAvailabilityRepositoryPort y GoogleFreeBusyPort; infraestructura implementa FreeBusy y RPC owner-bound. Las asignaciones, reglas y conexión deben pertenecer al mismo estudio; títulos y descripciones de eventos no cruzan la frontera.
 
 ## 2. Alternativas consideradas
 
@@ -294,3 +300,4 @@ La recomendación añade un backend propio delgado, pero concentra allí autoriz
 | 2026-09-14 | pnpm 10.22.0 y un único lockfile para todos los workspaces | Unificar el toolchain con la landing y hacer reproducibles la instalación local y los dos jobs de CI. |
 | 2026-09-14 | Frontera de conversaciones OWNER, vínculo tenant-safe y webhook Chatwoot autenticado | Ocultar Chatwoot, conservarlo como fuente de mensajes y hacer observables/deduplicables los reintentos sin almacenar contenido. |
 | 2026-09-14 | OAuth Google server-side, token AEAD y calendario por artista | Preparar Calendar con privilegio mínimo, configuración lazy y aislamiento multi-tenant antes de implementar disponibilidad y eventos. |
+| 2026-09-15 | Disponibilidad semanal por artista y FreeBusy incremental | Generar candidatos tenant-safe sin leer eventos ni anticipar ofertas, holds o booking. |

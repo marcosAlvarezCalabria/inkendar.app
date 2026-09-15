@@ -1,12 +1,15 @@
 import { isRouteErrorResponse, Link, useActionData, useLoaderData, useRouteError, useSearchParams } from "react-router";
 import type { ArtistCalendarAssignment, GoogleCalendar, GoogleConnectionStatus } from "@inkendar/application";
+import type { AvailabilityRules } from "@inkendar/domain";
 import type { Route } from "./+types/owner-calendars";
 import { ownerGoogleCalendarHandlers } from "../owner-google-calendar.server.js";
+import { ownerAvailabilityHandlers } from "../owner-availability.server.js";
 
 type View = Readonly<{
   connectionStatus: GoogleConnectionStatus | "NOT_CONNECTED";
   calendars: readonly GoogleCalendar[];
   artists: readonly ArtistCalendarAssignment[];
+  availabilityByArtist: Readonly<Record<string, AvailabilityRules | null>>;
 }>;
 
 export function meta(): Route.MetaDescriptors { return [{ title: "Google Calendar | Inkendar" }]; }
@@ -14,18 +17,26 @@ export function headers() { return { "Cache-Control": "private, no-store" }; }
 export async function loader({ request }: Route.LoaderArgs) {
   const response = await ownerGoogleCalendarHandlers.loader(request);
   if (response.status >= 400) throw response;
-  return response;
+  const management = await response.json() as Omit<View, "availabilityByArtist">;
+  const availabilityUrl = new URL(request.url);
+  availabilityUrl.searchParams.delete("artistProfileId");
+  for (const artist of management.artists) availabilityUrl.searchParams.append("artistProfileId", artist.id);
+  const availabilityResponse = await ownerAvailabilityHandlers.loader(new Request(availabilityUrl, { headers: request.headers }));
+  if (availabilityResponse.status >= 400) throw availabilityResponse;
+  const availability = await availabilityResponse.json() as Pick<View, "availabilityByArtist">;
+  return Response.json({ ...management, ...availability }, { headers: response.headers });
 }
-export async function action({ request }: Route.ActionArgs) { return ownerGoogleCalendarHandlers.action(request); }
+export async function action({ request }: Route.ActionArgs) { return new URL(request.url).searchParams.get("availability") === "1" ? ownerAvailabilityHandlers.action(request) : ownerGoogleCalendarHandlers.action(request); }
 
 export default function OwnerCalendars() {
   const data = useLoaderData() as View;
-  const actionData = useActionData() as { error?: string } | undefined;
+  const actionData = useActionData() as { error?: string; saved?: boolean; slots?: readonly { startUtc:string; endUtc:string; startLocal:string; endLocal:string }[] } | undefined;
   const [params] = useSearchParams();
   return <main className="shell-page">
     <header className="section-header"><div><p className="eyebrow">Inkendar · Owner</p><h1>Google Calendar</h1></div><Link to="/app/owner">Volver al panel</Link></header>
     {actionData?.error ? <p className="form-error" role="alert">{actionData.error}</p> : null}
     <CalendarManagement data={data} result={params.get("result")} />
+    <AvailabilityManagement artists={data.artists} availabilityByArtist={data.availabilityByArtist} actionData={actionData} />
   </main>;
 }
 
@@ -40,7 +51,7 @@ export function ErrorBoundary() {
   </main>;
 }
 
-export function CalendarManagement({ data, result }: Readonly<{ data: View; result: string | null }>) {
+export function CalendarManagement({ data, result }: Readonly<{ data: Omit<View, "availabilityByArtist">; result: string | null }> ) {
   const writable = data.calendars.filter((calendar) => calendar.accessRole === "writer" || calendar.accessRole === "writerWithoutPrivateAccess" || calendar.accessRole === "owner");
   return <>
     {message(result) ? <p className="shell-panel" role="status">{message(result)}</p> : null}
@@ -86,3 +97,5 @@ function message(result: string | null): string | null {
   };
   return result ? messages[result] ?? null : null;
 }
+
+export function AvailabilityManagement({artists,availabilityByArtist,actionData}:Readonly<{artists:readonly ArtistCalendarAssignment[];availabilityByArtist:Readonly<Record<string, AvailabilityRules | null>>;actionData:{saved?:boolean;slots?:readonly {startUtc:string;endUtc:string;startLocal:string;endLocal:string}[]} | undefined}>) { return <section className="records" aria-labelledby="availability-title"><h2 id="availability-title">Disponibilidad semanal</h2><p>Configura ventanas como día (0 domingo–6 sábado), inicio y fin. La previsualización muestra candidatos; no confirma citas.</p>{actionData?.saved?<p role="status">Reglas guardadas.</p>:null}{artists.map(artist=><div className="shell-panel" key={`availability-${artist.id}`}><h3>{artist.displayName}</h3>{(()=>{const saved=availabilityByArtist[artist.id];return <form method="post" action="?availability=1" className="record-form"><input type="hidden" name="intent" value="save-availability"/><input type="hidden" name="artistProfileId" value={artist.id}/><label>Zona IANA<input name="timeZone" defaultValue={saved?.timeZone ?? "Europe/Madrid"} required/></label><label>Ventanas<textarea name="windows" defaultValue={saved ? saved.windows.map(window=>`${window.weekday},${window.start},${window.end}`).join("\n") : "1,09:00,14:00\n1,15:00,18:00"}/></label><label>Incremento (min)<input name="slotIncrementMinutes" type="number" min="5" max="240" defaultValue={saved?.slotIncrementMinutes ?? 30}/></label><label>Buffer antes<input name="bufferBeforeMinutes" type="number" min="0" max="240" defaultValue={saved?.bufferBeforeMinutes ?? 15}/></label><label>Buffer después<input name="bufferAfterMinutes" type="number" min="0" max="240" defaultValue={saved?.bufferAfterMinutes ?? 15}/></label><button type="submit">Guardar disponibilidad</button></form>})()}<form method="post" action="?availability=1" className="record-form"><input type="hidden" name="intent" value="preview-availability"/><input type="hidden" name="artistProfileId" value={artist.id}/><label>Desde (UTC)<input name="rangeStart" type="datetime-local" required/></label><label>Hasta (UTC)<input name="rangeEnd" type="datetime-local" required/></label><label>Duración (min)<input name="durationMinutes" type="number" min="15" max="480" defaultValue="60"/></label><button type="submit">Previsualizar huecos</button></form></div>)}{actionData?.slots?<ul>{actionData.slots.map(slot=><li key={slot.startUtc}>{slot.startLocal} – {slot.endLocal} ({slot.startUtc})</li>)}</ul>:null}</section>; }

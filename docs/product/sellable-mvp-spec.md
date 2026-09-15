@@ -2,7 +2,7 @@
 
 _Estado: especificación viva y fuente de verdad para alcance, comportamiento y progreso_
 
-_Versión: 1.7.2_
+_Versión: 1.8.0_
 
 _Última actualización: 2026-09-15_
 
@@ -52,7 +52,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | Flujo de entrega y CI | `PASS` | `main` exige PR, los checks `validate` y `database`, conversaciones resueltas e historial lineal; ambos jobs pasaron tras integrar el [PR #10](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/10) en el [run 34895446647](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34895446647). |
 | Memoria de agentes | `PASS` | Engram 1.20.0 guarda y recupera memoria del proyecto `inkendar.app`; Codex MCP está configurado y requiere reinicio para cargarlo en nuevos chats. |
 | Supabase y aislamiento multi-tenant | `PASS` | La migración, el seed sintético y las 38 aserciones pgTAP pasaron contra Supabase/Postgres real en GitHub Actions [run 34752758528](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34752758528). |
-| Google Calendar y booking | `IN_PROGRESS` | Contrato OAuth y asignación de calendarios por artista `DONE`: el [PR #10](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/10) pasó 188 pruebas, build, migración limpia y 34 aserciones pgTAP del slice en el [run 34894832675](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34894832675). Faltan evidencia live con Google, `freeBusy`, eventos, ofertas y booking. |
+| Google Calendar y booking | `IN_PROGRESS` | Contrato OAuth y asignación de calendarios por artista `DONE`: el [PR #10](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/10) pasó 188 pruebas, build, migración limpia y 34 aserciones pgTAP del slice en el [run 34894832675](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34894832675). OAuth, listado y asignación live pasaron localmente el 2026-09-15 con owner sintético. El contrato/implementación de FreeBusy está `IN_PROGRESS`; eventos, ofertas y booking siguen pendientes. |
 | Galería, portfolios y publicación web | `PLANNED` | No existe todavía el almacenamiento, feed público ni componente de integración. |
 | Piloto externo y disposición a pagar | `PLANNED` | No existe todavía evidencia de uso real autorizado ni pago. |
 
@@ -88,6 +88,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | 2026-09-14 | DEC-026 | `ACCEPTED` | El toolchain de `inkendar.app` usa pnpm 10.22.0, un workspace explícito y un único `pnpm-lock.yaml`; CI instala con lockfile congelado y caché de pnpm. | Unificar el gestor de paquetes con la landing y mantener instalaciones locales y remotas reproducibles sin cambiar la arquitectura ni el comportamiento del producto. |
 | 2026-09-14 | DEC-027 | `ACCEPTED` | El primer corte de conversaciones OWNER consulta Chatwoot bajo demanda detrás de `ConversationProviderPort`, pagina sin conexión como vacío privado, conserva vínculos, ingesta y operaciones outbound sin contenido en Supabase y autentica webhooks con firma HMAC, frescura y delivery ID idempotente. | Ocultar el proveedor, evitar copias divergentes de mensajes y conectar conversaciones con clientes/casos manteniendo aislamiento tenant y reintentos observables. |
 | 2026-09-14 | DEC-028 | `ACCEPTED` | La conexión Google usa Authorization Code web server, scope incremental `calendar.calendarlist.readonly`, refresh token cifrado con AES-256-GCM y persistencia/RPC exclusivas de `service_role`; cada artista puede tener un calendario de la conexión activa de su estudio. | Preparar disponibilidad y eventos con privilegio mínimo, secretos fuera del navegador y relaciones tenant-safe sin anticipar booking. |
+| 2026-09-15 | DEC-029 | `ACCEPTED` | La disponibilidad por artista usa reglas semanales IANA en Supabase y consulta incremental Google FreeBusy con `calendar.events.freebusy`; devuelve candidatos acotados sin leer eventos ni crear citas. | Previsualizar huecos con privilegio mínimo y límites tenant-safe antes de implementar eventos, ofertas o booking. |
 
 La arquitectura técnica está en [Arquitectura de aplicación](../architecture/application-architecture.md) y el proceso de entrega en [Flujo de desarrollo, revisión e integración](../development/delivery-workflow.md).
 
@@ -95,6 +96,7 @@ La arquitectura técnica está en [Arquitectura de aplicación](../architecture/
 
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
+| 2026-09-15 | 1.8.0 | Se implementó la configuración OWNER y previsualización técnica de disponibilidad con reglas IANA, FreeBusy incremental y límites de rango/duración; CI y prueba live FreeBusy siguen `IN_PROGRESS`. | Preparar candidatos sin afirmar ni crear citas y registrar por separado la evidencia live ya obtenida de OAuth/listado/asignación. |
 | 2026-09-15 | 1.7.2 | Se eliminó progreso duplicado de README y PRODUCT, se sincronizaron el piloto cero, Google y CI con los slices integrados, y se corrigió la separación ya completada de la landing. | Mantener esta especificación como única fuente de verdad sin resúmenes activos contradictorios ni alterar evidencia histórica. |
 | 2026-09-14 | 1.7.1 | El contrato técnico de Google OAuth y asignación de calendarios pasó a `DONE` tras verificar rutas SSR, migración limpia, 34 aserciones pgTAP, 188 pruebas y build; el recorrido live con Google continúa `IN_PROGRESS`. | Cerrar la implementación y la persistencia sin atribuir al CI una validación operativa contra el proveedor real. |
 | 2026-09-14 | 1.7.0 | Se fijó el contrato de conexión Google OAuth y asignación de un calendario por artista con estado `IN_PROGRESS`. | Habilitar la configuración mínima de Calendar antes de implementar disponibilidad, eventos y booking. |
