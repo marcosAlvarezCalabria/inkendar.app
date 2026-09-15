@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
-import { GOOGLE_CALENDAR_LIST_SCOPE, GOOGLE_FREE_BUSY_SCOPE, GoogleCalendarCredentialInvalidError, type GoogleCalendar, type GoogleCalendarAccessRole, type GoogleCalendarProviderPort, type GoogleOAuthSecurityPort, type GoogleTokenProtectorPort } from "@inkendar/application";
+import { GOOGLE_CALENDAR_EVENTS_SCOPE, GOOGLE_CALENDAR_LIST_SCOPE, GOOGLE_FREE_BUSY_SCOPE, GoogleCalendarCredentialInvalidError, type GoogleCalendar, type GoogleCalendarAccessRole, type GoogleCalendarProviderPort, type GoogleOAuthSecurityPort, type GoogleTokenProtectorPort } from "@inkendar/application";
 
 export { GoogleCalendarCredentialInvalidError } from "@inkendar/application";
 
@@ -86,7 +86,7 @@ export class GoogleCalendarHttpAdapter implements GoogleCalendarProviderPort {
       client_id: this.config.clientId,
       redirect_uri: this.config.redirectUri,
       response_type: "code",
-      scope: `${GOOGLE_CALENDAR_LIST_SCOPE} ${GOOGLE_FREE_BUSY_SCOPE}`,
+      scope: `${GOOGLE_CALENDAR_LIST_SCOPE} ${GOOGLE_FREE_BUSY_SCOPE} ${GOOGLE_CALENDAR_EVENTS_SCOPE}`,
       access_type: "offline",
       include_granted_scopes: "true",
       prompt: "consent",

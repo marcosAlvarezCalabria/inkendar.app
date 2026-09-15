@@ -32,6 +32,11 @@ export type PublicBookingOfferView =
   | PublicBookingOfferViewBase & Readonly<{
       state: "SELECTION_PENDING_CONFIRMATION";
       options: readonly BookingOptionDraft[];
+    }>
+  | PublicBookingOfferViewBase & Readonly<{
+      state: "CONFIRMED";
+      confirmedAt: string;
+      options: readonly BookingOptionDraft[];
     }>;
 
 export type SelectPublicBookingOfferRecord = Readonly<{ tokenHash: string; selector: string; nowUtc: string }>;

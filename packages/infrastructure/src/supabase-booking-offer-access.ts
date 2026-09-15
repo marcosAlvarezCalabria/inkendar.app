@@ -94,9 +94,9 @@ function createGateway(environment: Record<string, string | undefined>): Supabas
 
 function publicOffer(row: Record<string, unknown>): PublicBookingOfferView {
   const state = row.state;
-  if (state !== "OPEN" && state !== "SELECTION_PENDING_CONFIRMATION") publicFailed();
+  if (state !== "OPEN" && state !== "SELECTION_PENDING_CONFIRMATION" && state !== "CONFIRMED") publicFailed();
   const rawOptions = array(row.options);
-  if ((state === "OPEN" && (rawOptions.length < 1 || rawOptions.length > 3)) || (state === "SELECTION_PENDING_CONFIRMATION" && rawOptions.length !== 1)) publicFailed();
+  if ((state === "OPEN" && (rawOptions.length < 1 || rawOptions.length > 3)) || (state !== "OPEN" && rawOptions.length !== 1)) publicFailed();
   const base = {
     expiresAt: timestamp(row.expires_at),
     artistDisplayName: boundedString(row.artist_display_name, 120),
@@ -114,6 +114,7 @@ function publicOffer(row: Record<string, unknown>): PublicBookingOfferView {
     if ("selector" in option) publicFailed();
     return publicInterval(option);
   });
+  if (state === "CONFIRMED") return { ...base, state, confirmedAt: timestamp(row.confirmed_at), options };
   return { ...base, state, options };
 }
 

@@ -1,6 +1,6 @@
 # Contrato técnico: confirmación recuperable con Google Calendar
 
-_Estado técnico: `IN_PROGRESS`. El contrato está fijado antes del código de producción; la prueba live de Google Events y el booking extremo a extremo permanecen `IN_PROGRESS`._
+_Estado técnico: `DONE`. La implementación sintética local pasó 308 pruebas Vitest (una integración omitida de forma esperada), build y 49 aserciones pgTAP del slice dentro de 373; la revisión/integración y la prueba live de Google Events y del booking extremo a extremo permanecen `IN_PROGRESS`._
 
 ## Necesidad y alcance
 
@@ -14,7 +14,8 @@ Este slice empieza después de `SELECTED_PENDING_CONFIRMATION`. Revalida únicam
 - Opción: `HELD -> SELECTED -> CONFIRMED`; las alternativas pasan a `RELEASED`. La expiración solo libera `HELD` o `SELECTED`, nunca `CONFIRMED`.
 - Vista pública: `OPEN | SELECTION_PENDING_CONFIRMATION | CONFIRMED`. Solo `CONFIRMED` permite mostrar «Cita confirmada».
 - Google Calendar sigue siendo la fuente editable del evento confirmado y de su ocupación. Supabase conserva la relación de dominio, el identificador externo, la correlación opaca y el instante de confirmación; la opción elegida queda como evidencia histórica, no como una segunda agenda editable.
-- Después de confirmar, el intervalo deja de ser un hold local. La disponibilidad lo excluye por Google FreeBusy, no por dos fuentes activas.
+- Después de confirmar, el intervalo deja de ser un hold temporal, pero la opción histórica `CONFIRMED` continúa como exclusión conservadora ligada a la cita. Google sigue siendo la única agenda editable: Supabase no duplica fechas en `appointment` ni permite editar el intervalo por una segunda vía.
+- Esta defensa es deliberadamente más cerrada que depender solo de FreeBusy: si el evento se mueve o elimina fuera de Inkendar, el intervalo original permanece bloqueado hasta un futuro flujo explícito de reconciliación/cancelación. Evita reofertarlo durante una ambigüedad, a costa de poder requerir revisión manual.
 
 ## Identidad, evento y reconciliación
 
@@ -96,7 +97,7 @@ Given una cita ya finalizada
 When vence la caducidad original o se repite selección y confirmación
 Then la cita, oferta y opción continúan CONFIRMED
 And la reconciliación usa el mismo eventId sin duplicar ni sustituir
-And la disponibilidad depende del evento Google, no de un hold confirmado local
+And la disponibilidad conserva una exclusión local inmutable además de observar Google, sin crear una segunda agenda editable
 ```
 
 ## Fuentes oficiales verificadas el 2026-09-15
@@ -109,4 +110,6 @@ And la disponibilidad depende del evento Google, no de un hold confirmado local
 
 ## Evidencia y gates
 
-El gate técnico exige pruebas de dominio/aplicación, adaptadores HTTP y Supabase, handlers/UI, pgTAP tenant-safe, concurrencia proporcional, `pnpm run check` y migración limpia cuando exista un entorno local seguro. Ninguna prueba sintética acredita acceso live; Google Events y el recorrido extremo a extremo permanecen `IN_PROGRESS` hasta una ejecución explícitamente autorizada.
+El gate técnico local pasó el 2026-09-15 con 308 pruebas Vitest (una integración omitida de forma esperada), lint, typecheck, build y 49 aserciones pgTAP nuevas dentro de 373. La prueba de concurrencia hace converger dos intentos sobre una sola identidad determinista; pgTAP verifica bloqueo, unicidad, retry idempotente, mismatch, RLS/grants, expiración y exclusión confirmada.
+
+No se usaron credenciales ni cuenta Google y no se ejecutó una prueba live. Revisión, integración/CI, Google Events live y el recorrido extremo a extremo permanecen `IN_PROGRESS`.

@@ -1,6 +1,6 @@
 # Contrato técnico: conexión Google OAuth y calendarios por artista
 
-_Estado técnico: `DONE`. OAuth, listado y asignación live pasaron localmente el 2026-09-15 con owner sintético; FreeBusy/eventos/booking permanecen `IN_PROGRESS`._
+_Estado técnico: `DONE`. OAuth, listado y asignación live pasaron localmente el 2026-09-15 con owner sintético; FreeBusy y Google Events live, junto al booking extremo a extremo, permanecen `IN_PROGRESS`._
 
 ## Necesidad y alcance
 
@@ -33,7 +33,7 @@ No se deriva el redirect de `Host` ni de cabeceras de proxy.
 
 ## OAuth, scopes y recuperación
 
-Se solicita acceso offline con autorización incremental (`include_granted_scopes=true`) y únicamente `https://www.googleapis.com/auth/calendar.calendarlist.readonly` en este slice. Es el scope específico que autoriza `CalendarList.list`; no concede lectura de eventos. Los slices que realmente consulten ocupación o escriban citas pedirán en contexto `https://www.googleapis.com/auth/calendar.events.freebusy` y `https://www.googleapis.com/auth/calendar.events`, respectivamente. No se solicitan identidad, email, perfil, contactos ni el scope global `calendar`.
+La conexión inicial solicitó acceso offline con autorización incremental (`include_granted_scopes=true`) y `https://www.googleapis.com/auth/calendar.calendarlist.readonly`. Disponibilidad añadió `https://www.googleapis.com/auth/calendar.events.freebusy` y la confirmación técnica añade `https://www.googleapis.com/auth/calendar.events`; una concesión antigua conserva asignaciones pero debe reconectar antes de confirmar. No se solicitan identidad, email, perfil, contactos ni el scope global `calendar`.
 
 Google documenta PKCE S256 para aplicaciones instaladas, pero su contrato oficial vigente de aplicaciones web de servidor no admite `code_challenge` ni `code_verifier` entre los parámetros publicados. Este cliente web confidencial usa client secret solo en servidor y no inventa una extensión no documentada; el contrato se revisará si Google incorpora PKCE al flujo web server.
 

@@ -1,19 +1,32 @@
 import {
+  BookingConfirmationConflictError,
+  BookingConfirmationMismatchError,
+  BookingConfirmationProviderUnavailableError,
+  BookingConfirmationReconnectRequiredError,
   PublicBookingOfferSelectionRejectedError,
   PublicBookingOfferUnavailableError,
+  createBookingConfirmationService,
   createBookingOfferAccessService,
 } from "@inkendar/application";
 import { normalizePublicBookingOfferToken, normalizePublicBookingOptionSelector } from "@inkendar/domain";
 import {
+  AesGcmGoogleTokenProtector,
+  GoogleBookingEventHttpAdapter,
+  GoogleFreeBusyHttpAdapter,
+  NodeBookingEventIdentity,
+  createSupabaseBookingConfirmationRepository,
   createSupabaseBookingOfferAccessRepository,
   createSupabasePublicBookingOfferRepository,
+  loadGoogleCalendarConfig,
+  loadGoogleTokenEncryptionKey,
   secureBookingOfferTokenBytes,
   sha256BookingOfferToken,
 } from "@inkendar/infrastructure";
 import { isTrustedMutationRequest } from "./auth.server.js";
 
 type Service = ReturnType<typeof createBookingOfferAccessService>;
-type Dependencies = Readonly<{ createService(): Service }>;
+type ConfirmationService = ReturnType<typeof createBookingConfirmationService>;
+type Dependencies = Readonly<{ createService(): Service; createConfirmationService(): ConfirmationService }>;
 
 const defaults: Dependencies = {
   createService: () => createBookingOfferAccessService({
@@ -22,6 +35,17 @@ const defaults: Dependencies = {
     randomBytes: secureBookingOfferTokenBytes,
     hashToken: sha256BookingOfferToken,
   }),
+  createConfirmationService: () => {
+    const config = loadGoogleCalendarConfig(process.env);
+    return createBookingConfirmationService({
+      repository: createSupabaseBookingConfirmationRepository(process.env),
+      events: new GoogleBookingEventHttpAdapter(config),
+      freeBusy: new GoogleFreeBusyHttpAdapter(config),
+      tokens: new AesGcmGoogleTokenProtector(loadGoogleTokenEncryptionKey(process.env)),
+      identity: new NodeBookingEventIdentity(),
+      hashToken: sha256BookingOfferToken,
+    });
+  },
 };
 
 export function createPublicBookingOfferHandlers(dependencies: Dependencies = defaults) {
@@ -39,15 +63,20 @@ export function createPublicBookingOfferHandlers(dependencies: Dependencies = de
     async action(request: Request, rawToken: string | undefined): Promise<Response> {
       if (request.method !== "POST" || !isTrustedMutationRequest(request)) return rejected(403, "Solicitud rechazada.");
       if (!isCanonicalToken(rawToken)) return unavailable();
-      let selector: string;
-      try { selector = await readSelector(request); }
+      let input: PublicConfirmationInput;
+      try { input = await readConfirmationInput(request); }
       catch { return rejected(400, "No se pudo registrar la selección."); }
       try {
-        const result = await dependencies.createService().selectPublic(rawToken, selector);
+        if (input.kind === "SELECT") await dependencies.createService().selectPublic(rawToken, input.selector);
+        const result = await dependencies.createConfirmationService().confirmPublic(rawToken);
         return Response.json(result, { headers: publicBookingOfferHeaders() });
       } catch (error) {
         if (error instanceof PublicBookingOfferUnavailableError) return unavailable();
         if (error instanceof PublicBookingOfferSelectionRejectedError) return rejected(409, "No se pudo registrar la selección.");
+        if (error instanceof BookingConfirmationConflictError) return pending(409, "CONFLICT");
+        if (error instanceof BookingConfirmationMismatchError) return pending(409, "REVIEW_REQUIRED");
+        if (error instanceof BookingConfirmationReconnectRequiredError) return pending(409, "RECONNECT");
+        if (error instanceof BookingConfirmationProviderUnavailableError) return pending(503, "RETRY");
         return rejected(500, "No se pudo registrar la selección.");
       }
     },
@@ -79,7 +108,9 @@ function unavailable(): Response {
 
 const PUBLIC_SELECTION_BODY_LIMIT = 256;
 
-async function readSelector(request: Request): Promise<string> {
+type PublicConfirmationInput = Readonly<{ kind: "SELECT"; selector: string }> | Readonly<{ kind: "CONFIRM" }>;
+
+async function readConfirmationInput(request: Request): Promise<PublicConfirmationInput> {
   const contentType = request.headers.get("Content-Type")?.split(";", 1)[0]?.trim().toLowerCase();
   if (contentType !== "application/x-www-form-urlencoded") throw new Error("Invalid public selection request");
   const contentLength = request.headers.get("Content-Length");
@@ -87,8 +118,10 @@ async function readSelector(request: Request): Promise<string> {
   const body = await readBoundedBody(request, PUBLIC_SELECTION_BODY_LIMIT);
   const parameters = new URLSearchParams(body);
   const entries = Array.from(parameters.entries());
-  if (entries.length !== 1 || entries[0]?.[0] !== "selector") throw new Error("Invalid public selection request");
-  return normalizePublicBookingOptionSelector(entries[0][1]);
+  if (entries.length !== 1) throw new Error("Invalid public selection request");
+  if (entries[0]?.[0] === "selector") return { kind: "SELECT", selector: normalizePublicBookingOptionSelector(entries[0][1]) };
+  if (entries[0]?.[0] === "intent" && entries[0][1] === "confirm") return { kind: "CONFIRM" };
+  throw new Error("Invalid public selection request");
 }
 
 async function readBoundedBody(request: Request, limit: number): Promise<string> {
@@ -117,4 +150,8 @@ async function readBoundedBody(request: Request, limit: number): Promise<string>
 
 function rejected(status: number, message: string): Response {
   return new Response(message, { status, headers: publicBookingOfferHeaders() });
+}
+
+function pending(status: number, reason: "CONFLICT" | "REVIEW_REQUIRED" | "RECONNECT" | "RETRY"): Response {
+  return Response.json({ state: "SELECTION_PENDING_CONFIRMATION", reason }, { status, headers: publicBookingOfferHeaders() });
 }
