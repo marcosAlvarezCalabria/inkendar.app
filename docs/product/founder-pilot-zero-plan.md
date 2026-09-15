@@ -14,7 +14,7 @@ _Última actualización: 2026-09-15_
 | Asignación de conversaciones | `PARTIAL` | Automática pendiente; la asignación manual está validada. |
 | WhatsApp | `DEFERRED` | Retirado del MVP y de sus gates. |
 | Frontera Chatwoot–Inkendar | `IN_PROGRESS` | Contrato técnico, bandeja paginada, respuesta idempotente y webhook firmado están `DONE`; falta el recorrido live de la PWA con una conexión sintética. |
-| Google Calendar | `IN_PROGRESS` | OAuth, listado y asignación live pasaron con owner sintético el 2026-09-15. Faltan FreeBusy live, creación de eventos, ofertas y booking extremo a extremo. |
+| Google Calendar | `IN_PROGRESS` | OAuth, listado y asignación live pasaron con owner sintético el 2026-09-15; disponibilidad y ofertas/holds están técnicamente integrados con evidencia sintética. Faltan FreeBusy live, creación de eventos, selección pública, confirmación y booking extremo a extremo. |
 
 El plan anterior centrado en WhatsApp Coexistence fue retirado del documento activo porque ya no representa el producto. Su contenido permanece en el historial de Git.
 

@@ -1,6 +1,6 @@
 # Contrato técnico: ofertas preaprobadas y bloqueos provisionales
 
-_Estado técnico: `IN_PROGRESS`. Este slice se valida únicamente con datos sintéticos; no acredita pruebas live._
+_Estado técnico: `DONE`. El PR #14 y el CI posterior al merge verificaron código, build, migraciones limpias, pgTAP y Auth/RLS con datos sintéticos; este slice no acredita pruebas live._
 
 ## Alcance
 

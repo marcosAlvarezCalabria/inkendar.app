@@ -2,7 +2,7 @@
 
 _Estado: aceptada_
 
-_Última actualización: 2026-09-14_
+_Última actualización: 2026-09-15_
 
 _La fuente de verdad del comportamiento y el alcance es [Especificación de Inkendar](../product/sellable-mvp-spec.md). Este documento explica cómo construirlo y debe actualizarse cuando cambie una frontera, dependencia o decisión técnica._
 
@@ -104,7 +104,7 @@ El dominio enumera los días civiles IANA que intersectan el rango UTC y resuelv
 
 ### Ofertas preaprobadas y holds
 
-_Estado técnico del slice: `IN_PROGRESS`; implementación y validación sintética local completas, pendientes de revisión e integración por CI. No existe evidencia live._
+_Estado técnico del slice: `DONE`; el PR #14 y el CI posterior al merge verificaron código, build, migraciones limpias, pgTAP y Auth/RLS con datos sintéticos. No existe evidencia live._
 
 El módulo de booking introduce `BookingOfferRepositoryPort` y un reloj inyectable en aplicación. Supabase conserva el plazo positivo por estudio —24 horas por defecto—, ofertas `OPEN | EXPIRED` y opciones `HELD | RELEASED`. RPCs `SECURITY DEFINER` exclusivas de `service_role` validan OWNER, tenant, caso `OPEN` y artista, y crean de una a tres opciones en una transacción serializada por estudio/artista para rechazar holds solapados.
 
