@@ -7,6 +7,7 @@ export interface ArtistAvailabilityRepositoryPort {
   getConfiguration(studioId: string, artistProfileId: string): Promise<ArtistAvailabilityConfiguration>;
   saveRules(studioId: string, artistProfileId: string, rules: AvailabilityRules): Promise<void>;
   markReauthRequired(studioId: string): Promise<void>;
+  listActiveHolds(studioId: string, artistProfileId: string, rangeStart: string, rangeEnd: string, nowUtc: string): Promise<readonly BusyInterval[]>;
 }
 export interface GoogleFreeBusyPort { queryBusy(refreshToken: string, input: Readonly<{ calendarId: string; timeMin: string; timeMax: string }>): Promise<readonly BusyInterval[]>; }
 export class AvailabilitySetupRequiredError extends Error { constructor(readonly reason: "NO_CALENDAR" | "NO_RULES" | "RECONNECT") { super(reason); } }
@@ -30,7 +31,8 @@ export function createArtistAvailabilityService(deps: Readonly<{ repository: Art
         if (error instanceof AvailabilityCredentialInvalidError) { await deps.repository.markReauthRequired(studioId); throw new AvailabilitySetupRequiredError("RECONNECT"); }
         throw new AvailabilityProviderUnavailableError();
       }
-      return candidateSlots({ rules: config.rules, rangeStart, rangeEnd, durationMinutes, busy });
+      const holds = await deps.repository.listActiveHolds(studioId, artistProfileId, rangeStart, rangeEnd, new Date().toISOString());
+      return candidateSlots({ rules: config.rules, rangeStart, rangeEnd, durationMinutes, busy: [...busy, ...holds] });
     },
   };
 }

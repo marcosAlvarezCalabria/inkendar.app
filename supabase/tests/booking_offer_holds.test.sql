@@ -1,0 +1,38 @@
+begin;
+select plan(29);
+select has_table('public','booking_offer','booking offer table exists');
+select has_table('public','booking_option','booking option table exists');
+select ok((select relrowsecurity from pg_class where oid='public.booking_offer'::regclass),'offer RLS enabled');
+select ok((select relrowsecurity from pg_class where oid='public.booking_option'::regclass),'option RLS enabled');
+select ok(not has_table_privilege('authenticated','public.booking_offer','select'),'authenticated cannot read offers directly');
+select ok(not has_table_privilege('service_role','public.booking_offer','select'),'service role must use guarded RPC');
+select ok(has_function_privilege('service_role','public.create_booking_offer(uuid,uuid,uuid,uuid,jsonb,timestamptz)','execute'),'service role can execute create RPC');
+select ok(not has_function_privilege('authenticated','public.create_booking_offer(uuid,uuid,uuid,uuid,jsonb,timestamptz)','execute'),'authenticated cannot execute create RPC');
+
+set local role service_role;
+insert into public.customer(id,studio_id,name,status) values('60000000-0000-0000-0000-000000000010','20000000-0000-0000-0000-000000000001','Booking Client','ACTIVE');
+insert into public.tattoo_case(id,studio_id,customer_id,summary,artist_profile_id,status) values('70000000-0000-0000-0000-000000000010','20000000-0000-0000-0000-000000000001','60000000-0000-0000-0000-000000000010','Synthetic booking','50000000-0000-0000-0000-000000000001','OPEN');
+
+select is((public.get_booking_offer_management('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001')->>'expiry_hours')::integer,24,'default expiry is 24 hours');
+select lives_ok($$select public.save_booking_offer_expiry_hours('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001',48)$$,'owner configures expiry');
+select is((public.get_booking_offer_management('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001')->>'expiry_hours')::integer,48,'configured expiry persists');
+select lives_ok($$select public.create_booking_offer('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','70000000-0000-0000-0000-000000000010','50000000-0000-0000-0000-000000000001','[{"startUtc":"2026-09-20T09:00:00.000Z","endUtc":"2026-09-20T10:00:00.000Z"},{"startUtc":"2026-09-21T09:00:00.000Z","endUtc":"2026-09-21T10:00:00.000Z"}]','2026-09-15T10:00:00Z')$$,'owner creates same-tenant offer');
+select is(jsonb_array_length(public.get_booking_offer_management('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001')->'offers'),1,'one offer created');
+select is(jsonb_array_length(public.get_booking_offer_management('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001')->'offers'->0->'options'),2,'all options created atomically');
+select is((public.get_booking_offer_management('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001')->'offers'->0->>'expires_at')::timestamptz,'2026-09-17T10:00:00Z'::timestamptz,'configured expiry applied from server time');
+select is((select count(*) from public.list_active_booking_holds('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','2026-09-20T00:00:00Z','2026-09-22T00:00:00Z','2026-09-15T10:00:00Z')),2::bigint,'active options appear as holds');
+select throws_ok($$select public.create_booking_offer('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','70000000-0000-0000-0000-000000000010','50000000-0000-0000-0000-000000000001','[{"startUtc":"2026-09-20T09:30:00.000Z","endUtc":"2026-09-20T10:30:00.000Z"}]','2026-09-15T10:00:00Z')$$,'23P01',null,'overlapping active hold rejected');
+select throws_ok($$select public.create_booking_offer('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000002','70000000-0000-0000-0000-000000000010','50000000-0000-0000-0000-000000000001','[{"startUtc":"2026-09-22T09:00:00.000Z","endUtc":"2026-09-22T10:00:00.000Z"}]','2026-09-15T10:00:00Z')$$,'42501',null,'artist cannot spoof owner');
+select throws_ok($$select public.create_booking_offer('20000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000003','70000000-0000-0000-0000-000000000010','50000000-0000-0000-0000-000000000001','[{"startUtc":"2026-09-22T09:00:00.000Z","endUtc":"2026-09-22T10:00:00.000Z"}]','2026-09-15T10:00:00Z')$$,'P0002',null,'cross-tenant context rejected');
+select throws_ok($$select public.create_booking_offer('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','70000000-0000-0000-0000-000000000010','50000000-0000-0000-0000-000000000001','[]','2026-09-15T10:00:00Z')$$,'22023',null,'empty options rejected');
+select throws_ok($$select public.save_booking_offer_expiry_hours('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001',0)$$,'22023',null,'non-positive expiry rejected');
+select is(public.expire_booking_offers('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','2026-09-16T10:00:00Z'),0,'offer remains before expiry');
+select is(public.expire_booking_offers('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','2026-09-17T10:00:00Z'),1,'due offer expires once');
+select is(public.get_booking_offer_management('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001')->'offers'->0->>'status','EXPIRED','offer marked expired');
+select ok((select bool_and(value->>'status'='RELEASED') from jsonb_array_elements(public.get_booking_offer_management('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001')->'offers'->0->'options')),'all options released');
+select is(public.expire_booking_offers('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','2026-09-18T10:00:00Z'),0,'expiration is idempotent');
+select is((select count(*) from public.list_active_booking_holds('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','2026-09-20T00:00:00Z','2026-09-22T00:00:00Z','2026-09-18T10:00:00Z')),0::bigint,'released options no longer block availability');
+select ok((select count(*)=2 from pg_constraint where conrelid='public.booking_offer'::regclass and conname in ('booking_offer_case_same_studio_fk','booking_offer_artist_same_studio_fk')),'offer has tenant-safe composite context FKs');
+select ok((select count(*)=1 from pg_constraint where conrelid='public.booking_option'::regclass and contype='f'),'option has tenant-safe offer FK');
+select * from finish();
+rollback;

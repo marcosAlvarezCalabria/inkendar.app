@@ -102,6 +102,14 @@ _Estado técnico del slice: `DONE`; el PR #12 y el CI posterior al merge verific
 
 El dominio enumera los días civiles IANA que intersectan el rango UTC y resuelve folds con inicio temprano/final tardío y gaps avanzando al primer minuto válido; genera slots desde reglas y busy UTC sin depender de Google ni Supabase. Aplicación coordina ArtistAvailabilityRepositoryPort y GoogleFreeBusyPort; infraestructura implementa FreeBusy y RPC owner-bound. Las asignaciones, reglas y conexión deben pertenecer al mismo estudio; títulos y descripciones de eventos no cruzan la frontera.
 
+### Ofertas preaprobadas y holds
+
+_Estado técnico del slice: `IN_PROGRESS`; implementación y validación sintética local completas, pendientes de revisión e integración por CI. No existe evidencia live._
+
+El módulo de booking introduce `BookingOfferRepositoryPort` y un reloj inyectable en aplicación. Supabase conserva el plazo positivo por estudio —24 horas por defecto—, ofertas `OPEN | EXPIRED` y opciones `HELD | RELEASED`. RPCs `SECURITY DEFINER` exclusivas de `service_role` validan OWNER, tenant, caso `OPEN` y artista, y crean de una a tres opciones en una transacción serializada por estudio/artista para rechazar holds solapados.
+
+La disponibilidad carga mediante RPC únicamente holds `HELD` de ofertas `OPEN` cuyo `expires_at` continúa en el futuro y los combina con `freeBusy`. La expiración materializa de forma atómica e idempotente la oferta y todas sus opciones. El panel SSR OWNER usa mutaciones same-origin; selección pública, elección libre, confirmación, eventos Google, notificaciones y scheduler permanecen fuera.
+
 ## 2. Alternativas consideradas
 
 ### A. Monolito modular TypeScript — aceptada
@@ -301,3 +309,4 @@ La recomendación añade un backend propio delgado, pero concentra allí autoriz
 | 2026-09-14 | Frontera de conversaciones OWNER, vínculo tenant-safe y webhook Chatwoot autenticado | Ocultar Chatwoot, conservarlo como fuente de mensajes y hacer observables/deduplicables los reintentos sin almacenar contenido. |
 | 2026-09-14 | OAuth Google server-side, token AEAD y calendario por artista | Preparar Calendar con privilegio mínimo, configuración lazy y aislamiento multi-tenant antes de implementar disponibilidad y eventos. |
 | 2026-09-15 | Disponibilidad semanal por artista y FreeBusy incremental | Generar candidatos tenant-safe sin leer eventos ni anticipar ofertas, holds o booking. |
+| 2026-09-15 | Ofertas preaprobadas y holds tenant-safe con caducidad configurable | Reservar provisionalmente opciones y excluirlas de disponibilidad sin acoplar selección, eventos, confirmación ni notificaciones. |
