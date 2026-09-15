@@ -2,7 +2,7 @@
 
 _Estado: aceptado_
 
-_Última actualización: 2026-09-14_
+_Última actualización: 2026-09-15_
 
 Este documento define cómo se entrega código en Inkendar. Complementa la [especificación viva](../product/sellable-mvp-spec.md) y la [arquitectura de aplicación](../architecture/application-architecture.md).
 
@@ -69,15 +69,9 @@ pnpm test
 pnpm run build
 ```
 
-`pnpm run check` agrupa esas cuatro comprobaciones. A medida que se implemente producto se incorporarán como checks requeridos:
+`pnpm run check` agrupa lint, typecheck, pruebas y build en el job `validate`. El job requerido `database` levanta Supabase desde cero, aplica las migraciones, ejecuta pgTAP y prueba el recorrido Auth/RLS de la PWA contra la instancia local.
 
-- pruebas unitarias del dominio;
-- pruebas de casos de uso;
-- pruebas de integración de Supabase y RLS;
-- lint;
-- typecheck;
-- build de las aplicaciones afectadas;
-- los pocos E2E críticos acordados.
+Los E2E adicionales se incorporan únicamente cuando exista un recorrido crítico acordado y reproducible.
 
 Un comando no se añade al CI hasta existir en el repositorio y poder ejecutarse localmente.
 
@@ -162,6 +156,7 @@ Un cambio está integrado cuando:
 
 | Fecha | Cambio | Motivo |
 |---|---|---|
+| 2026-09-15 | Se sincroniza la descripción del CI con los jobs requeridos actuales | Eliminar lenguaje futuro sobre Supabase, pgTAP y Auth/RLS que ya forman parte del workflow. |
 | 2026-09-13 | Se adopta el flujo de dos agentes, PR y CI obligatorio | Separar creación y revisión, automatizar la evidencia y proteger `main`. |
 | 2026-09-13 | Se limita cada chat de agente a un slice y 32.000 tokens | Reducir contexto irrelevante y reiniciar mediante handoffs verificables antes de mezclar objetivos. |
 | 2026-09-13 | Se adopta Engram en modo piloto como memoria auxiliar local | Recuperar solo decisiones relevantes entre sesiones sin convertir la memoria automática en fuente de verdad. |

@@ -41,7 +41,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 
 | Área | Estado | Evidencia o siguiente gate |
 |---|---|---|
-| Landing comercial de Inkendar | `PASS` | La landing Astro funciona, pero es un activo de marketing independiente; su extracción de este proyecto está `PLANNED`. |
+| Landing comercial de Inkendar | `PASS` | La landing Astro vive en el repositorio independiente [`inkendar`](https://github.com/marcosAlvarezCalabria/inkendar), con CI y despliegue propios; este repositorio no contiene su código. |
 | Chat web en Chatwoot | `PASS` | Recepción y respuesta verificadas con datos sintéticos. |
 | Instagram en Chatwoot | `PASS` | Recepción y respuesta por el canal original verificadas. |
 | Facebook Messenger | `CONNECTED` | Falta la prueba bidireccional final. |
@@ -49,7 +49,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | PWA y autenticación | `PASS` | Login email/password, cookies SSR, guards, logout y shells OWNER/ARTIST pasaron `npm run check` con 75 pruebas y un smoke Auth/RLS real con ambos roles en el job `database` del [run 34762663413](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34762663413). El service worker continúa fuera del slice y la suspensión explícita de accesos sigue pendiente. |
 | Clientes y casos de tatuaje | `PASS` | Dominio, aplicación, adaptador Supabase y UI SSR OWNER pasaron `npm run check` con 97 pruebas; migración limpia, seed y 58 aserciones pgTAP del slice pasaron dentro de las 117 aserciones del job `database` en el [run 34774972933](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34774972933). |
 | Alta manual gestionada | `PASS` | El CLI de servidor, Auth Admin, compensación y RPC idempotentes pasaron 32 pruebas enfocadas, `npm run check` con 38 pruebas y 21 aserciones pgTAP dentro del job `database` [run 34756137292](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34756137292). No incluye login, sesión ni UI de autenticación. |
-| Flujo de entrega y CI | `PASS` | El PR [#2](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/2) se integró por squash con `validate` y `database` verdes; ambos checks son obligatorios en `main`, cuya ejecución [34753177240](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34753177240) terminó correctamente. |
+| Flujo de entrega y CI | `PASS` | `main` exige PR, los checks `validate` y `database`, conversaciones resueltas e historial lineal; ambos jobs pasaron tras integrar el [PR #10](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/10) en el [run 34895446647](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34895446647). |
 | Memoria de agentes | `PASS` | Engram 1.20.0 guarda y recupera memoria del proyecto `inkendar.app`; Codex MCP está configurado y requiere reinicio para cargarlo en nuevos chats. |
 | Supabase y aislamiento multi-tenant | `PASS` | La migración, el seed sintético y las 38 aserciones pgTAP pasaron contra Supabase/Postgres real en GitHub Actions [run 34752758528](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34752758528). |
 | Google Calendar y booking | `IN_PROGRESS` | Contrato OAuth y asignación de calendarios por artista `DONE`: el [PR #10](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/10) pasó 188 pruebas, build, migración limpia y 34 aserciones pgTAP del slice en el [run 34894832675](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34894832675). OAuth, listado y asignación live pasaron localmente el 2026-09-15 con owner sintético. El contrato/implementación de FreeBusy está `IN_PROGRESS`; eventos, ofertas y booking siguen pendientes. |
@@ -97,6 +97,7 @@ La arquitectura técnica está en [Arquitectura de aplicación](../architecture/
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
 | 2026-09-15 | 1.8.0 | Se implementó la configuración OWNER y previsualización técnica de disponibilidad con reglas IANA, FreeBusy incremental y límites de rango/duración; CI y prueba live FreeBusy siguen `IN_PROGRESS`. | Preparar candidatos sin afirmar ni crear citas y registrar por separado la evidencia live ya obtenida de OAuth/listado/asignación. |
+| 2026-09-15 | 1.7.2 | Se eliminó progreso duplicado de README y PRODUCT, se sincronizaron el piloto cero, Google y CI con los slices integrados, y se corrigió la separación ya completada de la landing. | Mantener esta especificación como única fuente de verdad sin resúmenes activos contradictorios ni alterar evidencia histórica. |
 | 2026-09-14 | 1.7.1 | El contrato técnico de Google OAuth y asignación de calendarios pasó a `DONE` tras verificar rutas SSR, migración limpia, 34 aserciones pgTAP, 188 pruebas y build; el recorrido live con Google continúa `IN_PROGRESS`. | Cerrar la implementación y la persistencia sin atribuir al CI una validación operativa contra el proveedor real. |
 | 2026-09-14 | 1.7.0 | Se fijó el contrato de conexión Google OAuth y asignación de un calendario por artista con estado `IN_PROGRESS`. | Habilitar la configuración mínima de Calendar antes de implementar disponibilidad, eventos y booking. |
 | 2026-09-14 | 1.6.1 | El contrato técnico de conversaciones OWNER pasó a `DONE` tras verificar en CI migraciones limpias, pgTAP, Auth/RLS, 156 pruebas y build; el recorrido live con Chatwoot continúa `IN_PROGRESS`. | Cerrar la implementación y la persistencia sin atribuir al CI una validación operativa contra el proveedor real. |
@@ -176,7 +177,7 @@ Web / Instagram / Facebook
 - **Facebook Messenger: CONNECTED / pendiente de prueba bidireccional final.**
 - **Asignación: PARTIAL.** La atención funciona asignando manualmente la conversación; la asignación automática continúa pendiente de localizar y validar.
 - **WhatsApp: DEFERRED.** El flujo manual exige un número dedicado o migrado; conservar el número en la aplicación requiere Coexistence. Se retira del MVP.
-- **Google Calendar: PLANNED.** La integración todavía no está implementada ni validada.
+- **Google Calendar: IN_PROGRESS.** OAuth, refresh token cifrado, listado de calendarios y asignación por artista están implementados y verificados con datos sintéticos; faltan evidencia live, `freeBusy`, eventos y booking.
 
 Un canal no pasa a `PASS` por estar conectado: debe demostrarse recepción y respuesta de extremo a extremo con datos sintéticos.
 
@@ -354,19 +355,15 @@ Gates iniciales para ampliar:
 
 El desarrollo técnico con datos sintéticos puede comenzar mientras se completa la validación comercial. Los gates bloquean datos reales, promesas comerciales y cobro; no bloquean CI, contratos, pruebas ni infraestructura local.
 
-1. Publicar esta línea base documental en el repositorio de software.
-2. Crear GitHub Actions y proteger `main`.
-3. Completar en paralelo la prueba bidireccional de Facebook Messenger.
-4. Definir el contrato y las pruebas RED del primer slice de identidad y aislamiento.
-5. Crear la estructura del monolito modular, migraciones iniciales y pruebas RLS.
-6. Implementar alta manual de estudio, owner y artistas con permisos de solo lectura para artista.
-7. Implementar casos, conversaciones y la frontera oculta con Chatwoot.
-8. Implementar Google OAuth, calendarios por artista y disponibilidad.
-9. Implementar ofertas, bloqueos, caducidad y confirmación idempotente.
-10. Añadir la vista de artista, galería y portfolios administrados por el owner.
-11. Implementar el feed público y probarlo en una web nueva y otra existente.
-12. Verificar privacidad, exportación, monitorización y onboarding antes de datos reales.
-13. Ejecutar el recorrido completo con un estudio piloto cualificado antes de cobrar.
+1. Completar en paralelo la prueba bidireccional de Facebook Messenger.
+2. Validar los recorridos live de la bandeja Chatwoot y de Google OAuth con cuentas sintéticas autorizadas.
+3. Definir el contrato y las pruebas RED de disponibilidad por artista.
+4. Implementar reglas de jornada, zona horaria, duración, márgenes y consulta privada mediante `freeBusy`.
+5. Implementar ofertas, bloqueos, caducidad y confirmación idempotente.
+6. Añadir la vista de artista, galería y portfolios administrados por el owner.
+7. Implementar el feed público y probarlo en una web nueva y otra existente.
+8. Verificar privacidad, exportación, monitorización y onboarding antes de datos reales.
+9. Ejecutar el recorrido completo con un estudio piloto cualificado antes de cobrar.
 ### Fuera del MVP vigente
 
 - WhatsApp y cualquier promesa de Coexistence;

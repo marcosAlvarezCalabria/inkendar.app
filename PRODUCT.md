@@ -4,7 +4,7 @@ _La visión general se conserva aquí. La fuente de verdad para el alcance vendi
 
 <!-- impeccable:product-schema 1 -->
 
-## Decisión vigente — 2026-09-10
+## Decisión vigente — 2026-09-15
 
 - **Inkendar** es el producto y **Incamdi** la agencia implementadora.
 - El MVP es un servicio gestionado y una PWA, no autoservicio.
@@ -16,7 +16,7 @@ _La visión general se conserva aquí. La fuente de verdad para el alcance vendi
 - El owner gestiona la galería general y las imágenes por artista; se publican tanto en webs creadas por Incamdi como en webs existentes mediante un componente o feed.
 - Supabase Cloud será la base multi-tenant; WhatsApp queda fuera del MVP.
 - Precio provisional interno: 149 €/mes, 690 € de implantación y 99 €/mes durante seis meses para pilotos.
-- Web e Instagram pasaron la prueba bidireccional; Facebook está conectado pero pendiente de prueba final. La PWA/autenticación y Supabase superaron sus gates técnicos; OAuth, listado y asignación de Google Calendar están `DONE` con evidencia live local, mientras FreeBusy continúa `IN_PROGRESS`.
+- Este resumen no duplica el estado de implementación. Las capacidades solo se presentan como disponibles cuando la [especificación viva](docs/product/sellable-mvp-spec.md) registra evidencia suficiente para superar sus gates.
 
 Las secciones posteriores conservan la visión amplia y capacidades candidatas. Su alcance y orden de entrega quedan subordinados a la [especificación vigente](docs/product/sellable-mvp-spec.md).
 
@@ -54,7 +54,7 @@ El panel se entrega como una mejora integrada con las webs y los canales de los 
 
 ## Capabilities and Constraints
 
-Capacidades confirmadas:
+Capacidades de producto confirmadas; su presencia aquí no implica que estén implementadas:
 
 - multi-tenancy por estudio con un owner operativo;
 - bandeja de Inkendar para web, Instagram y Facebook con Chatwoot oculto;
@@ -85,17 +85,13 @@ Decisiones comerciales confirmadas para la landing de validación:
 
 Decisiones abiertas:
 
-- elección del proveedor de alojamiento para la PWA y API/BFF;
-- política final de cancelaciones, cambios y recordatorios;
-- límites técnicos de imágenes, formatos y proceso de moderación;
-- límites definitivos por plan, impuestos, condiciones contractuales del precio fundador y costes de terceros;
-- procesamiento de pagos, señales y consentimientos, fuera del primer slice.
+Las decisiones abiertas se mantienen únicamente en la [especificación viva](docs/product/sellable-mvp-spec.md) y en el contrato del slice al que pertenecen.
 
 ## Evidence on Hand
 
 - Existe al menos una web con un formulario que recoge nombre, idea del tatuaje, zona del cuerpo, artista y tamaño aproximado.
 - La investigación exploratoria en conversaciones de tatuadores, clientes y reseñas de software respalda como problemas repetidos la fragmentación de contexto, la diferencia entre solicitud y cita, los briefs incompletos, la incertidumbre de comunicación y el control de señales/no-shows. La síntesis histórica permanece en el [repositorio de la landing](https://github.com/marcosAlvarezCalabria/inkendar/blob/main/docs/research/tattoo-artist-voice-of-customer.md).
-- No se han aportado todavía datos reales de uso ni pilotos externos. El piloto cero tiene web e Instagram en `PASS`, Facebook conectado pendiente de prueba final y WhatsApp retirado. La evidencia cualitativa no estima porcentajes; las decisiones se revisarán con uso autorizado y feedback voluntario de pilotos.
+- La evidencia cualitativa no estima porcentajes. La evidencia comercial y el estado de los pilotos se registran en el [plan de validación](docs/product/validation-and-launch-plan.md) y la [especificación viva](docs/product/sellable-mvp-spec.md).
 
 ## Product Principles
 
