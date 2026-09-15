@@ -1,6 +1,6 @@
 # Contrato técnico: confirmación recuperable con Google Calendar
 
-_Estado técnico: `IN_PROGRESS` (candidato local). La revisión independiente devolvió el slice a implementación para cerrar exclusión mutua externa, binding durable, ACL privada y CAS de credencial. Integración/CI y la prueba live de Google Events y del booking extremo a extremo permanecen `IN_PROGRESS`._
+_Estado técnico: `IN_PROGRESS` (candidato local). El candidato incorpora exclusión mutua externa, binding durable, ACL privada, CAS de credencial y recuperación de `INSERTING` después de la caducidad original. Integración/CI y la prueba live de Google Events y del booking extremo a extremo permanecen `IN_PROGRESS`._
 
 ## Necesidad y alcance
 
@@ -10,8 +10,8 @@ Este slice empieza después de `SELECTED_PENDING_CONFIRMATION`. Revalida únicam
 
 ## Estados y propiedad de datos
 
-- Oferta: `OPEN -> SELECTED_PENDING_CONFIRMATION -> CONFIRMED`; `OPEN` o pendiente pueden pasar a `EXPIRED`, pero `CONFIRMED` nunca caduca.
-- Opción: `HELD -> SELECTED -> CONFIRMED`; las alternativas pasan a `RELEASED`. La expiración solo libera `HELD` o `SELECTED`, nunca `CONFIRMED`.
+- Oferta: `OPEN -> SELECTED_PENDING_CONFIRMATION -> CONFIRMED`; `OPEN` o una pendiente todavía `READY` pueden pasar a `EXPIRED`, pero `INSERTING` queda pendiente recuperable y `CONFIRMED` nunca caduca.
+- Opción: `HELD -> SELECTED -> CONFIRMED`; las alternativas pasan a `RELEASED`. La expiración libera `HELD` y `SELECTED` provisionales, pero nunca una selección `INSERTING` ni una `CONFIRMED`.
 - Vista pública: `OPEN | SELECTION_PENDING_CONFIRMATION | CONFIRMED`. Solo `CONFIRMED` permite mostrar «Cita confirmada».
 - Google Calendar sigue siendo la fuente editable del evento confirmado y de su ocupación. Supabase conserva la relación de dominio, el identificador externo, la correlación opaca y el instante de confirmación; la opción elegida queda como evidencia histórica, no como una segunda agenda editable.
 - Después de confirmar, el intervalo deja de ser un hold temporal, pero la opción histórica `CONFIRMED` continúa como exclusión conservadora ligada a la cita. Google sigue siendo la única agenda editable: Supabase no duplica fechas en `appointment` ni permite editar el intervalo por una segunda vía.
@@ -25,7 +25,7 @@ Cada intento sigue este orden observable:
 
 1. carga solo la selección tenant-safe asociada al hash del enlace y deriva la identidad estable;
 2. reclama en Supabase una operación durable con lease y fija inmutablemente `studio/offer/option/connection/calendar/eventId/correlation`; el claim inicial valida vigencia, tenant, conexión `ACTIVE`, ambos scopes y una asignación probada con rol `writer` u `owner`;
-3. un lease vigente entrega la operación a un único worker. Otro request devuelve retry sin llamar Google. Tras expirar, un nuevo worker puede reclamarla;
+3. un lease vigente entrega la operación a un único worker. Otro request devuelve retry sin llamar Google. Un lease `READY` solo puede recuperarse mientras la oferta sigue vigente; un lease `INSERTING` expirado se recupera aun después de `expires_at`, siempre en modo `RECONCILE_ONLY`;
 4. el worker llama primero a `Events.get` usando siempre el destino fijado, aunque la asignación actual haya cambiado;
 5. si existe, exige coincidencia exacta de ID, intervalo, estado no cancelado, `opaque`, `private`, resumen genérico y correlación privada, sin asistentes; solo entonces finaliza localmente;
 6. solo ante `404`, y si ninguna inserción fue iniciada antes, consulta FreeBusy con `timeMin=start`, `timeMax=end` y semántica `[start,end)`;
@@ -44,13 +44,13 @@ El listado mantiene metadata de todos los roles conocidos, incluido `writerWitho
 
 `POST /offers/:token` acepta o bien el selector canónico de una opción abierta, o bien un único `intent=confirm` para reintentar una selección pendiente. Tras seleccionar intenta confirmar en la misma operación. Un retry del selector ganador o de `intent=confirm` reutiliza la misma identidad; nunca inserta con otro ID ni sustituye la elección.
 
-Las respuestas públicas mantienen las cabeceras defensivas existentes. Conflicto de disponibilidad, reconexión requerida, colisión y ambigüedad muestran estados seguros y no exponen proveedor, token, selector ni IDs internos. El GET confirmado sigue disponible después de `expires_at` y muestra únicamente artista, zona, intervalo e instante de confirmación.
+Las respuestas públicas mantienen las cabeceras defensivas existentes. Conflicto de disponibilidad, reconexión requerida, colisión y ambigüedad muestran estados seguros y no exponen proveedor, token, selector ni IDs internos. El GET conserva una selección `INSERTING` como pendiente recuperable aun después de `expires_at`, sin presentar la caducidad original como plazo vigente; el estado confirmado sigue disponible y muestra únicamente artista, zona, intervalo e instante de confirmación.
 
 ## Persistencia y límites de confianza
 
 - `appointment` contiene una relación tenant-safe única con caso, artista, oferta y opción, estado `CONFIRMED` e instante de confirmación.
 - `appointment_google_event` contiene una relación uno-a-uno con conexión, calendario, ID de evento, correlación y sincronización. No copia resumen, descripción, asistentes ni contenido editable del evento.
-- `booking_confirmation_operation` conserva antes de Google el binding inmutable y la máquina `READY -> INSERTING -> FINALIZED`, junto con un lease opaco. Un lease expirado puede recuperar `READY` únicamente antes de `beginInsert`; `INSERTING` es irreversible ante cualquier error, incluido `invalid_grant`, solo permite reconciliar y nunca autoriza otro insert. No existe RPC ni puerto para devolverlo a `READY`.
+- `booking_confirmation_operation` conserva antes de Google el binding inmutable y la máquina `READY -> INSERTING -> FINALIZED`, junto con un lease opaco. `READY` sigue siendo provisional: la caducidad libera oferta/opción y después `beginInsert` devuelve falso. `INSERTING` es irreversible ante cualquier error, incluido `invalid_grant`, sobrevive a `expires_at`, mantiene la exclusión local y solo permite reconciliar; no existe RPC ni puerto para devolverlo a `READY`.
 - `google_calendar_connection.credential_generation` aumenta en cada activación/reconexión sin derivarse del token ni revelarlo. Todas las transiciones por `invalid_grant` comparan esa generación.
 - Las tablas tienen RLS y ningún grant directo para browser o `service_role`; solo RPCs `SECURITY DEFINER`, `search_path=''`, exclusivas de `service_role`.
 - La RPC de preparación resuelve el token por hash y devuelve contexto interno solo al backend. El claim valida la asignación actual una vez; la finalización valida el binding durable en lugar de consultar una asignación mutable.
@@ -76,15 +76,24 @@ And el otro devuelve retry o reconcilia después sin llamar Events.insert concur
 ```
 
 ```gherkin
-Given un worker con lease expirado antes de iniciar la inserción
-When otro worker recupera el claim
-Then el lease anterior no puede pasar a INSERTING
-And solo el nuevo owner puede insertar
+Given una operación READY cuyo lease expira o se libera
+When la oferta alcanza expires_at y se materializa la caducidad
+Then la oferta queda EXPIRED y la opción SELECTED queda RELEASED
+And beginInsert devuelve falso aunque se presente el lease anterior
+And el enlace, el contexto y el claim dejan de estar disponibles
 
 Given un crash después de la transición durable a INSERTING
-When expira el lease y se reintenta
+When la oferta supera expires_at y se ejecuta la caducidad
+Then oferta y opción permanecen SELECTED_PENDING_CONFIRMATION y SELECTED
+And el intervalo sigue excluido de nuevas ofertas y aparece entre los holds
+And el enlace y el contexto siguen mostrando un estado pendiente recuperable
+
+When el lease sigue vigente
+Then otro worker recibe BUSY
+When el lease expira y se reintenta
 Then el retry consulta Events.get en el calendario originalmente fijado
 And si el evento no existe queda pendiente para revisión sin una segunda inserción
+And si existe y coincide puede finalizar CONFIRMED aunque haya pasado expires_at
 ```
 
 ```gherkin
@@ -137,6 +146,6 @@ And la disponibilidad conserva una exclusión local inmutable además de observa
 
 ## Evidencia y gates
 
-La evidencia anterior (308 pruebas Vitest y 373 aserciones pgTAP) quedó obsoleta tras los defectos encontrados en revisión. El candidato corregido demostró RED para doble inserción, destino mutable, rol privado insuficiente, `invalid_grant` tardío y el reset inseguro de `INSERTING`; después pasó 18 pruebas enfocadas de la corrección final, el gate local completo con 314 pruebas Vitest (más una integración omitida), lint, typecheck y build, y 377 aserciones pgTAP sobre la base local migrada forward-only. El lint SQL no encontró errores. Revisión de integración y CI siguen pendientes, por lo que el estado no avanza a `DONE`.
+La evidencia anterior quedó obsoleta tras los defectos encontrados en revisión. El candidato demostró RED para doble inserción, destino mutable, rol privado insuficiente, `invalid_grant` tardío, reset inseguro de `INSERTING` y, en esta vuelta, expiración/liberación incorrecta de una operación `INSERTING` y copy público con una fecha límite ya vencida. Después pasó las 5 pruebas enfocadas de UI, el gate local completo con 314 pruebas Vitest (más una integración omitida), lint, typecheck y build, y 406 aserciones pgTAP sobre la base local migrada forward-only. El lint SQL no encontró errores. Revisión de integración y CI siguen pendientes, por lo que el estado no avanza a `DONE`.
 
 No se usaron credenciales ni cuenta Google y no se ejecutó una prueba live. Revisión, integración/CI, Google Events live y el recorrido extremo a extremo permanecen `IN_PROGRESS`.

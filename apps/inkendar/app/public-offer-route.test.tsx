@@ -52,6 +52,8 @@ describe("public booking offer route", () => {
 
     expect(html).toContain("Selección recibida");
     expect(html).toContain("Pendiente de confirmación");
+    expect(html).toContain("La confirmación sigue pendiente. Puedes reintentarla con seguridad.");
+    expect(html).not.toContain("Pendiente de confirmación para Ana hasta");
     expect(html).toContain("2026-09-20T09:00:00.000Z");
     expect(html).not.toContain("a0000000-0000-4000-8000-000000000001");
     expect(html).not.toContain("cita confirmada");

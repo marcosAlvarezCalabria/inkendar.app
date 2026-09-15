@@ -41,7 +41,7 @@ export default function PublicOffer() {
         <p><time dateTime={data.options[0]?.startUtc}>{data.options[0]?.startUtc}</time> – <time dateTime={data.options[0]?.endUtc}>{data.options[0]?.endUtc}</time></p>
       </> : <>
         <h1>Selección recibida</h1>
-        <p>Pendiente de confirmación para {data.artistDisplayName} hasta <time dateTime={data.expiresAt}>{data.expiresAt}</time>.</p>
+        <p>Pendiente de confirmación para {data.artistDisplayName}. La confirmación sigue pendiente. Puedes reintentarla con seguridad.</p>
         <p>Zona horaria: {data.timeZone ?? "UTC"}</p>
         <p><time dateTime={data.options[0]?.startUtc}>{data.options[0]?.startUtc}</time> – <time dateTime={data.options[0]?.endUtc}>{data.options[0]?.endUtc}</time></p>
         {pendingMessage ? <p className="form-error" role="alert">{pendingMessage}</p> : null}

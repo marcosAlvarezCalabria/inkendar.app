@@ -14,7 +14,7 @@ Repetir el mismo selector sobre la misma oferta devuelve el mismo éxito semánt
 
 Un `GET` posterior con el mismo token puede devolver `SELECTION_PENDING_CONFIRMATION` y únicamente el artista, zona, caducidad y el intervalo elegido. La UI dice «selección recibida, pendiente de confirmación» y nunca «cita confirmada». La gestión OWNER puede reflejar el estado sin permitir confirmarlo.
 
-`list_active_booking_holds` incluye tanto opciones `HELD` de ofertas `OPEN` como la opción `SELECTED` de ofertas `SELECTED_PENDING_CONFIRMATION`, siempre con `expires_at > now`. `expire_booking_offers` materializa también selecciones pendientes vencidas: oferta `EXPIRED`, opción elegida y alternativas todavía activas `RELEASED`, de forma atómica e idempotente.
+`list_active_booking_holds` incluye opciones `HELD` de ofertas `OPEN` vigentes y la opción `SELECTED` de ofertas `SELECTED_PENDING_CONFIRMATION` mientras estén vigentes. El slice posterior de confirmación extiende esa exclusión: si la operación ya alcanzó `INSERTING`, conserva el hold aun después de `expires_at`. `expire_booking_offers` materializa selecciones vencidas todavía provisionales (`READY`) como oferta `EXPIRED` y opción `RELEASED`, pero nunca libera una selección `INSERTING` cuyo efecto externo debe reconciliarse.
 
 Todas las respuestas GET/POST, de éxito o error, conservan `Cache-Control: private, no-store`, `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `X-Robots-Tag: noindex, nofollow` y CSP restrictiva compatible con el formulario same-origin. React escapa el contenido. Token y selector no se registran, serializan en errores ni aparecen en redirects.
 
@@ -59,9 +59,10 @@ And recibe un rechazo genérico que no revela cuál fue elegida
 Given una selección pendiente que no ha vencido
 When el OWNER calcula disponibilidad
 Then el intervalo SELECTED continúa apareciendo como hold activo
-When la oferta alcanza su vencimiento y se ejecuta la expiración
+When la oferta alcanza su vencimiento sin haber iniciado el efecto externo y se ejecuta la expiración
 Then la oferta queda EXPIRED y su opción SELECTED queda RELEASED atómicamente
 And repetir la expiración no vuelve a modificarla
+But si la confirmación ya está INSERTING, oferta, selección y hold se conservan para reconciliación
 ```
 
 ```gherkin
