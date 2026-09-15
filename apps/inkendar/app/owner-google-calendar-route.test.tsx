@@ -55,3 +55,20 @@ describe("owner Google Calendar route", () => {
 });
 
 it("combines saved availability into the real route render",async()=>{const artist={id:"50000000-0000-4000-8000-000000000001",displayName:"Ana",calendarId:"artist@test"};handler.loader.mockResolvedValueOnce(Response.json({connectionStatus:"ACTIVE",calendars:[],artists:[artist]}));availability.loader.mockResolvedValueOnce(Response.json({availabilityByArtist:{[artist.id]:{timeZone:"Pacific/Kiritimati",windows:[{weekday:6,start:"09:15",end:"12:45"}],slotIncrementMinutes:45,bufferBeforeMinutes:20,bufferAfterMinutes:25}}}));const {query,dataRoutes}=createStaticHandler(routes);const result=await query(new Request("https://app.inkendar.es/app/owner/calendars"));if(result instanceof Response)throw new Error("Expected context");const html=renderToStaticMarkup(<StaticRouterProvider router={createStaticRouter(dataRoutes,result)} context={result}/>);expect(availability.loader).toHaveBeenCalledOnce();expect(html).toContain('value="Pacific/Kiritimati"');expect(html).toContain("6,09:15,12:45");expect(html).toContain('value="45"');});
+
+it("loads availability only for artists authorized by the management response", async () => {
+  const authorizedArtist = { id: "50000000-0000-4000-8000-000000000001", displayName: "Ana", calendarId: null };
+  handler.loader.mockResolvedValueOnce(Response.json({ connectionStatus: "ACTIVE", calendars: [], artists: [authorizedArtist] }));
+  availability.loader.mockResolvedValueOnce(Response.json({ availabilityByArtist: { [authorizedArtist.id]: null } }));
+  const injected = Array.from({ length: 101 }, (_, index) => `attacker-${index}`)
+    .map((id) => `artistProfileId=${id}`)
+    .join("&");
+
+  const response = await loader({
+    request: new Request(`https://app.inkendar.es/app/owner/calendars?${injected}`),
+  } as never);
+
+  expect(response.status).toBe(200);
+  const forwarded = availability.loader.mock.calls.at(-1)?.[0] as Request;
+  expect(new URL(forwarded.url).searchParams.getAll("artistProfileId")).toEqual([authorizedArtist.id]);
+});

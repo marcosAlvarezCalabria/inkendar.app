@@ -19,6 +19,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   if (response.status >= 400) throw response;
   const management = await response.json() as Omit<View, "availabilityByArtist">;
   const availabilityUrl = new URL(request.url);
+  availabilityUrl.searchParams.delete("artistProfileId");
   for (const artist of management.artists) availabilityUrl.searchParams.append("artistProfileId", artist.id);
   const availabilityResponse = await ownerAvailabilityHandlers.loader(new Request(availabilityUrl, { headers: request.headers }));
   if (availabilityResponse.status >= 400) throw availabilityResponse;

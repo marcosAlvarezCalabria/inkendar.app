@@ -4,9 +4,14 @@ create or replace function public.save_artist_availability_rules(
 ) returns void language plpgsql security definer set search_path = '' as $$
 declare w jsonb;
 begin
+  if p_studio_id is null or p_owner_user_id is null or p_artist_profile_id is null
+    or p_time_zone is null or p_slot_increment_minutes is null
+    or p_buffer_before_minutes is null or p_buffer_after_minutes is null or p_windows is null
+  then raise exception 'invalid availability' using errcode = '22023'; end if;
+
   perform private.assert_studio_owner(p_studio_id, p_owner_user_id);
   if not exists(select 1 from public.artist_profile where id = p_artist_profile_id and studio_id = p_studio_id)
-    or p_time_zone is null or not exists(select 1 from pg_catalog.pg_timezone_names zone where zone.name = p_time_zone)
+    or not exists(select 1 from pg_catalog.pg_timezone_names zone where zone.name = p_time_zone)
     or jsonb_typeof(p_windows) <> 'array' or jsonb_array_length(p_windows) > 28
   then raise exception 'invalid availability' using errcode = '22023'; end if;
 

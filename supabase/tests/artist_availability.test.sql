@@ -1,5 +1,5 @@
 begin;
-select plan(24);
+select plan(27);
 select has_table('public','artist_availability_rule','availability rule table exists');
 select has_table('public','artist_availability_window','availability window table exists');
 select ok((select relrowsecurity from pg_class where oid='public.artist_availability_rule'::regclass),'rule RLS enabled');
@@ -23,6 +23,9 @@ select ok(not has_table_privilege('service_role','public.artist_availability_win
 select throws_ok($$select public.save_artist_availability_rules('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','Mars/Olympus',30,0,0,'[]')$$,'22023',null,'RPC rejects timezone outside PostgreSQL IANA registry');
 select throws_ok($$select public.save_artist_availability_rules('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','UTC',30,0,0,'[{"weekday":1,"start":"09:00:00","end":"10:00:00"}]')$$,'22023',null,'RPC rejects window seconds');
 select throws_ok($$select public.save_artist_availability_rules('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','UTC',30,0,0,'[{"weekday":1,"start":"09:00","end":"10:00","extra":"x"}]')$$,'22023',null,'RPC rejects malformed window objects');
+select throws_ok($$select public.save_artist_availability_rules('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','UTC',30,0,0,null::jsonb)$$,'22023',null,'RPC rejects null windows without deleting persisted windows');
+select throws_ok($$select public.save_artist_availability_rules('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','UTC',null::integer,0,0,'[]')$$,'22023',null,'RPC rejects null numeric rules explicitly');
+select throws_ok($$select public.save_artist_availability_rules(null::uuid,null::uuid,null::uuid,null::text,30,0,0,'[]')$$,'22023',null,'RPC rejects null identifiers and timezone explicitly');
 select lives_ok($$select public.activate_google_calendar_connection('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','v1.availability-ciphertext.tag',array['https://www.googleapis.com/auth/calendar.calendarlist.readonly','https://www.googleapis.com/auth/calendar.events.freebusy']);select public.assign_artist_calendar('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','artist@example.test')$$,'active same-tenant connection can be assigned');
 select is((select connection_status::text||':'||calendar_id from public.get_artist_availability_configuration('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001')),'ACTIVE:artist@example.test','configuration exposes only assigned active same-tenant connection');
 select * from finish(); rollback;
