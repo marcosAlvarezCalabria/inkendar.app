@@ -110,6 +110,12 @@ El módulo de booking introduce `BookingOfferRepositoryPort` y un reloj inyectab
 
 La disponibilidad carga mediante RPC únicamente holds `HELD` de ofertas `OPEN` cuyo `expires_at` continúa en el futuro y los combina con `freeBusy`. La expiración materializa de forma atómica e idempotente la oferta y todas sus opciones. El panel SSR OWNER usa mutaciones same-origin; selección pública, elección libre, confirmación, eventos Google, notificaciones y scheduler permanecen fuera.
 
+### Acceso público de solo lectura a ofertas
+
+_Estado técnico del slice: `IN_PROGRESS`; implementación y validación local completas, pendientes de revisión independiente y CI. No existe selección ni evidencia live._
+
+El OWNER emite o rota mediante `POST` same-origin una credencial base64url de 32 bytes para una oferta `OPEN` vigente de su tenant. Aplicación recibe reloj, aleatoriedad y SHA-256 por dependencias; solo el hash llega a una tabla tenant-safe inaccesible al browser. Dos RPCs `SECURITY DEFINER`, con `search_path` vacío y ejecución exclusiva de `service_role`, rotan el hash bajo autorización OWNER y resuelven una vista pública mínima. `/offers/:token` compone persistencia solo tras validar la forma canónica, no redirige y devuelve exclusivamente caducidad, nombre del artista, zona opcional y uno a tres intervalos `HELD`, con no-store/no-referrer y errores uniformes. Selección, confirmación, Google Events y notificaciones permanecen fuera.
+
 ## 2. Alternativas consideradas
 
 ### A. Monolito modular TypeScript — aceptada
@@ -310,3 +316,4 @@ La recomendación añade un backend propio delgado, pero concentra allí autoriz
 | 2026-09-14 | OAuth Google server-side, token AEAD y calendario por artista | Preparar Calendar con privilegio mínimo, configuración lazy y aislamiento multi-tenant antes de implementar disponibilidad y eventos. |
 | 2026-09-15 | Disponibilidad semanal por artista y FreeBusy incremental | Generar candidatos tenant-safe sin leer eventos ni anticipar ofertas, holds o booking. |
 | 2026-09-15 | Ofertas preaprobadas y holds tenant-safe con caducidad configurable | Reservar provisionalmente opciones y excluirlas de disponibilidad sin acoplar selección, eventos, confirmación ni notificaciones. |
+| 2026-09-15 | Acceso público hash-only de solo lectura a ofertas vigentes | Mostrar opciones reservadas provisionalmente mediante una credencial rotatoria sin exponer datos del cliente/caso ni anticipar selección o confirmación. |

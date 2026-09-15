@@ -18,7 +18,7 @@ Solo OWNER compone el cliente `service_role` después del guard y usa RPCs ligad
 - `BookingOfferRepositoryPort` conserva configuración, ofertas y opciones detrás de Supabase; el reloj entra por puerto de aplicación.
 - Los RPCs `get_booking_offer_management`, `save_booking_offer_expiry_hours`, `create_booking_offer`, `expire_booking_offers` y `list_active_booking_holds` exigen owner, usuario y estudio coherentes.
 - Estados mínimos: oferta `OPEN | EXPIRED`; opción `HELD | RELEASED`. La selección y confirmación futuras ampliarán el workflow sin alterar la semántica de los holds activos.
-- No se persisten tokens públicos, mensajes, datos de Google ni detalles de eventos.
+- Este slice original no persiste tokens públicos, mensajes, datos de Google ni detalles de eventos; el acceso hash-only se define por separado en [acceso público de solo lectura](public-offer-access-slice.md).
 
 ## Criterios de aceptación
 
@@ -54,4 +54,4 @@ And las claves foráneas y los RPCs impiden relaciones entre tenants
 
 ## Fuera de alcance
 
-No incluye enlace público ni selección del cliente, elección libre, aprobación, revalidación final contra Google, creación o borrado de eventos, confirmación de cita, notificaciones ni un scheduler concreto. Tampoco declara ejecutada ninguna prueba live.
+Este slice original no incluye enlace público ni selección del cliente. El corte posterior [acceso público de solo lectura](public-offer-access-slice.md) añade únicamente emisión/rotación y consulta; elección libre, aprobación, revalidación final contra Google, creación o borrado de eventos, confirmación de cita, notificaciones y scheduler continúan fuera. Tampoco declara ejecutada ninguna prueba live.

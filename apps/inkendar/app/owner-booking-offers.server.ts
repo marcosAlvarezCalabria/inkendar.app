@@ -1,11 +1,38 @@
-import { BookingContextNotFoundError, BookingHoldConflictError, InvalidBookingOfferInputError, createBookingOfferService } from "@inkendar/application";
-import { createSupabaseBookingOfferRepository } from "@inkendar/infrastructure";
+import {
+  BookingContextNotFoundError,
+  BookingHoldConflictError,
+  InvalidBookingOfferInputError,
+  createBookingOfferAccessService,
+  createBookingOfferService,
+} from "@inkendar/application";
+import {
+  createSupabaseBookingOfferAccessRepository,
+  createSupabaseBookingOfferRepository,
+  createSupabasePublicBookingOfferRepository,
+  secureBookingOfferTokenBytes,
+  sha256BookingOfferToken,
+} from "@inkendar/infrastructure";
 import type { AuthorizedAccess } from "@inkendar/domain";
 import { authHandlers, isTrustedMutationRequest, type AuthorizedRequestAccess } from "./auth.server.js";
 
 type Service = ReturnType<typeof createBookingOfferService>;
-type Dependencies = Readonly<{ authorize(request: Request): Promise<Response | AuthorizedRequestAccess>; createService(access: AuthorizedAccess): Service }>;
-const defaults: Dependencies = { authorize: (request) => authHandlers.requireRole(request, "OWNER"), createService: (access) => createBookingOfferService({ repository: createSupabaseBookingOfferRepository(process.env, access.userId) }) };
+type AccessService = ReturnType<typeof createBookingOfferAccessService>;
+type Dependencies = Readonly<{
+  authorize(request: Request): Promise<Response | AuthorizedRequestAccess>;
+  createService(access: AuthorizedAccess): Service;
+  createAccessService?(access: AuthorizedAccess): AccessService;
+}>;
+
+const defaults: Required<Dependencies> = {
+  authorize: (request) => authHandlers.requireRole(request, "OWNER"),
+  createService: (access) => createBookingOfferService({ repository: createSupabaseBookingOfferRepository(process.env, access.userId) }),
+  createAccessService: (access) => createBookingOfferAccessService({
+    ownerRepository: createSupabaseBookingOfferAccessRepository(process.env, access.userId),
+    publicRepository: createSupabasePublicBookingOfferRepository(process.env),
+    randomBytes: secureBookingOfferTokenBytes,
+    hashToken: sha256BookingOfferToken,
+  }),
+};
 
 export function createOwnerBookingOfferHandlers(dependencies: Dependencies = defaults) {
   return {
@@ -21,7 +48,17 @@ export function createOwnerBookingOfferHandlers(dependencies: Dependencies = def
       if (authorization instanceof Response) return authorization;
       const responseHeaders = headers(authorization.headers);
       try {
-        const form = await request.formData(), intent = required(form, "intent"), service = dependencies.createService(authorization.access);
+        const form = await request.formData();
+        const intent = required(form, "intent");
+        if (intent === "rotate-access") {
+          const accessService = (dependencies.createAccessService ?? defaults.createAccessService)(authorization.access);
+          const issued = await accessService.issue(authorization.access.studioId, required(form, "offerId"));
+          const trustedOrigin = request.headers.get("Origin");
+          if (!trustedOrigin) throw new InvalidBookingOfferInputError();
+          responseHeaders.set("Referrer-Policy", "no-referrer");
+          return Response.json({ accessUrl: new URL(`/offers/${issued.token}`, trustedOrigin).toString(), expiresAt: issued.expiresAt }, { headers: responseHeaders });
+        }
+        const service = dependencies.createService(authorization.access);
         if (intent === "configure-expiry") await service.configureExpiry(authorization.access.studioId, integer(form, "expiryHours"));
         else if (intent === "create") await service.create(authorization.access.studioId, required(form, "tattooCaseId"), required(form, "artistProfileId"), options(required(form, "options")));
         else if (intent === "expire-due") await service.expireDue(authorization.access.studioId);
@@ -30,13 +67,14 @@ export function createOwnerBookingOfferHandlers(dependencies: Dependencies = def
         return new Response(null, { status: 303, headers: responseHeaders });
       } catch (error) {
         if (error instanceof InvalidBookingOfferInputError) return Response.json({ error: "Revisa los datos de la oferta." }, { status: 400, headers: responseHeaders });
-        if (error instanceof BookingContextNotFoundError) return Response.json({ error: "El caso o artista no está disponible." }, { status: 404, headers: responseHeaders });
+        if (error instanceof BookingContextNotFoundError) return Response.json({ error: "La oferta no está disponible." }, { status: 404, headers: responseHeaders });
         if (error instanceof BookingHoldConflictError) return Response.json({ error: "Una opción ya está bloqueada." }, { status: 409, headers: responseHeaders });
         return Response.json({ error: "No se pudo completar la operación." }, { status: 500, headers: responseHeaders });
       }
     },
   };
 }
+
 export const ownerBookingOfferHandlers = createOwnerBookingOfferHandlers();
 function headers(source?: Headers): Headers { const result = new Headers(source); result.set("Cache-Control", "private, no-store"); return result; }
 function required(form: FormData, name: string): string { const value = form.get(name); if (typeof value !== "string" || value.length > 4096) throw new InvalidBookingOfferInputError(); return value.trim(); }

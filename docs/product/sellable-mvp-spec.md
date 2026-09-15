@@ -2,7 +2,7 @@
 
 _Estado: especificación viva y fuente de verdad para alcance, comportamiento y progreso_
 
-_Versión: 1.9.1_
+_Versión: 1.10.0_
 
 _Última actualización: 2026-09-15_
 
@@ -52,7 +52,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | Flujo de entrega y CI | `PASS` | `main` exige PR, los checks `validate` y `database`, conversaciones resueltas e historial lineal; ambos jobs pasaron tras integrar el [PR #10](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/10) en el [run 34895446647](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34895446647). |
 | Memoria de agentes | `PASS` | Engram 1.20.0 guarda y recupera memoria del proyecto `inkendar.app`; Codex MCP está configurado y requiere reinicio para cargarlo en nuevos chats. |
 | Supabase y aislamiento multi-tenant | `PASS` | La migración, el seed sintético y las 38 aserciones pgTAP pasaron contra Supabase/Postgres real en GitHub Actions [run 34752758528](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34752758528). |
-| Google Calendar y booking | `IN_PROGRESS` | OAuth y asignación por artista están `DONE`: el [PR #10](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/10) pasó 188 pruebas y 34 aserciones pgTAP del slice; OAuth, listado y asignación live pasaron localmente el 2026-09-15 con owner sintético. La disponibilidad técnica está `DONE`: el [PR #12](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/12) pasó 215 pruebas, build, migraciones limpias y 27 aserciones pgTAP del slice dentro de 232 en el [run 34963263821](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34963263821). El núcleo técnico de ofertas preaprobadas, holds y caducidad está `DONE`: el [PR #14](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/14) pasó 230 pruebas, build, migraciones limpias y 29 aserciones pgTAP del slice dentro de 261; el CI posterior al merge quedó verde en el [run 34973774932](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34973774932). No existe evidencia live de ofertas; FreeBusy live, eventos, selección pública, confirmación y booking extremo a extremo siguen `IN_PROGRESS`. |
+| Google Calendar y booking | `IN_PROGRESS` | OAuth y asignación por artista están `DONE`: el [PR #10](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/10) pasó 188 pruebas y 34 aserciones pgTAP del slice; OAuth, listado y asignación live pasaron localmente el 2026-09-15 con owner sintético. La disponibilidad técnica está `DONE`: el [PR #12](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/12) pasó 215 pruebas, build, migraciones limpias y 27 aserciones pgTAP del slice dentro de 232 en el [run 34963263821](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34963263821). El núcleo técnico de ofertas preaprobadas, holds y caducidad está `DONE`: el [PR #14](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/14) pasó 230 pruebas, build, migraciones limpias y 29 aserciones pgTAP del slice dentro de 261; el CI posterior al merge quedó verde en el [run 34973774932](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34973774932). El acceso público de solo lectura está implementado localmente y sigue `IN_PROGRESS` hasta revisión/CI; no incluye selección. No existe evidencia live de ofertas; FreeBusy live, eventos, selección, confirmación y booking extremo a extremo siguen `IN_PROGRESS`. |
 | Galería, portfolios y publicación web | `PLANNED` | No existe todavía el almacenamiento, feed público ni componente de integración. |
 | Piloto externo y disposición a pagar | `PLANNED` | No existe todavía evidencia de uso real autorizado ni pago. |
 
@@ -90,6 +90,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | 2026-09-14 | DEC-028 | `ACCEPTED` | La conexión Google usa Authorization Code web server, scope incremental `calendar.calendarlist.readonly`, refresh token cifrado con AES-256-GCM y persistencia/RPC exclusivas de `service_role`; cada artista puede tener un calendario de la conexión activa de su estudio. | Preparar disponibilidad y eventos con privilegio mínimo, secretos fuera del navegador y relaciones tenant-safe sin anticipar booking. |
 | 2026-09-15 | DEC-029 | `ACCEPTED` | La disponibilidad por artista usa reglas semanales IANA en Supabase y consulta incremental Google FreeBusy con `calendar.events.freebusy`; devuelve candidatos acotados sin leer eventos ni crear citas. | Previsualizar huecos con privilegio mínimo y límites tenant-safe antes de implementar eventos, ofertas o booking. |
 | 2026-09-15 | DEC-030 | `ACCEPTED` | Las ofertas preaprobadas guardan de una a tres opciones tenant-safe en Supabase; sus holds bloquean disponibilidad hasta una caducidad por estudio de 24 horas por defecto y se liberan idempotentemente sin crear eventos Google. | Separar el núcleo provisional verificable con datos sintéticos de los slices posteriores de selección pública, confirmación, notificación y sincronización de eventos. |
+| 2026-09-15 | DEC-031 | `ACCEPTED` | Una oferta preaprobada vigente puede publicar una única credencial opaca rotatoria de solo lectura: 32 bytes aleatorios, SHA-256 en reposo, ruta por path y respuesta pública mínima sin datos de cliente/caso ni identificadores internos. | Dar al cliente visibilidad segura de opciones reservadas provisionalmente antes de implementar selección, confirmación o eventos Google. |
 
 La arquitectura técnica está en [Arquitectura de aplicación](../architecture/application-architecture.md) y el proceso de entrega en [Flujo de desarrollo, revisión e integración](../development/delivery-workflow.md).
 
@@ -98,6 +99,7 @@ La arquitectura técnica está en [Arquitectura de aplicación](../architecture/
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
 | 2026-09-15 | 1.9.1 | El núcleo técnico OWNER de ofertas preaprobadas, holds y caducidad pasó a `DONE` tras verificar el PR #14 y el CI posterior al merge con Node 24, migraciones limpias, pgTAP y Auth/RLS; no se ejecutó ninguna prueba live. | Cerrar el gate técnico sin anticipar selección pública, eventos, confirmación, notificaciones ni scheduler. |
+| 2026-09-15 | 1.10.0 | Se implementó localmente el acceso público de solo lectura a ofertas vigentes con emisión/rotación OWNER, token hash-only, respuesta mínima y cabeceras defensivas; integración, CI, selección y pruebas live quedan pendientes. | Entregar el siguiente corte vertical verificable sin anticipar escritura pública ni confirmar citas. |
 | 2026-09-15 | 1.9.0 | Se implementó localmente el núcleo OWNER de ofertas preaprobadas, holds tenant-safe, plazo configurable y expiración idempotente; la integración/CI y todo recorrido live permanecen pendientes. | Reservar opciones en disponibilidad sin anticipar selección pública, confirmación, eventos, notificaciones ni scheduler. |
 | 2026-09-15 | 1.8.1 | La disponibilidad técnica por artista pasó a `DONE` tras verificar el PR #12 con 215 pruebas, build, migraciones limpias, 232 aserciones pgTAP y el CI posterior al merge; FreeBusy live continúa `IN_PROGRESS`. | Cerrar el gate técnico sin atribuir al CI una prueba operativa contra Google. |
 | 2026-09-15 | 1.8.0 | Se implementó la configuración OWNER y previsualización técnica de disponibilidad con reglas IANA, FreeBusy incremental y límites de rango/duración; CI y prueba live FreeBusy siguen `IN_PROGRESS`. | Preparar candidatos sin afirmar ni crear citas y registrar por separado la evidencia live ya obtenida de OAuth/listado/asignación. |
@@ -361,7 +363,7 @@ El desarrollo técnico con datos sintéticos puede comenzar mientras se completa
 
 1. Completar en paralelo la prueba bidireccional de Facebook Messenger.
 2. Validar los recorridos live de la bandeja Chatwoot y de Google FreeBusy con cuentas sintéticas autorizadas; OAuth, listado y asignación live ya pasaron.
-3. Implementar selección pública y confirmación idempotente contra Google en slices separados; el núcleo de ofertas preaprobadas, bloqueos y caducidad ya está integrado.
+3. Revisar e integrar el acceso público de solo lectura y después implementar selección pública y confirmación idempotente contra Google en slices separados; el núcleo de ofertas preaprobadas, bloqueos y caducidad ya está integrado.
 4. Añadir la vista de artista, galería y portfolios administrados por el owner.
 5. Implementar el feed público y probarlo en una web nueva y otra existente.
 6. Verificar privacidad, exportación, monitorización y onboarding antes de datos reales.
