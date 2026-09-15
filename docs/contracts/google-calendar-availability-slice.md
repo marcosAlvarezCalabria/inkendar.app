@@ -1,6 +1,6 @@
 # Contrato técnico: disponibilidad Google Calendar por artista
 
-_Estado técnico: `IN_PROGRESS` hasta validación completa/CI. La prueba live de FreeBusy permanece `IN_PROGRESS`._
+_Estado técnico: `DONE`. La prueba live de FreeBusy permanece `IN_PROGRESS`._
 
 ## Alcance
 
@@ -23,5 +23,7 @@ El scope mínimo oficial elegido es `https://www.googleapis.com/auth/calendar.ev
 Fuentes oficiales: [Freebusy.query](https://developers.google.com/workspace/calendar/api/v3/reference/freebusy/query), [scopes de Calendar](https://developers.google.com/workspace/calendar/api/auth) y [OAuth incremental web server](https://developers.google.com/identity/protocols/oauth2/web-server).
 
 ## Evidencia
+
+El [PR #12](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/12) verificó dominio, aplicación, adaptadores, handlers y UI SSR: `pnpm run check` pasó con 215 pruebas, un skip de integración esperado, lint, typecheck y build. El job `database` del [run 34963263821](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34963263821) aplicó todas las migraciones desde cero y pasó las 27 aserciones pgTAP del slice dentro de 232, además del smoke Auth/RLS. Tras el squash, `main` volvió a pasar `validate` y `database` en el [run 34963531466](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34963531466).
 
 El 2026-09-15 el usuario verificó localmente con owner sintético: callback `result=connected`, listado live de calendarios y asignación de un calendario dedicado a `Local Artist` con `result=assignment-saved`. Esto acredita OAuth/listado/asignación live. FreeBusy, eventos y booking continúan `IN_PROGRESS` hasta una prueba live posterior; las pruebas de implementación usan solo datos sintéticos.

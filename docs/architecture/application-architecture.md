@@ -98,7 +98,7 @@ El corte OAuth inicial pide solo `calendar.calendarlist.readonly` y lista metada
 
 ### Disponibilidad por artista
 
-_Estado técnico del slice: `IN_PROGRESS` hasta validación completa/CI; la prueba live de FreeBusy sigue pendiente._
+_Estado técnico del slice: `DONE`; el PR #12 y el CI posterior al merge verificaron código, build, migraciones limpias y pgTAP. La prueba live de FreeBusy sigue `IN_PROGRESS`._
 
 El dominio enumera los días civiles IANA que intersectan el rango UTC y resuelve folds con inicio temprano/final tardío y gaps avanzando al primer minuto válido; genera slots desde reglas y busy UTC sin depender de Google ni Supabase. Aplicación coordina ArtistAvailabilityRepositoryPort y GoogleFreeBusyPort; infraestructura implementa FreeBusy y RPC owner-bound. Las asignaciones, reglas y conexión deben pertenecer al mismo estudio; títulos y descripciones de eventos no cruzan la frontera.
 
