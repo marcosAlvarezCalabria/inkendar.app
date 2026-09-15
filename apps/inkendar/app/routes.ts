@@ -10,6 +10,7 @@ export default [
   route("app/owner/customers", "routes/owner-customers.tsx"),
   route("app/owner/cases", "routes/owner-cases.tsx"),
   route("app/owner/calendars", "routes/owner-calendars.tsx"),
+  route("app/owner/offers", "routes/owner-offers.tsx"),
   route("app/artist", "routes/artist.tsx"),
   route("auth/google/callback", "routes/google-callback.ts"),
   route("api/webhooks/chatwoot/:connectionId", "routes/chatwoot-webhook.ts"),

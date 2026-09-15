@@ -14,7 +14,7 @@ _Última actualización: 2026-09-15_
 | Asignación de conversaciones | `PARTIAL` | Automática pendiente; la asignación manual está validada. |
 | WhatsApp | `DEFERRED` | Retirado del MVP y de sus gates. |
 | Frontera Chatwoot–Inkendar | `IN_PROGRESS` | Contrato técnico, bandeja paginada, respuesta idempotente y webhook firmado están `DONE`; falta el recorrido live de la PWA con una conexión sintética. |
-| Google Calendar | `IN_PROGRESS` | OAuth, revocación y asignación de calendarios por artista están `DONE`; faltan evidencia live, `freeBusy`, creación de eventos y booking. |
+| Google Calendar | `IN_PROGRESS` | OAuth, listado y asignación live pasaron con owner sintético el 2026-09-15. Faltan FreeBusy live, creación de eventos, ofertas y booking extremo a extremo. |
 
 El plan anterior centrado en WhatsApp Coexistence fue retirado del documento activo porque ya no representa el producto. Su contenido permanece en el historial de Git.
 
@@ -24,6 +24,6 @@ El plan anterior centrado en WhatsApp Coexistence fue retirado del documento act
 2. Registrar fecha, cuenta de prueba, resultado y limitaciones sin guardar credenciales ni datos personales.
 3. Marcar Facebook como `PASS` o retirar explícitamente el canal de la promesa comercial.
 4. Validar el recorrido live de la frontera Chatwoot–Inkendar ya implementada con una conexión sintética.
-5. Validar Google OAuth live y después `freeBusy` y creación de eventos antes de confirmar citas reales.
+5. Validar `freeBusy` live y después creación de eventos y booking antes de confirmar citas reales; OAuth, listado y asignación live ya pasaron.
 
 Un resultado parcial ya no bloquea CI, estructura del monolito, contratos, pruebas ni desarrollo con datos sintéticos. Sí bloquea anunciar como disponible cualquier capacidad que no haya pasado su prueba.

@@ -2,7 +2,7 @@
 
 _Estado: especificación viva y fuente de verdad para alcance, comportamiento y progreso_
 
-_Versión: 1.8.1_
+_Versión: 1.9.0_
 
 _Última actualización: 2026-09-15_
 
@@ -52,7 +52,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | Flujo de entrega y CI | `PASS` | `main` exige PR, los checks `validate` y `database`, conversaciones resueltas e historial lineal; ambos jobs pasaron tras integrar el [PR #10](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/10) en el [run 34895446647](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34895446647). |
 | Memoria de agentes | `PASS` | Engram 1.20.0 guarda y recupera memoria del proyecto `inkendar.app`; Codex MCP está configurado y requiere reinicio para cargarlo en nuevos chats. |
 | Supabase y aislamiento multi-tenant | `PASS` | La migración, el seed sintético y las 38 aserciones pgTAP pasaron contra Supabase/Postgres real en GitHub Actions [run 34752758528](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34752758528). |
-| Google Calendar y booking | `IN_PROGRESS` | OAuth y asignación por artista están `DONE`: el [PR #10](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/10) pasó 188 pruebas y 34 aserciones pgTAP del slice; OAuth, listado y asignación live pasaron localmente el 2026-09-15 con owner sintético. La disponibilidad técnica está `DONE`: el [PR #12](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/12) pasó 215 pruebas, build, migraciones limpias y 27 aserciones pgTAP del slice dentro de 232 en el [run 34963263821](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34963263821). La prueba live de FreeBusy, eventos, ofertas y booking siguen `IN_PROGRESS`. |
+| Google Calendar y booking | `IN_PROGRESS` | OAuth y asignación por artista están `DONE`: el [PR #10](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/10) pasó 188 pruebas y 34 aserciones pgTAP del slice; OAuth, listado y asignación live pasaron localmente el 2026-09-15 con owner sintético. La disponibilidad técnica está `DONE`: el [PR #12](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/12) pasó 215 pruebas, build, migraciones limpias y 27 aserciones pgTAP del slice dentro de 232 en el [run 34963263821](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34963263821). El núcleo de ofertas preaprobadas, holds y caducidad está implementado localmente con datos sintéticos y pendiente de revisión/CI; FreeBusy live, eventos, selección pública, confirmación y booking extremo a extremo siguen `IN_PROGRESS`. |
 | Galería, portfolios y publicación web | `PLANNED` | No existe todavía el almacenamiento, feed público ni componente de integración. |
 | Piloto externo y disposición a pagar | `PLANNED` | No existe todavía evidencia de uso real autorizado ni pago. |
 
@@ -89,6 +89,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | 2026-09-14 | DEC-027 | `ACCEPTED` | El primer corte de conversaciones OWNER consulta Chatwoot bajo demanda detrás de `ConversationProviderPort`, pagina sin conexión como vacío privado, conserva vínculos, ingesta y operaciones outbound sin contenido en Supabase y autentica webhooks con firma HMAC, frescura y delivery ID idempotente. | Ocultar el proveedor, evitar copias divergentes de mensajes y conectar conversaciones con clientes/casos manteniendo aislamiento tenant y reintentos observables. |
 | 2026-09-14 | DEC-028 | `ACCEPTED` | La conexión Google usa Authorization Code web server, scope incremental `calendar.calendarlist.readonly`, refresh token cifrado con AES-256-GCM y persistencia/RPC exclusivas de `service_role`; cada artista puede tener un calendario de la conexión activa de su estudio. | Preparar disponibilidad y eventos con privilegio mínimo, secretos fuera del navegador y relaciones tenant-safe sin anticipar booking. |
 | 2026-09-15 | DEC-029 | `ACCEPTED` | La disponibilidad por artista usa reglas semanales IANA en Supabase y consulta incremental Google FreeBusy con `calendar.events.freebusy`; devuelve candidatos acotados sin leer eventos ni crear citas. | Previsualizar huecos con privilegio mínimo y límites tenant-safe antes de implementar eventos, ofertas o booking. |
+| 2026-09-15 | DEC-030 | `ACCEPTED` | Las ofertas preaprobadas guardan de una a tres opciones tenant-safe en Supabase; sus holds bloquean disponibilidad hasta una caducidad por estudio de 24 horas por defecto y se liberan idempotentemente sin crear eventos Google. | Separar el núcleo provisional verificable con datos sintéticos de los slices posteriores de selección pública, confirmación, notificación y sincronización de eventos. |
 
 La arquitectura técnica está en [Arquitectura de aplicación](../architecture/application-architecture.md) y el proceso de entrega en [Flujo de desarrollo, revisión e integración](../development/delivery-workflow.md).
 
@@ -96,6 +97,7 @@ La arquitectura técnica está en [Arquitectura de aplicación](../architecture/
 
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
+| 2026-09-15 | 1.9.0 | Se implementó localmente el núcleo OWNER de ofertas preaprobadas, holds tenant-safe, plazo configurable y expiración idempotente; la integración/CI y todo recorrido live permanecen pendientes. | Reservar opciones en disponibilidad sin anticipar selección pública, confirmación, eventos, notificaciones ni scheduler. |
 | 2026-09-15 | 1.8.1 | La disponibilidad técnica por artista pasó a `DONE` tras verificar el PR #12 con 215 pruebas, build, migraciones limpias, 232 aserciones pgTAP y el CI posterior al merge; FreeBusy live continúa `IN_PROGRESS`. | Cerrar el gate técnico sin atribuir al CI una prueba operativa contra Google. |
 | 2026-09-15 | 1.8.0 | Se implementó la configuración OWNER y previsualización técnica de disponibilidad con reglas IANA, FreeBusy incremental y límites de rango/duración; CI y prueba live FreeBusy siguen `IN_PROGRESS`. | Preparar candidatos sin afirmar ni crear citas y registrar por separado la evidencia live ya obtenida de OAuth/listado/asignación. |
 | 2026-09-15 | 1.7.2 | Se eliminó progreso duplicado de README y PRODUCT, se sincronizaron el piloto cero, Google y CI con los slices integrados, y se corrigió la separación ya completada de la landing. | Mantener esta especificación como única fuente de verdad sin resúmenes activos contradictorios ni alterar evidencia histórica. |
@@ -178,7 +180,7 @@ Web / Instagram / Facebook
 - **Facebook Messenger: CONNECTED / pendiente de prueba bidireccional final.**
 - **Asignación: PARTIAL.** La atención funciona asignando manualmente la conversación; la asignación automática continúa pendiente de localizar y validar.
 - **WhatsApp: DEFERRED.** El flujo manual exige un número dedicado o migrado; conservar el número en la aplicación requiere Coexistence. Se retira del MVP.
-- **Google Calendar: IN_PROGRESS.** OAuth, refresh token cifrado, listado de calendarios y asignación por artista están implementados y verificados con datos sintéticos; faltan evidencia live, `freeBusy`, eventos y booking.
+- **Google Calendar: IN_PROGRESS.** OAuth, listado y asignación live pasaron con owner sintético el 2026-09-15; la disponibilidad técnica está implementada. Faltan FreeBusy live, eventos y booking extremo a extremo; las ofertas y holds solo tienen validación sintética local hasta superar revisión y CI.
 
 Un canal no pasa a `PASS` por estar conectado: debe demostrarse recepción y respuesta de extremo a extremo con datos sintéticos.
 
@@ -357,14 +359,12 @@ Gates iniciales para ampliar:
 El desarrollo técnico con datos sintéticos puede comenzar mientras se completa la validación comercial. Los gates bloquean datos reales, promesas comerciales y cobro; no bloquean CI, contratos, pruebas ni infraestructura local.
 
 1. Completar en paralelo la prueba bidireccional de Facebook Messenger.
-2. Validar los recorridos live de la bandeja Chatwoot y de Google OAuth con cuentas sintéticas autorizadas.
-3. Definir el contrato y las pruebas RED de disponibilidad por artista.
-4. Implementar reglas de jornada, zona horaria, duración, márgenes y consulta privada mediante `freeBusy`.
-5. Implementar ofertas, bloqueos, caducidad y confirmación idempotente.
-6. Añadir la vista de artista, galería y portfolios administrados por el owner.
-7. Implementar el feed público y probarlo en una web nueva y otra existente.
-8. Verificar privacidad, exportación, monitorización y onboarding antes de datos reales.
-9. Ejecutar el recorrido completo con un estudio piloto cualificado antes de cobrar.
+2. Validar los recorridos live de la bandeja Chatwoot y de Google FreeBusy con cuentas sintéticas autorizadas; OAuth, listado y asignación live ya pasaron.
+3. Revisar e integrar el núcleo de ofertas preaprobadas, bloqueos y caducidad; después implementar selección pública y confirmación idempotente contra Google en slices separados.
+4. Añadir la vista de artista, galería y portfolios administrados por el owner.
+5. Implementar el feed público y probarlo en una web nueva y otra existente.
+6. Verificar privacidad, exportación, monitorización y onboarding antes de datos reales.
+7. Ejecutar el recorrido completo con un estudio piloto cualificado antes de cobrar.
 ### Fuera del MVP vigente
 
 - WhatsApp y cualquier promesa de Coexistence;
