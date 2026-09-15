@@ -29,12 +29,12 @@ describe("Google Calendar infrastructure", () => {
     })).toThrow("Invalid GOOGLE_OAUTH_REDIRECT_URI");
   });
 
-  it("creates an authorization URL with only the CalendarList scope and fixed security parameters", () => {
+  it("creates an incremental authorization URL with CalendarList and FreeBusy scopes", () => {
     const adapter = new GoogleCalendarHttpAdapter(config, vi.fn());
     const url = new URL(adapter.createAuthorizationUrl("synthetic-state-value-with-sufficient-entropy"));
     expect(url.origin + url.pathname).toBe("https://accounts.google.com/o/oauth2/v2/auth");
     expect(url.searchParams.get("redirect_uri")).toBe(config.redirectUri);
-    expect(url.searchParams.get("scope")).toBe(scope);
+    expect(url.searchParams.get("scope")?.split(" ")).toEqual([scope, "https://www.googleapis.com/auth/calendar.events.freebusy"]);
     expect(url.searchParams.get("access_type")).toBe("offline");
     expect(url.searchParams.get("include_granted_scopes")).toBe("true");
     expect(url.searchParams.get("prompt")).toBe("consent");

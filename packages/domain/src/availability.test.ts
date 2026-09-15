@@ -1,0 +1,10 @@
+import { describe, expect, it } from "vitest";
+import { candidateSlots, InvalidAvailabilityInputError } from "./availability.js";
+const rules={timeZone:"Europe/Madrid",windows:[{weekday:0,start:"01:00",end:"04:00"}],slotIncrementMinutes:30,bufferBeforeMinutes:15,bufferAfterMinutes:15};
+describe("availability slots",()=>{
+  it("uses real UTC offsets across spring DST",()=>{expect(candidateSlots({rules,rangeStart:"2026-03-29T00:00:00Z",rangeEnd:"2026-03-29T04:00:00Z",durationMinutes:30,busy:[]}).map(x=>x.startUtc)).toEqual(["2026-03-29T00:00:00.000Z","2026-03-29T00:30:00.000Z","2026-03-29T01:00:00.000Z","2026-03-29T01:30:00.000Z"]);});
+  it("keeps repeated fall hours",()=>{expect(candidateSlots({rules,rangeStart:"2026-10-24T22:00:00Z",rangeEnd:"2026-10-25T04:00:00Z",durationMinutes:30,busy:[]})).toHaveLength(8);});
+  it("merges adjacent busy intervals and applies buffers",()=>{const values=candidateSlots({rules:{...rules,windows:[{weekday:1,start:"09:00",end:"12:00"}]},rangeStart:"2026-09-28T00:00:00Z",rangeEnd:"2026-09-29T00:00:00Z",durationMinutes:30,busy:[{startUtc:"2026-09-28T08:00:00Z",endUtc:"2026-09-28T08:30:00Z"},{startUtc:"2026-09-28T08:30:00Z",endUtc:"2026-09-28T09:00:00Z"}]});expect(values.map(x=>x.startLocal)).toEqual(["2026-09-28T09:00","2026-09-28T11:30"]);});
+  it("rejects invalid zones, duration and ranges over 31 days",()=>{expect(()=>candidateSlots({rules:{...rules,timeZone:"Mars/Olympus"},rangeStart:"2026-01-01T00:00:00Z",rangeEnd:"2026-01-02T00:00:00Z",durationMinutes:30,busy:[]})).toThrow(InvalidAvailabilityInputError);expect(()=>candidateSlots({rules,rangeStart:"2026-01-01T00:00:00Z",rangeEnd:"2026-02-02T00:00:00Z",durationMinutes:10,busy:[]})).toThrow(InvalidAvailabilityInputError);});
+});
+it("rejects overlapping windows that would duplicate candidates",()=>{expect(()=>candidateSlots({rules:{...rules,windows:[{weekday:1,start:"09:00",end:"11:00"},{weekday:1,start:"10:00",end:"12:00"}]},rangeStart:"2026-09-28T00:00:00Z",rangeEnd:"2026-09-29T00:00:00Z",durationMinutes:30,busy:[]})).toThrow(InvalidAvailabilityInputError);});

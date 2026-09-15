@@ -294,3 +294,7 @@ La recomendación añade un backend propio delgado, pero concentra allí autoriz
 | 2026-09-14 | pnpm 10.22.0 y un único lockfile para todos los workspaces | Unificar el toolchain con la landing y hacer reproducibles la instalación local y los dos jobs de CI. |
 | 2026-09-14 | Frontera de conversaciones OWNER, vínculo tenant-safe y webhook Chatwoot autenticado | Ocultar Chatwoot, conservarlo como fuente de mensajes y hacer observables/deduplicables los reintentos sin almacenar contenido. |
 | 2026-09-14 | OAuth Google server-side, token AEAD y calendario por artista | Preparar Calendar con privilegio mínimo, configuración lazy y aislamiento multi-tenant antes de implementar disponibilidad y eventos. |
+
+### Disponibilidad por artista
+
+El dominio genera slots desde reglas civiles IANA y busy UTC sin depender de Google ni Supabase. Aplicación coordina ArtistAvailabilityRepositoryPort y GoogleFreeBusyPort; infraestructura implementa FreeBusy y RPC owner-bound. Las asignaciones, reglas y conexión deben pertenecer al mismo estudio; títulos y descripciones de eventos no cruzan la frontera.

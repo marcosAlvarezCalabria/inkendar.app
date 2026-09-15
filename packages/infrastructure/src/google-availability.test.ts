@@ -1,0 +1,9 @@
+import { describe, expect, it, vi } from "vitest";
+import { AvailabilityCredentialInvalidError, AvailabilityProviderUnavailableError } from "@inkendar/application";
+import { GoogleFreeBusyHttpAdapter } from "./google-availability.js";
+const config={clientId:"client",clientSecret:"secret",redirectUri:"https://app.inkendar.es/auth/google/callback"};
+describe("Google FreeBusy adapter",()=>{
+ it("refreshes once and posts only bounded FreeBusy fields",async()=>{const fetcher=vi.fn().mockResolvedValueOnce(Response.json({access_token:"access"})).mockResolvedValueOnce(Response.json({calendars:{"artist@test":{busy:[{start:"2026-09-28T08:00:00Z",end:"2026-09-28T08:30:00Z"}]}}}));const result=await new GoogleFreeBusyHttpAdapter(config,fetcher).queryBusy("refresh",{calendarId:"artist@test",timeMin:"2026-09-28T00:00:00Z",timeMax:"2026-09-29T00:00:00Z"});expect(result).toEqual([{startUtc:"2026-09-28T08:00:00.000Z",endUtc:"2026-09-28T08:30:00.000Z"}]);const body=JSON.parse(fetcher.mock.calls[1]![1]!.body);expect(body).toEqual({timeMin:"2026-09-28T00:00:00Z",timeMax:"2026-09-29T00:00:00Z",timeZone:"UTC",items:[{id:"artist@test"}]});});
+ it("classifies invalid_grant separately from 429/5xx",async()=>{const invalid=vi.fn().mockResolvedValue(Response.json({error:"invalid_grant"},{status:400}));await expect(new GoogleFreeBusyHttpAdapter(config,invalid).queryBusy("refresh",{calendarId:"x",timeMin:"2026-09-28T00:00:00Z",timeMax:"2026-09-29T00:00:00Z"})).rejects.toBeInstanceOf(AvailabilityCredentialInvalidError);const transient=vi.fn().mockResolvedValueOnce(Response.json({access_token:"a"})).mockResolvedValueOnce(Response.json({}, {status:429}));await expect(new GoogleFreeBusyHttpAdapter(config,transient).queryBusy("refresh",{calendarId:"x",timeMin:"2026-09-28T00:00:00Z",timeMax:"2026-09-29T00:00:00Z"})).rejects.toBeInstanceOf(AvailabilityProviderUnavailableError);});
+});
+
