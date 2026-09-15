@@ -1,0 +1,74 @@
+diff --git a/packages/domain/src/index.ts b/packages/domain/src/index.ts
+index 87d9a1a..224d81a 100644
+--- a/packages/domain/src/index.ts
++++ b/packages/domain/src/index.ts
+@@ -1,4 +1,5 @@
+ export * from "./access.js";
++export * from "./availability.js";
+ export * from "./conversations.js";
+ export * from "./customer-cases.js";
+ export * from "./manual-onboarding.js";
+diff --git a/packages/domain/src/availability.ts b/packages/domain/src/availability.ts
+new file mode 100644
+--- /dev/null
++++ b/packages/domain/src/availability.ts
+@@ -0,0 +1,55 @@
++export const AVAILABILITY_LIMITS = { minDurationMinutes: 15, maxDurationMinutes: 480, maxRangeDays: 31, maxSlots: 500 } as const;
++export type WeeklyWindow = Readonly<{ weekday: number; start: string; end: string }>;
++export type AvailabilityRules = Readonly<{ timeZone: string; windows: readonly WeeklyWindow[]; slotIncrementMinutes: number; bufferBeforeMinutes: number; bufferAfterMinutes: number }>;
++export type BusyInterval = Readonly<{ startUtc: string; endUtc: string }>;
++export type AvailabilitySlot = Readonly<{ startUtc: string; endUtc: string; startLocal: string; endLocal: string }>;
++export class InvalidAvailabilityInputError extends Error { readonly code = "INVALID_AVAILABILITY_INPUT"; constructor() { super("Availability input is invalid"); this.name = "InvalidAvailabilityInputError"; } }
++export function candidateSlots(input: Readonly<{ rules: AvailabilityRules; rangeStart: string; rangeEnd: string; durationMinutes: number; busy: readonly BusyInterval[] }>): readonly AvailabilitySlot[] {
++  validateRules(input.rules);
++  if (!Number.isInteger(input.durationMinutes) || input.durationMinutes < 15 || input.durationMinutes > 480) invalid();
++  const first = parseDate(input.rangeStart); const last = parseDate(input.rangeEnd);
++  if (last <= first || last.getTime() - first.getTime() > 31 * 86_400_000) invalid();
++  const busy = merge(input.busy.map((x) => ({ start: parseDate(x.startUtc).getTime() - input.rules.bufferBeforeMinutes * 60_000, end: parseDate(x.endUtc).getTime() + input.rules.bufferAfterMinutes * 60_000 })));
++  const slots: AvailabilitySlot[] = [];
++  for (let cursor = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), first.getUTCDate() - 1)); cursor <= last; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
++    const localDate = localParts(cursor, input.rules.timeZone);
++    const weekday = new Date(Date.UTC(localDate.year, localDate.month - 1, localDate.day)).getUTCDay();
++    for (const window of input.rules.windows.filter((x) => x.weekday === weekday)) {
++      const windowStart = localToUtc(localDate, window.start, input.rules.timeZone); const windowEnd = localToUtc(localDate, window.end, input.rules.timeZone);
++      for (let start = windowStart; start + input.durationMinutes * 60_000 <= windowEnd; start += input.rules.slotIncrementMinutes * 60_000) {
++        const end = start + input.durationMinutes * 60_000;
++        if (start < first.getTime() || end > last.getTime() || busy.some((x) => start < x.end && end > x.start)) continue;
++        slots.push({ startUtc: new Date(start).toISOString(), endUtc: new Date(end).toISOString(), startLocal: localIso(start, input.rules.timeZone), endLocal: localIso(end, input.rules.timeZone) });
++        if (slots.length >= 500) return slots;
++      }
++    }
++  }
++  return slots;
++}
++export function validateRules(rules: AvailabilityRules): void {
++  try { new Intl.DateTimeFormat("en", { timeZone: rules.timeZone }).format(); } catch { invalid(); }
++  if (!Number.isInteger(rules.slotIncrementMinutes) || rules.slotIncrementMinutes < 5 || rules.slotIncrementMinutes > 240 || !Number.isInteger(rules.bufferBeforeMinutes) || !Number.isInteger(rules.bufferAfterMinutes) || rules.bufferBeforeMinutes < 0 || rules.bufferAfterMinutes < 0 || rules.bufferBeforeMinutes > 240 || rules.bufferAfterMinutes > 240 || rules.windows.length > 28) invalid();
++  for (const x of rules.windows) if (!Number.isInteger(x.weekday) || x.weekday < 0 || x.weekday > 6 || !clock(x.start) || !clock(x.end) || x.start >= x.end) invalid();
++}
++function localToUtc(date: { year: number; month: number; day: number }, clockValue: string, timeZone: string): number {
++  const [hour, minute] = clockValue.split(":").map(Number); const wanted = Date.UTC(date.year, date.month - 1, date.day, hour, minute); let value = wanted;
++  for (let i = 0; i < 4; i += 1) { const p = localParts(new Date(value), timeZone); const delta = wanted - Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute); if (!delta) break; value += delta; }
++  const verified = localParts(new Date(value), timeZone); if (verified.year !== date.year || verified.month !== date.month || verified.day !== date.day || verified.hour !== hour || verified.minute !== minute) invalid(); return value;
++}
++function localParts(value: Date, timeZone: string) { const values = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone, year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", hourCycle:"h23" }).formatToParts(value).map((x) => [x.type, x.value])); return { year:Number(values.year), month:Number(values.month), day:Number(values.day), hour:Number(values.hour), minute:Number(values.minute) }; }
++function localIso(value: number, timeZone: string): string { const p=localParts(new Date(value), timeZone); return `${p.year}-${String(p.month).padStart(2,"0")}-${String(p.day).padStart(2,"0")}T${String(p.hour).padStart(2,"0")}:${String(p.minute).padStart(2,"0")}`; }
++function parseDate(value: string): Date { if (!/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$/u.test(value)) invalid(); const d=new Date(value); if (!Number.isFinite(d.getTime())) invalid(); return d; }
++function clock(value: string): boolean { return /^(?:[01]\\d|2[0-3]):[0-5]\\d$/u.test(value); }
++function merge(items: {start:number;end:number}[]) { for (const x of items) if (!(x.end > x.start)) invalid(); const sorted=[...items].sort((a,b)=>a.start-b.start); const result:{start:number;end:number}[]=[]; for(const x of sorted){const previous=result.at(-1); if(previous && x.start<=previous.end) previous.end=Math.max(previous.end,x.end); else result.push({...x});} return result; }
++function invalid(): never { throw new InvalidAvailabilityInputError(); }
+diff --git a/packages/domain/src/availability.test.ts b/packages/domain/src/availability.test.ts
+new file mode 100644
+--- /dev/null
++++ b/packages/domain/src/availability.test.ts
+@@ -0,0 +1,10 @@
++import { describe, expect, it } from "vitest";
++import { candidateSlots, InvalidAvailabilityInputError } from "./availability.js";
++const rules={timeZone:"Europe/Madrid",windows:[{weekday:0,start:"01:00",end:"04:00"}],slotIncrementMinutes:30,bufferBeforeMinutes:15,bufferAfterMinutes:15};
++describe("availability slots",()=>{
++  it("uses real UTC offsets across spring DST",()=>{expect(candidateSlots({rules,rangeStart:"2026-03-29T00:00:00Z",rangeEnd:"2026-03-29T04:00:00Z",durationMinutes:30,busy:[]}).map(x=>x.startUtc)).toEqual(["2026-03-29T00:00:00.000Z","2026-03-29T00:30:00.000Z","2026-03-29T01:00:00.000Z","2026-03-29T01:30:00.000Z"]);});
++  it("keeps repeated fall hours",()=>{expect(candidateSlots({rules,rangeStart:"2026-10-24T22:00:00Z",rangeEnd:"2026-10-25T04:00:00Z",durationMinutes:30,busy:[]})).toHaveLength(8);});
++  it("merges adjacent busy intervals and applies buffers",()=>{const values=candidateSlots({rules:{...rules,windows:[{weekday:1,start:"09:00",end:"12:00"}]},rangeStart:"2026-09-28T00:00:00Z",rangeEnd:"2026-09-29T00:00:00Z",durationMinutes:30,busy:[{startUtc:"2026-09-28T08:00:00Z",endUtc:"2026-09-28T08:30:00Z"},{startUtc:"2026-09-28T08:30:00Z",endUtc:"2026-09-28T09:00:00Z"}]});expect(values.map(x=>x.startLocal)).toEqual(["2026-09-28T09:00","2026-09-28T11:30"]);});
++  it("rejects invalid zones, duration and ranges over 31 days",()=>{expect(()=>candidateSlots({rules:{...rules,timeZone:"Mars/Olympus"},rangeStart:"2026-01-01T00:00:00Z",rangeEnd:"2026-01-02T00:00:00Z",durationMinutes:30,busy:[]})).toThrow(InvalidAvailabilityInputError);expect(()=>candidateSlots({rules,rangeStart:"2026-01-01T00:00:00Z",rangeEnd:"2026-02-02T00:00:00Z",durationMinutes:10,busy:[]})).toThrow(InvalidAvailabilityInputError);});
++});
+
