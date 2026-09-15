@@ -1,9 +1,11 @@
 begin;
-select plan(34);
+select plan(41);
 
 select has_table('public', 'google_oauth_attempt', 'oauth attempt table exists');
 select has_table('public', 'google_calendar_connection', 'connection table exists');
 select has_table('public', 'artist_calendar_assignment', 'assignment table exists');
+select has_column('public', 'google_calendar_connection', 'credential_generation', 'connection has opaque credential generation');
+select has_column('public', 'artist_calendar_assignment', 'access_role', 'assignment stores the verified calendar role');
 select has_type('public', 'google_calendar_connection_status', 'connection status exists');
 select enum_has_labels('public', 'google_calendar_connection_status', array['ACTIVE', 'REAUTH_REQUIRED', 'DISCONNECTED'], 'connection status is minimal');
 select ok((select relrowsecurity from pg_class where oid = 'public.google_oauth_attempt'::regclass), 'attempt RLS enabled');
@@ -26,18 +28,23 @@ select is(public.consume_google_oauth_attempt(repeat('d', 64), '20000000-0000-00
 
 select lives_ok($$ select public.activate_google_calendar_connection('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'v1.synthetic-ciphertext.tag', array['https://www.googleapis.com/auth/calendar.calendarlist.readonly']) $$, 'owner activates encrypted connection');
 select results_eq($$ select status::text from public.get_google_calendar_connection('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001') $$, $$ values ('ACTIVE'::text) $$, 'owner reads active state via guarded RPC');
+select is((select credential_generation from public.get_google_calendar_connection('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001')),1::bigint,'first credential generation is opaque and positive');
 select throws_ok($$ select * from public.get_google_calendar_connection('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002') $$, '42501', null, 'artist cannot read connection through service RPC');
-select lives_ok($$ select public.assign_artist_calendar('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', 'artist@example.test') $$, 'owner assigns own artist');
+select throws_ok($$ select public.assign_artist_calendar('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','weak@example.test','writerWithoutPrivateAccess') $$,'22023',null,'calendar role without private detail access cannot be assigned');
+select lives_ok($$ select public.assign_artist_calendar('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', 'artist@example.test', 'writer') $$, 'owner assigns own artist with private-event read access');
 select results_eq($$ select calendar_id from public.list_artist_calendar_assignments('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001') where artist_profile_id = '50000000-0000-0000-0000-000000000001' $$, $$ values ('artist@example.test'::text) $$, 'assignment returned through guarded RPC');
-select throws_ok($$ select public.assign_artist_calendar('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000003', '50000000-0000-0000-0000-000000000001', 'cross@example.test') $$, 'P0002', null, 'cross-tenant artist rejected');
-select lives_ok($$ select public.mark_google_calendar_reauth_required('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001') $$, 'invalid credential marks reauthorization required');
+select throws_ok($$ select public.assign_artist_calendar('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000003', '50000000-0000-0000-0000-000000000001', 'cross@example.test', 'writer') $$, 'P0002', null, 'cross-tenant artist rejected');
+select lives_ok($$ select public.mark_google_calendar_reauth_required('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 1) $$, 'invalid credential marks only its generation reauthorization required');
 select is((select count(*) from public.list_artist_calendar_assignments('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001') where calendar_id is not null), 1::bigint, 'reauthorization preserves assignments');
-select throws_ok($$ select public.assign_artist_calendar('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', 'blocked@example.test') $$, 'P0002', null, 'reauthorization blocks assignment changes');
+select throws_ok($$ select public.assign_artist_calendar('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', 'blocked@example.test', 'writer') $$, 'P0002', null, 'reauthorization blocks assignment changes');
 select lives_ok($$ select public.activate_google_calendar_connection('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'v1.new-synthetic-ciphertext.tag', array['https://www.googleapis.com/auth/calendar.calendarlist.readonly']) $$, 'reauthorization restores active connection without clearing assignment');
+select is((select credential_generation from public.get_google_calendar_connection('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001')),2::bigint,'reconnection increments credential generation');
+select is(public.mark_google_calendar_reauth_required('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001',1),false,'late invalid_grant cannot mark a newer credential');
+select is((select status::text from public.get_google_calendar_connection('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001')),'ACTIVE','stale invalid_grant leaves the reconnected credential active');
 select lives_ok($$ select public.disconnect_google_calendar('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001') $$, 'owner disconnects');
 select results_eq($$ select status::text, refresh_token_ciphertext from public.get_google_calendar_connection('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001') $$, $$ values ('DISCONNECTED'::text, null::text) $$, 'disconnect clears token');
 select is((select count(*) from public.list_artist_calendar_assignments('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001') where calendar_id is not null), 0::bigint, 'disconnect clears assignments');
-select throws_ok($$ select public.assign_artist_calendar('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', 'inactive@example.test') $$, 'P0002', null, 'inactive connection cannot receive assignment');
+select throws_ok($$ select public.assign_artist_calendar('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', 'inactive@example.test', 'writer') $$, 'P0002', null, 'inactive connection cannot receive assignment');
 
 select * from finish();
 rollback;

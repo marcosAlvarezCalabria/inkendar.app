@@ -3,7 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { ArtistCalendarAssignment, GoogleCalendarConnection, GoogleCalendarRepositoryPort, GoogleConnectionStatus } from "@inkendar/application";
 
 type DataResult = Readonly<{ data: unknown; error: unknown }>;
-type Parameters = Readonly<Record<string, string | null | readonly string[]>>;
+type Parameters = Readonly<Record<string, string | number | null | readonly string[]>>;
 
 export interface GoogleCalendarDataGateway {
   createAttempt(parameters: Parameters): Promise<DataResult>;
@@ -73,6 +73,7 @@ export class SupabaseGoogleCalendarRepository implements GoogleCalendarRepositor
       status: status(row.status),
       encryptedRefreshToken: nullableString(row.refresh_token_ciphertext),
       grantedScopes: stringArray(row.granted_scopes),
+      credentialGeneration: positiveInteger(row.credential_generation),
     };
     if (mapped.studioId !== studioId) throw new SupabaseGoogleCalendarError();
     return mapped;
@@ -85,7 +86,11 @@ export class SupabaseGoogleCalendarRepository implements GoogleCalendarRepositor
       p_granted_scopes: input.grantedScopes,
     }));
   }
-  async markReauthRequired(studioId: string): Promise<void> { await this.voidResult(this.data.markReauthRequired(this.owner(studioId))); }
+  async markReauthRequired(studioId: string, credentialGeneration: number): Promise<void> {
+    await this.voidResult(this.data.markReauthRequired({
+      ...this.owner(studioId), p_credential_generation: credentialGeneration,
+    }));
+  }
   async disconnect(studioId: string): Promise<void> { await this.voidResult(this.data.disconnect(this.owner(studioId))); }
 
   async listArtistsWithAssignments(studioId: string): Promise<readonly ArtistCalendarAssignment[]> {
@@ -97,9 +102,9 @@ export class SupabaseGoogleCalendarRepository implements GoogleCalendarRepositor
     });
   }
 
-  async assignCalendar(studioId: string, artistProfileId: string, calendarId: string | null): Promise<void> {
+  async assignCalendar(studioId: string, artistProfileId: string, calendarId: string | null, accessRole: "writer" | "owner" | null): Promise<void> {
     await this.voidResult(this.data.assignCalendar({
-      ...this.owner(studioId), p_artist_profile_id: artistProfileId, p_calendar_id: calendarId,
+      ...this.owner(studioId), p_artist_profile_id: artistProfileId, p_calendar_id: calendarId, p_access_role: accessRole,
     }));
   }
 
@@ -131,6 +136,7 @@ function status(value: unknown): GoogleConnectionStatus {
   if (value === "ACTIVE" || value === "REAUTH_REQUIRED" || value === "DISCONNECTED") return value;
   throw new SupabaseGoogleCalendarError();
 }
+function positiveInteger(value: unknown): number { if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1) throw new SupabaseGoogleCalendarError(); return value; }
 function required(environment: Record<string, string | undefined>, name: string): string {
   const value = environment[name]?.trim(); if (!value) throw new SupabaseGoogleCalendarError(); return value;
 }

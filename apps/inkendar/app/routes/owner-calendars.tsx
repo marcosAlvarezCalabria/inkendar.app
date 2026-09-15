@@ -52,7 +52,7 @@ export function ErrorBoundary() {
 }
 
 export function CalendarManagement({ data, result }: Readonly<{ data: Omit<View, "availabilityByArtist">; result: string | null }> ) {
-  const writable = data.calendars.filter((calendar) => calendar.accessRole === "writer" || calendar.accessRole === "writerWithoutPrivateAccess" || calendar.accessRole === "owner");
+  const writable = data.calendars.filter((calendar) => calendar.accessRole === "writer" || calendar.accessRole === "owner");
   return <>
     {message(result) ? <p className="shell-panel" role="status">{message(result)}</p> : null}
     <section className="shell-panel">
@@ -72,6 +72,7 @@ export function CalendarManagement({ data, result }: Readonly<{ data: Omit<View,
         <input type="hidden" name="artistProfileId" value={artist.id} />
         <label>{artist.displayName}<select name="calendarId" defaultValue={artist.calendarId ?? ""}>
           <option value="">Desasignar</option>
+          {data.calendars.filter((calendar) => calendar.id === artist.calendarId && calendar.accessRole !== "writer" && calendar.accessRole !== "owner").map((calendar) => <option key={calendar.id} value={calendar.id} disabled>{calendar.summary} · incompatible con citas privadas</option>)}
           {writable.map((calendar) => <option key={calendar.id} value={calendar.id}>{calendar.summary}{calendar.primary ? " · principal" : ""}{calendar.timeZone ? ` · ${calendar.timeZone}` : ""}</option>)}
         </select></label>
         <button type="submit">Guardar asignación</button>

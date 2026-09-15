@@ -18,7 +18,7 @@ Solo OWNER compone secretos, service role y adaptadores. Artista ajeno, ARTIST y
 
 ## OAuth incremental
 
-El scope mínimo oficial elegido es `https://www.googleapis.com/auth/calendar.events.freebusy`, descrito por Google como acceso a la disponibilidad en calendarios a los que la cuenta tiene acceso. Se solicita junto a `calendar.calendarlist.readonly`, con `include_granted_scopes=true`; no se solicita `calendar.events`. Una conexión antigua sin el scope sigue sirviendo para listado/asignación, pero la previsualización exige reconectar y conserva configuración.
+El scope mínimo oficial de este slice es `https://www.googleapis.com/auth/calendar.events.freebusy`, descrito por Google como acceso a la disponibilidad en calendarios a los que la cuenta tiene acceso. Se solicita junto a `calendar.calendarlist.readonly`, con `include_granted_scopes=true`. El slice posterior de confirmación añade `calendar.events` para reconciliar y crear la cita; una conexión antigua sin los scopes requeridos sigue conservando listado, asignación y selección pendiente, pero exige reconectar antes de la operación correspondiente.
 
 Fuentes oficiales: [Freebusy.query](https://developers.google.com/workspace/calendar/api/v3/reference/freebusy/query), [scopes de Calendar](https://developers.google.com/workspace/calendar/api/auth) y [OAuth incremental web server](https://developers.google.com/identity/protocols/oauth2/web-server).
 

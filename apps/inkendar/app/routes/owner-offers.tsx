@@ -23,9 +23,10 @@ export default function OwnerOffers() {
 
 function offerStatusLabel(status: BookingOfferStatus): string {
   if (status === "OPEN") return "Abierta";
-  return status === "SELECTED_PENDING_CONFIRMATION" ? "Selección recibida · pendiente de confirmación" : "Caducada";
+  if (status === "SELECTED_PENDING_CONFIRMATION") return "Selección recibida · pendiente de confirmación";
+  return status === "CONFIRMED" ? "Confirmada" : "Caducada";
 }
 
 function optionStatusLabel(status: BookingOptionStatus): string {
-  return status === "HELD" ? "bloqueada" : status === "SELECTED" ? "seleccionada" : "liberada";
+  return status === "HELD" ? "bloqueada" : status === "SELECTED" ? "seleccionada" : status === "CONFIRMED" ? "confirmada" : "liberada";
 }

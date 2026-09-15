@@ -87,6 +87,14 @@ describe("Supabase public booking offer access", () => {
     vi.mocked(data.getPublic).mockResolvedValueOnce({ data: { state: "SELECTION_PENDING_CONFIRMATION", expires_at: expiresAt, artist_display_name: "Ana", time_zone: null, options: [{ start_at: "2026-09-20T09:00:00.000Z", end_at: "2026-09-20T10:00:00.000Z" }] }, error: null });
     await expect(new SupabasePublicBookingOfferRepository(data).getByTokenHash({ tokenHash, nowUtc: now })).resolves.toEqual({ state: "SELECTION_PENDING_CONFIRMATION", expiresAt, artistDisplayName: "Ana", timeZone: null, options: [{ startUtc: "2026-09-20T09:00:00.000Z", endUtc: "2026-09-20T10:00:00.000Z" }] });
   });
+
+  it("maps a reconciled confirmed view without exposing a selector or provider identity", async () => {
+    const data = gateway();
+    vi.mocked(data.getPublic).mockResolvedValueOnce({ data: { state: "CONFIRMED", expires_at: expiresAt, confirmed_at: now, artist_display_name: "Ana", time_zone: "Europe/Dublin", options: [{ start_at: "2026-09-20T09:00:00.000Z", end_at: "2026-09-20T10:00:00.000Z" }], event_id: "must-not-escape" }, error: null });
+    const result = await new SupabasePublicBookingOfferRepository(data).getByTokenHash({ tokenHash, nowUtc: now });
+    expect(result).toEqual({ state: "CONFIRMED", expiresAt, confirmedAt: now, artistDisplayName: "Ana", timeZone: "Europe/Dublin", options: [{ startUtc: "2026-09-20T09:00:00.000Z", endUtc: "2026-09-20T10:00:00.000Z" }] });
+    expect(JSON.stringify(result)).not.toMatch(/selector|event|provider|calendar|correlation/iu);
+  });
   it("returns null uniformly for unknown, rotated, expired or released access", async () => {
     const data = gateway();
     vi.mocked(data.getPublic).mockResolvedValueOnce({ data: null, error: null });

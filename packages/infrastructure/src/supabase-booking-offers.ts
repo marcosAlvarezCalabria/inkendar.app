@@ -57,8 +57,8 @@ function management(row: Record<string, unknown>, studioId: string): BookingOffe
 }
 function offer(row: Record<string, unknown>, studioId: string): BookingOffer {
   const status = row.status;
-  if (status !== "OPEN" && status !== "SELECTED_PENDING_CONFIRMATION" && status !== "EXPIRED") throw new Error("Booking offer persistence failed");
-  return { id: string(row.id), studioId, tattooCaseId: string(row.tattoo_case_id), artistProfileId: string(row.artist_profile_id), status, expiresAt: string(row.expires_at), createdAt: string(row.created_at), options: array(row.options).map((value) => { const item = object(value); const optionStatus = item.status; if (optionStatus !== "HELD" && optionStatus !== "SELECTED" && optionStatus !== "RELEASED") throw new Error("Booking offer persistence failed"); return { id: string(item.id), startUtc: string(item.start_at), endUtc: string(item.end_at), status: optionStatus }; }) };
+  if (status !== "OPEN" && status !== "SELECTED_PENDING_CONFIRMATION" && status !== "CONFIRMED" && status !== "EXPIRED") throw new Error("Booking offer persistence failed");
+  return { id: string(row.id), studioId, tattooCaseId: string(row.tattoo_case_id), artistProfileId: string(row.artist_profile_id), status, expiresAt: string(row.expires_at), createdAt: string(row.created_at), options: array(row.options).map((value) => { const item = object(value); const optionStatus = item.status; if (optionStatus !== "HELD" && optionStatus !== "SELECTED" && optionStatus !== "CONFIRMED" && optionStatus !== "RELEASED") throw new Error("Booking offer persistence failed"); return { id: string(item.id), startUtc: string(item.start_at), endUtc: string(item.end_at), status: optionStatus }; }) };
 }
 function required(result: Result): unknown { if (result.error || result.data === null) failed(result.error); return result.data; }
 function failed(error: unknown): never { const code = typeof error === "object" && error !== null && "code" in error ? error.code : null; if (code === "23P01") throw new BookingHoldConflictError(); if (code === "P0002") throw new BookingContextNotFoundError(); throw new Error("Booking offer persistence failed"); }

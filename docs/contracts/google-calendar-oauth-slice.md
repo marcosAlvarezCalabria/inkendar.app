@@ -1,6 +1,6 @@
 # Contrato técnico: conexión Google OAuth y calendarios por artista
 
-_Estado técnico: `DONE`. OAuth, listado y asignación live pasaron localmente el 2026-09-15 con owner sintético; FreeBusy/eventos/booking permanecen `IN_PROGRESS`._
+_Estado técnico: `DONE`. OAuth, listado y asignación live pasaron localmente el 2026-09-15 con owner sintético; FreeBusy y Google Events live, junto al booking extremo a extremo, permanecen `IN_PROGRESS`._
 
 ## Necesidad y alcance
 
@@ -33,13 +33,13 @@ No se deriva el redirect de `Host` ni de cabeceras de proxy.
 
 ## OAuth, scopes y recuperación
 
-Se solicita acceso offline con autorización incremental (`include_granted_scopes=true`) y únicamente `https://www.googleapis.com/auth/calendar.calendarlist.readonly` en este slice. Es el scope específico que autoriza `CalendarList.list`; no concede lectura de eventos. Los slices que realmente consulten ocupación o escriban citas pedirán en contexto `https://www.googleapis.com/auth/calendar.events.freebusy` y `https://www.googleapis.com/auth/calendar.events`, respectivamente. No se solicitan identidad, email, perfil, contactos ni el scope global `calendar`.
+La conexión inicial solicitó acceso offline con autorización incremental (`include_granted_scopes=true`) y `https://www.googleapis.com/auth/calendar.calendarlist.readonly`. Disponibilidad añadió `https://www.googleapis.com/auth/calendar.events.freebusy` y la confirmación técnica añade `https://www.googleapis.com/auth/calendar.events`; una concesión antigua conserva asignaciones pero debe reconectar antes de confirmar. No se solicitan identidad, email, perfil, contactos ni el scope global `calendar`.
 
 Google documenta PKCE S256 para aplicaciones instaladas, pero su contrato oficial vigente de aplicaciones web de servidor no admite `code_challenge` ni `code_verifier` entre los parámetros publicados. Este cliente web confidencial usa client secret solo en servidor y no inventa una extensión no documentada; el contrato se revisará si Google incorpora PKCE al flujo web server.
 
-El inicio usa `access_type=offline`, `prompt=consent` y autorización incremental para recuperar un refresh token incluso al reconectar. `writerWithoutPrivateAccess`, `writer` y `owner` son los roles oficiales de `CalendarList` que permiten escribir y por tanto asignar el calendario; los roles de solo lectura se muestran como metadata pero no se pueden asignar.
+El inicio usa `access_type=offline`, `prompt=consent` y autorización incremental para recuperar un refresh token incluso al reconectar. El listado conserva metadata de los roles oficiales, incluido `writerWithoutPrivateAccess`, pero el endurecimiento de confirmación privada solo permite asignar `writer` u `owner`, que pueden reconciliar los detalles privados exigidos. Los demás roles se muestran como metadata no asignable.
 
-Solo `invalid_grant` recibido al refrescar el access token aporta evidencia de credencial inválida y cambia la conexión a `REAUTH_REQUIRED`. Ese estado conserva el refresh token cifrado y las asignaciones existentes, pero bloquea listado y cambios hasta reconectar. Una caída, límite o respuesta inválida del proveedor devuelve un error seguro sin mutar la conexión ni las asignaciones. La reconexión sustituye de forma atómica el token cifrado y conserva las selecciones. La desconexión explícita intenta revocar cualquier token retenido, incluso en `REAUTH_REQUIRED`, y después elimina siempre credenciales y asignaciones locales.
+Solo `invalid_grant` recibido al refrescar el access token aporta evidencia de credencial inválida. La transición a `REAUTH_REQUIRED` usa compare-and-set contra la generación opaca de la credencial utilizada, por lo que un fallo tardío no degrada un token recién reconectado. Ese estado conserva el refresh token cifrado y las asignaciones existentes, pero bloquea listado y cambios hasta reconectar. Una caída, límite o respuesta inválida del proveedor devuelve un error seguro sin mutar la conexión ni las asignaciones. La reconexión incrementa la generación, sustituye de forma atómica el token cifrado y conserva las selecciones. La desconexión explícita intenta revocar cualquier token retenido, incluso en `REAUTH_REQUIRED`, y después elimina siempre credenciales y asignaciones locales.
 
 Fuentes oficiales consultadas:
 

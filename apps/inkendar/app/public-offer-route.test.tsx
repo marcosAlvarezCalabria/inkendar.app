@@ -52,10 +52,46 @@ describe("public booking offer route", () => {
 
     expect(html).toContain("Selección recibida");
     expect(html).toContain("Pendiente de confirmación");
+    expect(html).toContain("La confirmación sigue pendiente. Puedes reintentarla con seguridad.");
+    expect(html).not.toContain("Pendiente de confirmación para Ana hasta");
     expect(html).toContain("2026-09-20T09:00:00.000Z");
     expect(html).not.toContain("a0000000-0000-4000-8000-000000000001");
     expect(html).not.toContain("cita confirmada");
     expect(html).not.toContain("Elegir esta opción");
+    expect(html).toContain('name="intent"');
+    expect(html).toContain('value="confirm"');
+  });
+
+  it("claims confirmation only for a persisted confirmed view", async () => {
+    handler.loader.mockResolvedValueOnce(Response.json({
+      state: "CONFIRMED",
+      expiresAt: "2026-09-16T10:00:00.000Z",
+      confirmedAt: "2026-09-15T10:00:00.000Z",
+      artistDisplayName: "Ana",
+      timeZone: "Europe/Dublin",
+      options: [{ startUtc: "2026-09-20T09:00:00.000Z", endUtc: "2026-09-20T10:00:00.000Z" }],
+    }));
+    const { query, dataRoutes } = createStaticHandler(routes);
+    const result = await query(new Request(`https://app.inkendar.es/offers/${"A".repeat(43)}`));
+    if (result instanceof Response) throw new Error("Expected static handler context");
+    const html = renderToStaticMarkup(<StaticRouterProvider router={createStaticRouter(dataRoutes, result)} context={result} />);
+
+    expect(html).toContain("Cita confirmada");
+    expect(html).toContain("2026-09-15T10:00:00.000Z");
+    expect(html).not.toContain("Pendiente de confirmación");
+    expect(html).not.toContain("Elegir esta opción");
+    expect(html).not.toContain('name="intent"');
+  });
+
+  it("keeps a provider conflict visibly pending instead of claiming success", async () => {
+    handler.loader.mockResolvedValueOnce(Response.json({ state: "SELECTION_PENDING_CONFIRMATION", expiresAt: "2026-09-16T10:00:00.000Z", artistDisplayName: "Ana", timeZone: null, options: [{ startUtc: "2026-09-20T09:00:00.000Z", endUtc: "2026-09-20T10:00:00.000Z" }] }));
+    handler.action.mockResolvedValueOnce(Response.json({ state: "SELECTION_PENDING_CONFIRMATION", reason: "CONFLICT" }, { status: 409 }));
+    const { query, dataRoutes } = createStaticHandler(routes);
+    const result = await query(new Request(`https://app.inkendar.es/offers/${"A".repeat(43)}`, { method: "POST", body: new URLSearchParams({ intent: "confirm" }) }));
+    if (result instanceof Response) throw new Error("Expected static handler context");
+    const html = renderToStaticMarkup(<StaticRouterProvider router={createStaticRouter(dataRoutes, result)} context={result} />);
+    expect(html).toContain("El horario ya no está libre");
+    expect(html).not.toContain("Cita confirmada");
   });
 
   it("renders one generic unavailable state without reflecting the token or provider errors", async () => {

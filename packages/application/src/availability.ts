@@ -6,7 +6,7 @@ export type ArtistAvailabilityConfiguration = Readonly<{ artistProfileId: string
 export interface ArtistAvailabilityRepositoryPort {
   getConfiguration(studioId: string, artistProfileId: string): Promise<ArtistAvailabilityConfiguration>;
   saveRules(studioId: string, artistProfileId: string, rules: AvailabilityRules): Promise<void>;
-  markReauthRequired(studioId: string): Promise<void>;
+  markReauthRequired(studioId: string, credentialGeneration: number): Promise<void>;
   listActiveHolds(studioId: string, artistProfileId: string, rangeStart: string, rangeEnd: string, nowUtc: string): Promise<readonly BusyInterval[]>;
 }
 export interface GoogleFreeBusyPort { queryBusy(refreshToken: string, input: Readonly<{ calendarId: string; timeMin: string; timeMax: string }>): Promise<readonly BusyInterval[]>; }
@@ -28,7 +28,7 @@ export function createArtistAvailabilityService(deps: Readonly<{ repository: Art
       try {
         busy = await deps.provider.queryBusy(deps.tokens.decrypt(config.connection.encryptedRefreshToken), { calendarId: config.calendarId, timeMin: rangeStart, timeMax: rangeEnd });
       } catch (error) {
-        if (error instanceof AvailabilityCredentialInvalidError) { await deps.repository.markReauthRequired(studioId); throw new AvailabilitySetupRequiredError("RECONNECT"); }
+        if (error instanceof AvailabilityCredentialInvalidError) { await deps.repository.markReauthRequired(studioId, config.connection.credentialGeneration); throw new AvailabilitySetupRequiredError("RECONNECT"); }
         throw new AvailabilityProviderUnavailableError();
       }
       const holds = await deps.repository.listActiveHolds(studioId, artistProfileId, rangeStart, rangeEnd, new Date().toISOString());

@@ -9,7 +9,7 @@ function gateway(): GoogleCalendarDataGateway {
   return {
     createAttempt: vi.fn(async () => ({ data: null, error: null })),
     consumeAttempt: vi.fn(async () => ({ data: true, error: null })),
-    getConnection: vi.fn(async () => ({ data: [{ id: "81000000-0000-4000-8000-000000000001", studio_id: studioId, status: "ACTIVE", refresh_token_ciphertext: "v1.cipher", granted_scopes: ["scope"] }], error: null })),
+    getConnection: vi.fn(async () => ({ data: [{ id: "81000000-0000-4000-8000-000000000001", studio_id: studioId, status: "ACTIVE", refresh_token_ciphertext: "v1.cipher", granted_scopes: ["scope"], credential_generation: 7 }], error: null })),
     activateConnection: vi.fn(async () => ({ data: null, error: null })),
     markReauthRequired: vi.fn(async () => ({ data: null, error: null })),
     disconnect: vi.fn(async () => ({ data: null, error: null })),
@@ -39,7 +39,7 @@ describe("Supabase Google Calendar repository", () => {
     const data = gateway();
     const repository = new SupabaseGoogleCalendarRepository(data, userId);
     await expect(repository.getConnection(studioId)).resolves.toEqual({
-      id: "81000000-0000-4000-8000-000000000001", studioId, status: "ACTIVE", encryptedRefreshToken: "v1.cipher", grantedScopes: ["scope"],
+      id: "81000000-0000-4000-8000-000000000001", studioId, status: "ACTIVE", encryptedRefreshToken: "v1.cipher", grantedScopes: ["scope"], credentialGeneration: 7,
     });
     expect(data.getConnection).toHaveBeenCalledWith({ p_studio_id: studioId, p_owner_user_id: userId });
   });
@@ -48,13 +48,15 @@ describe("Supabase Google Calendar repository", () => {
     const data = gateway();
     const repository = new SupabaseGoogleCalendarRepository(data, userId);
     await expect(repository.listArtistsWithAssignments(studioId)).resolves.toEqual([{ id: "50000000-0000-4000-8000-000000000001", displayName: "Ana", calendarId: "ana@example.test" }]);
-    await repository.assignCalendar(studioId, "50000000-0000-4000-8000-000000000001", null);
-    expect(data.assignCalendar).toHaveBeenCalledWith({ p_studio_id: studioId, p_owner_user_id: userId, p_artist_profile_id: "50000000-0000-4000-8000-000000000001", p_calendar_id: null });
+    await repository.assignCalendar(studioId, "50000000-0000-4000-8000-000000000001", "ana@example.test", "writer");
+    expect(data.assignCalendar).toHaveBeenCalledWith({ p_studio_id: studioId, p_owner_user_id: userId, p_artist_profile_id: "50000000-0000-4000-8000-000000000001", p_calendar_id: "ana@example.test", p_access_role: "writer" });
+    await repository.markReauthRequired(studioId, 7);
+    expect(data.markReauthRequired).toHaveBeenCalledWith({ p_studio_id: studioId, p_owner_user_id: userId, p_credential_generation: 7 });
   });
 
   it("rejects cross-tenant rows returned by the privileged boundary", async () => {
     const data = gateway();
-    vi.mocked(data.getConnection).mockResolvedValueOnce({ data: [{ id: "81000000-0000-4000-8000-000000000001", studio_id: "20000000-0000-4000-8000-000000000002", status: "ACTIVE", refresh_token_ciphertext: "v1.cipher", granted_scopes: ["scope"] }], error: null });
+    vi.mocked(data.getConnection).mockResolvedValueOnce({ data: [{ id: "81000000-0000-4000-8000-000000000001", studio_id: "20000000-0000-4000-8000-000000000002", status: "ACTIVE", refresh_token_ciphertext: "v1.cipher", granted_scopes: ["scope"], credential_generation: 7 }], error: null });
     const repository = new SupabaseGoogleCalendarRepository(data, userId);
     await expect(repository.getConnection(studioId)).rejects.toThrow("Google Calendar persistence failed");
   });
