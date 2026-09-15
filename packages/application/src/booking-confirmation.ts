@@ -67,7 +67,6 @@ export interface BookingConfirmationRepositoryPort {
   claim(input: Readonly<{ tokenHash: string; eventId: string; correlation: string; nowUtc: string }>): Promise<BookingConfirmationClaim | null>;
   beginInsert(input: Readonly<{ tokenHash: string; leaseId: string; nowUtc: string }>): Promise<boolean>;
   releaseClaim(input: Readonly<{ tokenHash: string; leaseId: string; nowUtc: string }>): Promise<void>;
-  resetInsert(input: Readonly<{ tokenHash: string; leaseId: string; nowUtc: string }>): Promise<void>;
   finalize(input: Readonly<{ tokenHash: string; leaseId: string; connectionId: string; calendarId: string; eventId: string; correlation: string; nowUtc: string }>): Promise<Readonly<{ confirmedAt: string }>>;
   markReauthRequired(studioId: string, connectionId: string, credentialGeneration: number): Promise<void>;
 }
@@ -139,7 +138,6 @@ export function createBookingConfirmationService(dependencies: Dependencies) {
         inserted = await dependencies.events.insertEvent(refreshToken, { calendarId: claim.calendarId, eventId: claim.eventId, correlation: claim.correlation, ...selected, summary: BOOKING_EVENT_SUMMARY });
       } catch (error) {
         if (error instanceof BookingConfirmationCredentialInvalidError) {
-          await dependencies.repository.resetInsert({ tokenHash, leaseId: claim.leaseId, nowUtc });
           await dependencies.repository.markReauthRequired(claim.studioId, connection.id, connection.credentialGeneration);
           throw new BookingConfirmationReconnectRequiredError();
         }

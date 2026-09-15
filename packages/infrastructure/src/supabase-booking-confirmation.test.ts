@@ -13,7 +13,6 @@ function gateway(): BookingConfirmationDataGateway {
     claim: vi.fn(async () => ({ data: { kind: "CLAIMED", mode: "INSERT_OR_RECONCILE", lease_id: leaseId, studio_id: studioId, option_id: optionId, start_at: "2026-09-20T09:00:00Z", end_at: "2026-09-20T10:00:00Z", calendar_id: "artist@example.test", event_id: eventId, correlation, connection: { id: connectionId, status: "ACTIVE", refresh_token_ciphertext: "cipher", granted_scopes: ["scope"], credential_generation: 7 }, finalized: null }, error: null })),
     beginInsert: vi.fn(async () => ({ data: true, error: null })),
     releaseClaim: vi.fn(async () => ({ data: null, error: null })),
-    resetInsert: vi.fn(async () => ({ data: null, error: null })),
     finalize: vi.fn(async () => ({ data: { confirmed_at: now, appointment_id: "discard" }, error: null })),
     markReauthRequired: vi.fn(async () => ({ data: false, error: null })),
   };
@@ -36,8 +35,6 @@ describe("Supabase booking confirmation repository", () => {
     expect(data.beginInsert).toHaveBeenCalledWith({ p_token_hash: tokenHash, p_lease_id: leaseId, p_now: now });
     await repository.releaseClaim({ tokenHash, leaseId, nowUtc: now });
     expect(data.releaseClaim).toHaveBeenCalledWith({ p_token_hash: tokenHash, p_lease_id: leaseId, p_now: now });
-    await repository.resetInsert({ tokenHash, leaseId, nowUtc: now });
-    expect(data.resetInsert).toHaveBeenCalledWith({ p_token_hash: tokenHash, p_lease_id: leaseId, p_now: now });
     await expect(repository.finalize({ tokenHash, leaseId, connectionId, calendarId: "artist@example.test", eventId, correlation, nowUtc: now })).resolves.toEqual({ confirmedAt: now });
     expect(data.finalize).toHaveBeenCalledWith({ p_token_hash: tokenHash, p_lease_id: leaseId, p_connection_id: connectionId, p_calendar_id: "artist@example.test", p_event_id: eventId, p_correlation: correlation, p_now: now });
     await repository.markReauthRequired(studioId, connectionId, 7);

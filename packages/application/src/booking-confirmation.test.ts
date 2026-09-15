@@ -43,7 +43,6 @@ function dependencies(overrides: Partial<Parameters<typeof createBookingConfirma
     claim: vi.fn(async () => claimed),
     beginInsert: vi.fn(async () => { order.push("begin-insert"); return true; }),
     releaseClaim: vi.fn(async () => undefined),
-    resetInsert: vi.fn(async () => undefined),
     finalize: vi.fn(async () => { order.push("finalize"); return { confirmedAt: now }; }),
     markReauthRequired: vi.fn(async () => undefined),
   };
@@ -159,6 +158,25 @@ describe("public booking confirmation", () => {
     await expect(createBookingConfirmationService(deps).confirmPublic(token)).rejects.toBeInstanceOf(BookingConfirmationReconnectRequiredError);
     expect(deps.events.getEvent).not.toHaveBeenCalled();
     expect(deps.repository.finalize).not.toHaveBeenCalled();
+  });
+
+  it("keeps INSERTING irreversible after invalid_grant and makes the retry reconciliation-only", async () => {
+    const deps = dependencies();
+    vi.mocked(deps.events.insertEvent).mockImplementationOnce(async () => {
+      deps.order.push("insert");
+      throw new BookingConfirmationCredentialInvalidError();
+    });
+
+    await expect(createBookingConfirmationService(deps).confirmPublic(token)).rejects.toBeInstanceOf(BookingConfirmationReconnectRequiredError);
+    expect(deps.order).toEqual(["get", "freebusy", "begin-insert", "insert"]);
+    expect(deps.repository.markReauthRequired).toHaveBeenCalledWith(context.studioId, connection.id, 7);
+
+    vi.mocked(deps.repository.claim).mockResolvedValueOnce({ ...claimed, mode: "RECONCILE_ONLY" });
+    vi.mocked(deps.events.getEvent).mockResolvedValueOnce(null);
+
+    await expect(createBookingConfirmationService(deps).confirmPublic(token)).rejects.toBeInstanceOf(BookingConfirmationMismatchError);
+    expect(deps.events.insertEvent).toHaveBeenCalledOnce();
+    expect(deps.freeBusy.queryBusy).toHaveBeenCalledOnce();
   });
 
   it("marks only the invalid credential generation REAUTH_REQUIRED and otherwise leaves state untouched", async () => {

@@ -50,7 +50,7 @@ Las respuestas públicas mantienen las cabeceras defensivas existentes. Conflict
 
 - `appointment` contiene una relación tenant-safe única con caso, artista, oferta y opción, estado `CONFIRMED` e instante de confirmación.
 - `appointment_google_event` contiene una relación uno-a-uno con conexión, calendario, ID de evento, correlación y sincronización. No copia resumen, descripción, asistentes ni contenido editable del evento.
-- `booking_confirmation_operation` conserva antes de Google el binding inmutable y la máquina `READY -> INSERTING -> FINALIZED`, junto con un lease opaco. Un lease expirado puede recuperar `READY`; `INSERTING` solo permite reconciliar y nunca autoriza otro insert.
+- `booking_confirmation_operation` conserva antes de Google el binding inmutable y la máquina `READY -> INSERTING -> FINALIZED`, junto con un lease opaco. Un lease expirado puede recuperar `READY` únicamente antes de `beginInsert`; `INSERTING` es irreversible ante cualquier error, incluido `invalid_grant`, solo permite reconciliar y nunca autoriza otro insert. No existe RPC ni puerto para devolverlo a `READY`.
 - `google_calendar_connection.credential_generation` aumenta en cada activación/reconexión sin derivarse del token ni revelarlo. Todas las transiciones por `invalid_grant` comparan esa generación.
 - Las tablas tienen RLS y ningún grant directo para browser o `service_role`; solo RPCs `SECURITY DEFINER`, `search_path=''`, exclusivas de `service_role`.
 - La RPC de preparación resuelve el token por hash y devuelve contexto interno solo al backend. El claim valida la asignación actual una vez; la finalización valida el binding durable en lugar de consultar una asignación mutable.
@@ -137,6 +137,6 @@ And la disponibilidad conserva una exclusión local inmutable además de observa
 
 ## Evidencia y gates
 
-La evidencia anterior (308 pruebas Vitest y 373 aserciones pgTAP) quedó obsoleta tras los defectos encontrados en revisión. El candidato corregido demostró RED para doble inserción, destino mutable, rol privado insuficiente y `invalid_grant` tardío; después pasó 39 pruebas enfocadas, el gate local completo con 313 pruebas Vitest (más una integración omitida), lint, typecheck y build, y 376 aserciones pgTAP sobre la base local migrada forward-only. Revisión de integración y CI siguen pendientes, por lo que el estado no avanza a `DONE`.
+La evidencia anterior (308 pruebas Vitest y 373 aserciones pgTAP) quedó obsoleta tras los defectos encontrados en revisión. El candidato corregido demostró RED para doble inserción, destino mutable, rol privado insuficiente, `invalid_grant` tardío y el reset inseguro de `INSERTING`; después pasó 18 pruebas enfocadas de la corrección final, el gate local completo con 314 pruebas Vitest (más una integración omitida), lint, typecheck y build, y 377 aserciones pgTAP sobre la base local migrada forward-only. El lint SQL no encontró errores. Revisión de integración y CI siguen pendientes, por lo que el estado no avanza a `DONE`.
 
 No se usaron credenciales ni cuenta Google y no se ejecutó una prueba live. Revisión, integración/CI, Google Events live y el recorrido extremo a extremo permanecen `IN_PROGRESS`.

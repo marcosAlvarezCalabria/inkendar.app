@@ -8,7 +8,6 @@ export interface BookingConfirmationDataGateway {
   claim(parameters: Record<string, unknown>): Promise<Result>;
   beginInsert(parameters: Record<string, unknown>): Promise<Result>;
   releaseClaim(parameters: Record<string, unknown>): Promise<Result>;
-  resetInsert(parameters: Record<string, unknown>): Promise<Result>;
   finalize(parameters: Record<string, unknown>): Promise<Result>;
   markReauthRequired(parameters: Record<string, unknown>): Promise<Result>;
 }
@@ -56,11 +55,6 @@ export class SupabaseBookingConfirmationRepository implements BookingConfirmatio
     if (result.error) failed();
   }
 
-  async resetInsert(input: Readonly<{ tokenHash: string; leaseId: string; nowUtc: string }>): Promise<void> {
-    const result = await this.data.resetInsert({ p_token_hash: normalizePublicBookingOfferHash(input.tokenHash), p_lease_id: input.leaseId, p_now: input.nowUtc });
-    if (result.error) failed();
-  }
-
   async finalize(input: Readonly<{ tokenHash: string; leaseId: string; connectionId: string; calendarId: string; eventId: string; correlation: string; nowUtc: string }>): Promise<Readonly<{ confirmedAt: string }>> {
     const result = await this.data.finalize({ p_token_hash: normalizePublicBookingOfferHash(input.tokenHash), p_lease_id: input.leaseId, p_connection_id: input.connectionId, p_calendar_id: input.calendarId, p_event_id: input.eventId, p_correlation: input.correlation, p_now: input.nowUtc });
     if (result.error || result.data === null) finalizationFailed(result.error);
@@ -79,7 +73,6 @@ export class SupabaseBookingConfirmationGateway implements BookingConfirmationDa
   claim = (parameters: Record<string, unknown>) => this.rpc("claim_public_booking_confirmation", parameters);
   beginInsert = (parameters: Record<string, unknown>) => this.rpc("begin_public_booking_confirmation_insert", parameters);
   releaseClaim = (parameters: Record<string, unknown>) => this.rpc("release_public_booking_confirmation_claim", parameters);
-  resetInsert = (parameters: Record<string, unknown>) => this.rpc("reset_public_booking_confirmation_insert", parameters);
   finalize = (parameters: Record<string, unknown>) => this.rpc("finalize_public_booking_confirmation", parameters);
   markReauthRequired = (parameters: Record<string, unknown>) => this.rpc("mark_booking_confirmation_reauth_required", parameters);
 }

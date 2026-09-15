@@ -1,5 +1,5 @@
 begin;
-select plan(45);
+select plan(46);
 
 select has_type('public','booking_confirmation_operation_state','confirmation operation state exists');
 select enum_has_labels('public','booking_confirmation_operation_state',array['READY','INSERTING','FINALIZED'],'operation states make insertion authority explicit');
@@ -11,6 +11,7 @@ select ok(not has_table_privilege('service_role','public.booking_confirmation_op
 select has_function('public','claim_public_booking_confirmation',array['text','text','text','timestamp with time zone'],'claim RPC exists');
 select has_function('public','begin_public_booking_confirmation_insert',array['text','uuid','timestamp with time zone'],'insert fence RPC exists');
 select has_function('public','finalize_public_booking_confirmation',array['text','uuid','uuid','text','text','text','timestamp with time zone'],'leased finalization RPC exists');
+select hasnt_function('public','reset_public_booking_confirmation_insert',array['text','uuid','timestamp with time zone'],'INSERTING has no reset RPC');
 select has_function('public','mark_booking_confirmation_reauth_required',array['uuid','uuid','bigint'],'generation-aware reauth RPC exists');
 select ok(has_function_privilege('service_role','public.claim_public_booking_confirmation(text,text,text,timestamptz)','execute'),'service role can claim');
 select ok(has_function_privilege('service_role','public.begin_public_booking_confirmation_insert(text,uuid,timestamptz)','execute'),'service role can fence insert');
