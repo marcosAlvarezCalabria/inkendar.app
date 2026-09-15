@@ -2,7 +2,7 @@
 
 _Estado: especificación viva y fuente de verdad para alcance, comportamiento y progreso_
 
-_Versión: 1.8.0_
+_Versión: 1.8.1_
 
 _Última actualización: 2026-09-15_
 
@@ -52,7 +52,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | Flujo de entrega y CI | `PASS` | `main` exige PR, los checks `validate` y `database`, conversaciones resueltas e historial lineal; ambos jobs pasaron tras integrar el [PR #10](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/10) en el [run 34895446647](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34895446647). |
 | Memoria de agentes | `PASS` | Engram 1.20.0 guarda y recupera memoria del proyecto `inkendar.app`; Codex MCP está configurado y requiere reinicio para cargarlo en nuevos chats. |
 | Supabase y aislamiento multi-tenant | `PASS` | La migración, el seed sintético y las 38 aserciones pgTAP pasaron contra Supabase/Postgres real en GitHub Actions [run 34752758528](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34752758528). |
-| Google Calendar y booking | `IN_PROGRESS` | Contrato OAuth y asignación de calendarios por artista `DONE`: el [PR #10](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/10) pasó 188 pruebas, build, migración limpia y 34 aserciones pgTAP del slice en el [run 34894832675](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34894832675). OAuth, listado y asignación live pasaron localmente el 2026-09-15 con owner sintético. El contrato/implementación de FreeBusy está `IN_PROGRESS`; eventos, ofertas y booking siguen pendientes. |
+| Google Calendar y booking | `IN_PROGRESS` | OAuth y asignación por artista están `DONE`: el [PR #10](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/10) pasó 188 pruebas y 34 aserciones pgTAP del slice; OAuth, listado y asignación live pasaron localmente el 2026-09-15 con owner sintético. La disponibilidad técnica está `DONE`: el [PR #12](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/12) pasó 215 pruebas, build, migraciones limpias y 27 aserciones pgTAP del slice dentro de 232 en el [run 34963263821](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34963263821). La prueba live de FreeBusy, eventos, ofertas y booking siguen `IN_PROGRESS`. |
 | Galería, portfolios y publicación web | `PLANNED` | No existe todavía el almacenamiento, feed público ni componente de integración. |
 | Piloto externo y disposición a pagar | `PLANNED` | No existe todavía evidencia de uso real autorizado ni pago. |
 
@@ -96,6 +96,7 @@ La arquitectura técnica está en [Arquitectura de aplicación](../architecture/
 
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
+| 2026-09-15 | 1.8.1 | La disponibilidad técnica por artista pasó a `DONE` tras verificar el PR #12 con 215 pruebas, build, migraciones limpias, 232 aserciones pgTAP y el CI posterior al merge; FreeBusy live continúa `IN_PROGRESS`. | Cerrar el gate técnico sin atribuir al CI una prueba operativa contra Google. |
 | 2026-09-15 | 1.8.0 | Se implementó la configuración OWNER y previsualización técnica de disponibilidad con reglas IANA, FreeBusy incremental y límites de rango/duración; CI y prueba live FreeBusy siguen `IN_PROGRESS`. | Preparar candidatos sin afirmar ni crear citas y registrar por separado la evidencia live ya obtenida de OAuth/listado/asignación. |
 | 2026-09-15 | 1.7.2 | Se eliminó progreso duplicado de README y PRODUCT, se sincronizaron el piloto cero, Google y CI con los slices integrados, y se corrigió la separación ya completada de la landing. | Mantener esta especificación como única fuente de verdad sin resúmenes activos contradictorios ni alterar evidencia histórica. |
 | 2026-09-14 | 1.7.1 | El contrato técnico de Google OAuth y asignación de calendarios pasó a `DONE` tras verificar rutas SSR, migración limpia, 34 aserciones pgTAP, 188 pruebas y build; el recorrido live con Google continúa `IN_PROGRESS`. | Cerrar la implementación y la persistencia sin atribuir al CI una validación operativa contra el proveedor real. |
