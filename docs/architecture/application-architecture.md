@@ -112,7 +112,7 @@ La disponibilidad carga mediante RPC los holds `HELD` de ofertas `OPEN` y el ún
 
 ### Acceso y selección pública de ofertas
 
-_Estado técnico del acceso de solo lectura: `DONE`. Estado técnico de la selección: `IN_PROGRESS`, con implementación local pendiente de revisión independiente y CI. No existe evidencia live._
+_Estado técnico del acceso de solo lectura y de la selección: `DONE`; los PR #16 y #18 y sus CI posteriores al merge verificaron código, build, migraciones limpias, pgTAP y Auth/RLS con datos sintéticos. No existe evidencia live._
 
 El OWNER emite o rota mediante `POST` same-origin una credencial base64url de 32 bytes para una oferta `OPEN` vigente de su tenant. Aplicación recibe reloj, aleatoriedad y SHA-256 por dependencias; solo el hash llega a una tabla tenant-safe inaccesible al browser. RPCs `SECURITY DEFINER`, con `search_path` vacío y ejecución exclusiva de `service_role`, rotan el hash bajo autorización OWNER y resuelven una vista pública mínima. `/offers/:token` compone persistencia solo tras validar formas canónicas y conserva no-store/no-referrer, errores uniformes y ausencia de redirects.
 

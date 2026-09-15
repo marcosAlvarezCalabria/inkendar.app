@@ -1,6 +1,6 @@
 # Contrato técnico: selección pública de una opción preaprobada
 
-_Estado técnico: `IN_PROGRESS`. Existe implementación local pendiente de revisión independiente, Pull Request y CI; este slice no acredita confirmación Google ni pruebas live._
+_Estado técnico: `DONE`. El PR #18 y el CI posterior al merge verificaron código, build, migraciones limpias, pgTAP y Auth/RLS con datos sintéticos; este slice no acredita confirmación Google ni pruebas live._
 
 ## Alcance
 
