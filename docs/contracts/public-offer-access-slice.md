@@ -1,6 +1,6 @@
 # Contrato técnico: acceso público de solo lectura a ofertas
 
-_Estado técnico: `IN_PROGRESS`. Este documento fija el contrato antes de la implementación; no acredita integración, CI ni pruebas live._
+_Estado técnico: `DONE`. El PR #16 y el CI posterior al merge verificaron código, build, migraciones limpias, pgTAP y Auth/RLS con datos sintéticos; este slice no acredita selección ni pruebas live._
 
 ## Alcance
 
