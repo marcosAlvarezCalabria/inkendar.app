@@ -3,17 +3,20 @@ import { describe, expect, it } from "vitest";
 import { AvailabilityManagement, CalendarManagement } from "./routes/owner-calendars.js";
 
 describe("owner Calendar management view", () => {
-  it("renders safe connection state and one assignment selector per artist", () => {
+  it("preserves metadata but disables a legacy calendar that cannot reveal private event details", () => {
     const html = renderToStaticMarkup(<CalendarManagement data={{
       connectionStatus: "ACTIVE",
       calendars: [
         { id: "ana@example.test", summary: "Agenda Ana", timeZone: "Europe/Madrid", accessRole: "writerWithoutPrivateAccess", primary: false },
+        { id: "safe@example.test", summary: "Agenda privada", timeZone: "Europe/Madrid", accessRole: "writer", primary: false },
         { id: "readonly@example.test", summary: "Solo lectura", timeZone: null, accessRole: "reader", primary: false },
       ],
       artists: [{ id: "50000000-0000-4000-8000-000000000001", displayName: "Ana", calendarId: "ana@example.test" }],
     }} result="connected" />);
     expect(html).toContain("Conexión configurada");
-    expect(html).toContain("Agenda Ana");
+    expect(html).toContain("Agenda Ana · incompatible con citas privadas");
+    expect(html).toContain('<option value="ana@example.test" disabled="" selected="">');
+    expect(html).toContain("Agenda privada");
     expect(html).not.toContain("Solo lectura");
     expect(html).toContain("Desasignar");
     expect(html).toContain("Conexión guardada; pendiente de verificación operativa");

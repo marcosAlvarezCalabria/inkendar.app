@@ -36,6 +36,7 @@ function dependencies() {
     exchangeCode: vi.fn(async () => ({ refreshToken: "refresh-secret", grantedScopes: [requiredScope] })),
     listCalendars: vi.fn(async () => [
       { id: "artist@example.test", summary: "Ana", timeZone: "Europe/Madrid", accessRole: "writerWithoutPrivateAccess" as const, primary: false },
+      { id: "private-readable@example.test", summary: "Agenda privada", timeZone: "Europe/Madrid", accessRole: "writer" as const, primary: false },
       { id: "read-only@example.test", summary: "Consulta", timeZone: null, accessRole: "reader" as const, primary: false },
     ]),
     revokeToken: vi.fn(async () => undefined),
@@ -104,30 +105,32 @@ describe("Google Calendar connection service", () => {
       status: "ACTIVE",
       encryptedRefreshToken: "v1.ciphertext",
       grantedScopes: [requiredScope],
+      credentialGeneration: 7,
     });
     const service = createGoogleCalendarService(deps);
 
     const view = await service.getManagementView(studioId);
-    await service.assignCalendar(studioId, artistId, "artist@example.test");
+    await service.assignCalendar(studioId, artistId, "private-readable@example.test");
 
     expect(view.calendars[0]).toEqual({ id: "artist@example.test", summary: "Ana", timeZone: "Europe/Madrid", accessRole: "writerWithoutPrivateAccess", primary: false });
-    expect(deps.repository.assignCalendar).toHaveBeenCalledWith(studioId, artistId, "artist@example.test");
+    expect(deps.repository.assignCalendar).toHaveBeenCalledWith(studioId, artistId, "private-readable@example.test", "writer");
+    await expect(service.assignCalendar(studioId, artistId, "artist@example.test")).rejects.toBeInstanceOf(GoogleCalendarNotAssignableError);
     await expect(service.assignCalendar(studioId, artistId, "read-only@example.test")).rejects.toBeInstanceOf(GoogleCalendarNotAssignableError);
   });
 
   it("marks only proven invalid credentials for reauthorization while preserving assignments", async () => {
     const deps = dependencies();
-    vi.mocked(deps.repository.getConnection).mockResolvedValue({ id: "81000000-0000-4000-8000-000000000001", studioId, status: "ACTIVE", encryptedRefreshToken: "v1.ciphertext", grantedScopes: [requiredScope] });
+    vi.mocked(deps.repository.getConnection).mockResolvedValue({ id: "81000000-0000-4000-8000-000000000001", studioId, status: "ACTIVE", encryptedRefreshToken: "v1.ciphertext", grantedScopes: [requiredScope], credentialGeneration: 7 });
     vi.mocked(deps.provider.listCalendars).mockRejectedValueOnce(new GoogleCalendarCredentialInvalidError());
     const service = createGoogleCalendarService(deps);
 
     await expect(service.getManagementView(studioId)).resolves.toMatchObject({ connectionStatus: "REAUTH_REQUIRED", artists: [{ id: artistId }] });
-    expect(deps.repository.markReauthRequired).toHaveBeenCalledWith(studioId);
+    expect(deps.repository.markReauthRequired).toHaveBeenCalledWith(studioId, 7);
   });
 
   it("surfaces transient provider failures without changing connection or assignments", async () => {
     const deps = dependencies();
-    vi.mocked(deps.repository.getConnection).mockResolvedValue({ id: "81000000-0000-4000-8000-000000000001", studioId, status: "ACTIVE", encryptedRefreshToken: "v1.ciphertext", grantedScopes: [requiredScope] });
+    vi.mocked(deps.repository.getConnection).mockResolvedValue({ id: "81000000-0000-4000-8000-000000000001", studioId, status: "ACTIVE", encryptedRefreshToken: "v1.ciphertext", grantedScopes: [requiredScope], credentialGeneration: 7 });
     vi.mocked(deps.provider.listCalendars).mockRejectedValueOnce(new Error("HTTP 503 with provider detail"));
     const service = createGoogleCalendarService(deps);
 
@@ -138,7 +141,7 @@ describe("Google Calendar connection service", () => {
 
   it("revokes a retained token in REAUTH_REQUIRED and disconnects locally even if revocation fails", async () => {
     const deps = dependencies();
-    vi.mocked(deps.repository.getConnection).mockResolvedValueOnce({ id: "81000000-0000-4000-8000-000000000001", studioId, status: "REAUTH_REQUIRED", encryptedRefreshToken: "v1.ciphertext", grantedScopes: [requiredScope] });
+    vi.mocked(deps.repository.getConnection).mockResolvedValueOnce({ id: "81000000-0000-4000-8000-000000000001", studioId, status: "REAUTH_REQUIRED", encryptedRefreshToken: "v1.ciphertext", grantedScopes: [requiredScope], credentialGeneration: 7 });
     vi.mocked(deps.provider.revokeToken).mockRejectedValueOnce(new Error("provider unavailable"));
     const service = createGoogleCalendarService(deps);
 

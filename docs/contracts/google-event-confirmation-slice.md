@@ -1,6 +1,6 @@
 # Contrato técnico: confirmación recuperable con Google Calendar
 
-_Estado técnico: `DONE`. La implementación sintética local pasó 308 pruebas Vitest (una integración omitida de forma esperada), build y 49 aserciones pgTAP del slice dentro de 373; la revisión/integración y la prueba live de Google Events y del booking extremo a extremo permanecen `IN_PROGRESS`._
+_Estado técnico: `IN_PROGRESS` (candidato local). La revisión independiente devolvió el slice a implementación para cerrar exclusión mutua externa, binding durable, ACL privada y CAS de credencial. Integración/CI y la prueba live de Google Events y del booking extremo a extremo permanecen `IN_PROGRESS`._
 
 ## Necesidad y alcance
 
@@ -23,20 +23,24 @@ El ID de Google se deriva de forma determinista del UUID interno de la opción m
 
 Cada intento sigue este orden observable:
 
-1. carga el contexto tenant-safe asociado al hash del enlace y deriva la identidad estable;
-2. exige conexión `ACTIVE`, calendario asignado y los scopes `calendar.events.freebusy` y `calendar.events`;
-3. llama primero a `Events.get(calendarId,eventId)`;
-4. si existe, exige coincidencia exacta de ID, intervalo, estado no cancelado, `opaque`, `private`, resumen genérico y correlación privada, sin asistentes; solo entonces finaliza localmente;
-5. solo ante `404` consulta FreeBusy con `timeMin=start`, `timeMax=end` y semántica `[start,end)`;
-6. si no hay solape, llama a `Events.insert` con el ID derivado, `start.dateTime` inclusivo, `end.dateTime` exclusivo, `summary="Cita Inkendar"`, `transparency="opaque"`, `visibility="private"` y la propiedad privada; omite asistentes, cliente, caso, descripción y recurrencia;
-7. valida la respuesta. Ante conflicto o resultado ambiguo de insert realiza una reconciliación `Events.get`; si todavía no existe o no puede verificarse, mantiene el estado pendiente;
-8. finaliza mediante una RPC atómica e idempotente que crea una sola `appointment`, una sola relación Google y mueve oferta/opción a `CONFIRMED`.
+1. carga solo la selección tenant-safe asociada al hash del enlace y deriva la identidad estable;
+2. reclama en Supabase una operación durable con lease y fija inmutablemente `studio/offer/option/connection/calendar/eventId/correlation`; el claim inicial valida vigencia, tenant, conexión `ACTIVE`, ambos scopes y una asignación probada con rol `writer` u `owner`;
+3. un lease vigente entrega la operación a un único worker. Otro request devuelve retry sin llamar Google. Tras expirar, un nuevo worker puede reclamarla;
+4. el worker llama primero a `Events.get` usando siempre el destino fijado, aunque la asignación actual haya cambiado;
+5. si existe, exige coincidencia exacta de ID, intervalo, estado no cancelado, `opaque`, `private`, resumen genérico y correlación privada, sin asistentes; solo entonces finaliza localmente;
+6. solo ante `404`, y si ninguna inserción fue iniciada antes, consulta FreeBusy con `timeMin=start`, `timeMax=end` y semántica `[start,end)`;
+7. si no hay solape, realiza una transición CAS durable a `INSERTING` antes de `Events.insert`. Esa transición se concede una sola vez por operación y cerca la autoridad de leases expirados;
+8. llama a `Events.insert` con el ID derivado, `start.dateTime` inclusivo, `end.dateTime` exclusivo, `summary="Cita Inkendar"`, `transparency="opaque"`, `visibility="private"` y la propiedad privada; omite asistentes, cliente, caso, descripción y recurrencia;
+9. valida la respuesta. Ante resultado ambiguo de insert realiza una reconciliación `Events.get`. Después de `INSERTING`, un recovery solo reconcilia: si GET sigue ausente falla cerrado para revisión y nunca emite una segunda inserción;
+10. finaliza mediante una RPC atómica e idempotente que valida el binding durable, crea una sola `appointment`, una sola relación Google y mueve oferta/opción a `CONFIRMED`.
 
-Una coincidencia parcial es una colisión/mismatch y falla cerrada. Un payload malformado, calendario inesperado, error por calendario, red, timeout, 429 o 5xx nunca se interpreta como confirmación. Solo `invalid_grant` al refrescar marca la conexión `REAUTH_REQUIRED`; asignación, opción seleccionada y enlace se conservan.
+Una coincidencia parcial es una colisión/mismatch y falla cerrada. Un payload malformado, calendario inesperado, error por calendario, red, timeout, 429 o 5xx nunca se interpreta como confirmación. Solo `invalid_grant` al refrescar intenta marcar la conexión `REAUTH_REQUIRED`, mediante compare-and-set contra la generación opaca de la credencial realmente usada; un fallo tardío de una generación anterior no degrada una reconexión más nueva. Asignación, opción seleccionada y enlace se conservan.
 
 ## OAuth incremental y recuperación pública
 
 La autorización añade `https://www.googleapis.com/auth/calendar.events` a los scopes existentes y conserva `include_granted_scopes=true`. Una concesión antigua sin este scope no llama Events ni FreeBusy: deja la selección pendiente y pide al estudio reconectar. La reconexión conserva la asignación existente.
+
+El listado mantiene metadata de todos los roles conocidos, incluido `writerWithoutPrivateAccess`, pero una asignación apta para confirmaciones privadas solo puede guardarse con `writer` u `owner`. Las asignaciones históricas sin capacidad probada se muestran como incompatibles, no se usan para un claim inicial y deben guardarse de nuevo eligiendo un calendario apto.
 
 `POST /offers/:token` acepta o bien el selector canónico de una opción abierta, o bien un único `intent=confirm` para reintentar una selección pendiente. Tras seleccionar intenta confirmar en la misma operación. Un retry del selector ganador o de `intent=confirm` reutiliza la misma identidad; nunca inserta con otro ID ni sustituye la elección.
 
@@ -46,8 +50,10 @@ Las respuestas públicas mantienen las cabeceras defensivas existentes. Conflict
 
 - `appointment` contiene una relación tenant-safe única con caso, artista, oferta y opción, estado `CONFIRMED` e instante de confirmación.
 - `appointment_google_event` contiene una relación uno-a-uno con conexión, calendario, ID de evento, correlación y sincronización. No copia resumen, descripción, asistentes ni contenido editable del evento.
+- `booking_confirmation_operation` conserva antes de Google el binding inmutable y la máquina `READY -> INSERTING -> FINALIZED`, junto con un lease opaco. Un lease expirado puede recuperar `READY`; `INSERTING` solo permite reconciliar y nunca autoriza otro insert.
+- `google_calendar_connection.credential_generation` aumenta en cada activación/reconexión sin derivarse del token ni revelarlo. Todas las transiciones por `invalid_grant` comparan esa generación.
 - Las tablas tienen RLS y ningún grant directo para browser o `service_role`; solo RPCs `SECURITY DEFINER`, `search_path=''`, exclusivas de `service_role`.
-- La RPC de preparación resuelve el token por hash y devuelve contexto interno solo al backend. La finalización vuelve a bloquear y validar oferta, opción, tenant, conexión y asignación antes de escribir todo atómicamente.
+- La RPC de preparación resuelve el token por hash y devuelve contexto interno solo al backend. El claim valida la asignación actual una vez; la finalización valida el binding durable en lugar de consultar una asignación mutable.
 - La finalización concurrente del mismo evento es idempotente. Una relación existente con calendario, evento o correlación distintos falla cerrada y no cambia estados.
 
 ## Criterios de aceptación
@@ -65,7 +71,27 @@ Given que Google creó el evento pero se perdió la respuesta o la finalización
 When se reintenta la confirmación
 Then Events.get es la primera operación de Calendar
 And una coincidencia exacta finaliza sin consultar FreeBusy ni volver a insertar
-And dos intentos concurrentes convergen en una cita y un evento
+And dos intentos concurrentes conceden autoridad de inserción a uno solo
+And el otro devuelve retry o reconcilia después sin llamar Events.insert concurrentemente
+```
+
+```gherkin
+Given un worker con lease expirado antes de iniciar la inserción
+When otro worker recupera el claim
+Then el lease anterior no puede pasar a INSERTING
+And solo el nuevo owner puede insertar
+
+Given un crash después de la transición durable a INSERTING
+When expira el lease y se reintenta
+Then el retry consulta Events.get en el calendario originalmente fijado
+And si el evento no existe queda pendiente para revisión sin una segunda inserción
+```
+
+```gherkin
+Given que el calendario del artista cambia de A a B después del claim
+When se recupera una confirmación ambigua
+Then Events.get usa siempre la conexión y el calendario A fijados
+And nunca crea el evento en B
 ```
 
 ```gherkin
@@ -90,6 +116,7 @@ When se intenta confirmar
 Then la opción seleccionada y su enlace se conservan
 And se exige reconexión sin afirmar confirmación
 And solo invalid_grant cambia la conexión a REAUTH_REQUIRED
+And un invalid_grant tardío no modifica una generación reconectada
 ```
 
 ```gherkin
@@ -110,6 +137,6 @@ And la disponibilidad conserva una exclusión local inmutable además de observa
 
 ## Evidencia y gates
 
-El gate técnico local pasó el 2026-09-15 con 308 pruebas Vitest (una integración omitida de forma esperada), lint, typecheck, build y 49 aserciones pgTAP nuevas dentro de 373. La prueba de concurrencia hace converger dos intentos sobre una sola identidad determinista; pgTAP verifica bloqueo, unicidad, retry idempotente, mismatch, RLS/grants, expiración y exclusión confirmada.
+La evidencia anterior (308 pruebas Vitest y 373 aserciones pgTAP) quedó obsoleta tras los defectos encontrados en revisión. El candidato corregido demostró RED para doble inserción, destino mutable, rol privado insuficiente y `invalid_grant` tardío; después pasó 39 pruebas enfocadas, el gate local completo con 313 pruebas Vitest (más una integración omitida), lint, typecheck y build, y 376 aserciones pgTAP sobre la base local migrada forward-only. Revisión de integración y CI siguen pendientes, por lo que el estado no avanza a `DONE`.
 
 No se usaron credenciales ni cuenta Google y no se ejecutó una prueba live. Revisión, integración/CI, Google Events live y el recorrido extremo a extremo permanecen `IN_PROGRESS`.
