@@ -2,7 +2,7 @@
 
 _Estado: especificación viva y fuente de verdad para alcance, comportamiento y progreso_
 
-_Versión: 1.12.0_
+_Versión: 1.12.1_
 
 _Última actualización: 2026-09-15_
 
@@ -52,7 +52,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | Flujo de entrega y CI | `PASS` | `main` exige PR, los checks `validate` y `database`, conversaciones resueltas e historial lineal; ambos jobs pasaron tras integrar el [PR #10](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/10) en el [run 34895446647](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34895446647). |
 | Memoria de agentes | `PASS` | Engram 1.20.0 guarda y recupera memoria del proyecto `inkendar.app`; Codex MCP está configurado y requiere reinicio para cargarlo en nuevos chats. |
 | Supabase y aislamiento multi-tenant | `PASS` | La migración, el seed sintético y las 38 aserciones pgTAP pasaron contra Supabase/Postgres real en GitHub Actions [run 34752758528](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34752758528). |
-| Google Calendar y booking | `IN_PROGRESS` | OAuth/asignación, disponibilidad, ofertas/holds, acceso y selección públicos están técnicamente `DONE` en sus PR #10, #12, #14, #16 y #18. La confirmación recuperable es un candidato local `IN_PROGRESS`: coordina un único inserter con claim/lease durable, exige FreeBusy y Events antes de crear o renovar ese claim, fija el destino antes de Google, conserva una operación `INSERTING` más allá de la caducidad para reconciliar sin reinsertar, revalida FreeBusy, finaliza atómicamente y usa CAS por generación ante `invalid_grant`. Revisión, integración/CI y toda evidencia live de ofertas, FreeBusy, Google Events, confirmación y booking extremo a extremo siguen pendientes. |
+| Google Calendar y booking | `IN_PROGRESS` | OAuth/asignación, disponibilidad, ofertas/holds, acceso, selección pública y confirmación recuperable están técnicamente `DONE` en sus PR #10, #12, #14, #16, #18 y [#20](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/20). El [run post-merge 35032036887](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/35032036887) verificó Node 24, migraciones limpias, 442 aserciones pgTAP y Auth/RLS sobre `676aa68088d13ada1474fb029d51d4eee1c3993f`. Toda evidencia live de ofertas, FreeBusy, Google Events, confirmación y booking extremo a extremo sigue pendiente; notificaciones y scheduler tampoco están implementados. |
 | Galería, portfolios y publicación web | `PLANNED` | No existe todavía el almacenamiento, feed público ni componente de integración. |
 | Piloto externo y disposición a pagar | `PLANNED` | No existe todavía evidencia de uso real autorizado ni pago. |
 
@@ -100,8 +100,9 @@ La arquitectura técnica está en [Arquitectura de aplicación](../architecture/
 
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
-| 2026-09-15 | 1.11.1 | La selección pública de una opción preaprobada pasó a `DONE` tras verificar el PR #18 y el CI posterior al merge con Node 24, migraciones limpias, 324 aserciones pgTAP y Auth/RLS; no se ejecutó ninguna prueba live. | Cerrar el gate técnico sin confundir la selección pendiente con confirmación Google ni anticipar FreeBusy final, Events, notificaciones o scheduler. |
+| 2026-09-15 | 1.12.1 | La confirmación recuperable pasó a `DONE` técnico tras integrar el PR #20 como `676aa68088d13ada1474fb029d51d4eee1c3993f`; el run de PR 35031807319 y el run post-merge 35032036887 pasaron Node 24, migraciones limpias, 442 aserciones pgTAP y Auth/RLS. No se ejecutó ninguna prueba live. | Cerrar el gate técnico sin atribuir evidencia de Google Events live ni anticipar notificaciones, scheduler o booking extremo a extremo. |
 | 2026-09-15 | 1.12.0 | La confirmación recuperable queda como candidato local `IN_PROGRESS`: claim/lease durable con una sola autoridad de inserción y ambos scopes operativos obligatorios, binding inmutable previo al efecto, `READY` expirable, `INSERTING` recuperable después de `expires_at` y materialización serializada antes de reofertar, además de reconciliación por ID determinista, FreeBusy final, cita/relación atómica, ACL privada `writer|owner` y CAS de generación de credencial. Revisión, integración/CI y pruebas live continúan pendientes. | Corregir grants incompletos, carreras de inserción, caducidad y creación de ofertas, crash/reasignación e `invalid_grant` tardío sin atribuir evidencia live ni anticipar notificaciones, scheduler, elección libre o cancelación. |
+| 2026-09-15 | 1.11.1 | La selección pública de una opción preaprobada pasó a `DONE` tras verificar el PR #18 y el CI posterior al merge con Node 24, migraciones limpias, 324 aserciones pgTAP y Auth/RLS; no se ejecutó ninguna prueba live. | Cerrar el gate técnico sin confundir la selección pendiente con confirmación Google ni anticipar FreeBusy final, Events, notificaciones o scheduler. |
 | 2026-09-15 | 1.11.0 | Se implementó localmente la selección pública atómica e idempotente de una opción preaprobada, con selector separado, estado pendiente de confirmación, hold elegido activo y caducidad; revisión, CI, Google Events y pruebas live quedan pendientes. | Entregar la intención del cliente de forma segura sin afirmar todavía una cita confirmada ni anticipar la integración Google. |
 | 2026-09-15 | 1.10.1 | El acceso público de solo lectura a ofertas vigentes pasó a `DONE` tras verificar el PR #16 y el CI posterior al merge con Node 24, migraciones limpias, pgTAP y Auth/RLS; no se ejecutó ninguna prueba live. | Cerrar el gate técnico sin anticipar selección, eventos, confirmación, notificaciones ni scheduler. |
 | 2026-09-15 | 1.10.0 | Se implementó localmente el acceso público de solo lectura a ofertas vigentes con emisión/rotación OWNER, token hash-only, respuesta mínima y cabeceras defensivas; integración, CI, selección y pruebas live quedan pendientes. | Entregar el siguiente corte vertical verificable sin anticipar escritura pública ni confirmar citas. |
@@ -189,7 +190,7 @@ Web / Instagram / Facebook
 - **Facebook Messenger: CONNECTED / pendiente de prueba bidireccional final.**
 - **Asignación: PARTIAL.** La atención funciona asignando manualmente la conversación; la asignación automática continúa pendiente de localizar y validar.
 - **WhatsApp: DEFERRED.** El flujo manual exige un número dedicado o migrado; conservar el número en la aplicación requiere Coexistence. Se retira del MVP.
-- **Google Calendar: IN_PROGRESS.** OAuth, listado y asignación live pasaron con owner sintético el 2026-09-15. Disponibilidad, ofertas/holds, acceso y selección están técnicamente `DONE`; la confirmación recuperable permanece como candidato local `IN_PROGRESS` hasta revisión, integración y CI. Faltan FreeBusy live, Google Events live y booking extremo a extremo, y no se ha ejecutado una prueba live de ofertas.
+- **Google Calendar: IN_PROGRESS.** OAuth, listado y asignación live pasaron con owner sintético el 2026-09-15. Disponibilidad, ofertas/holds, acceso, selección y confirmación recuperable están técnicamente `DONE`; faltan FreeBusy live, Google Events live y booking extremo a extremo, y no se ha ejecutado una prueba live de ofertas. Notificaciones y scheduler continúan sin implementar.
 
 Un canal no pasa a `PASS` por estar conectado: debe demostrarse recepción y respuesta de extremo a extremo con datos sintéticos.
 
@@ -368,8 +369,8 @@ Gates iniciales para ampliar:
 El desarrollo técnico con datos sintéticos puede comenzar mientras se completa la validación comercial. Los gates bloquean datos reales, promesas comerciales y cobro; no bloquean CI, contratos, pruebas ni infraestructura local.
 
 1. Completar en paralelo la prueba bidireccional de Facebook Messenger.
-2. Revisar e integrar mediante Pull Request la confirmación recuperable ya implementada localmente, con CI y migraciones limpias.
-3. Validar, con autorización explícita y cuentas sintéticas, los recorridos live de Chatwoot, Google FreeBusy, Google Events y booking; OAuth, listado y asignación live ya pasaron.
+2. Validar, con autorización explícita y cuentas sintéticas, los recorridos live de Chatwoot, Google FreeBusy, Google Events y booking; OAuth, listado y asignación live ya pasaron.
+3. Implementar notificaciones y scheduler sin confundirlos con el gate técnico ya cerrado de confirmación recuperable.
 4. Añadir la vista de artista, galería y portfolios administrados por el owner.
 5. Implementar el feed público y probarlo en una web nueva y otra existente.
 6. Verificar privacidad, exportación, monitorización y onboarding antes de datos reales.

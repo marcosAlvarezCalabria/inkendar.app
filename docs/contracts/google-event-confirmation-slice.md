@@ -1,6 +1,6 @@
 # Contrato técnico: confirmación recuperable con Google Calendar
 
-_Estado técnico: `IN_PROGRESS` (candidato local). El candidato incorpora exclusión mutua externa, binding durable, ACL privada, CAS de credencial, recuperación de `INSERTING` después de la caducidad original y serialización con la creación posterior de ofertas. Integración/CI y la prueba live de Google Events y del booking extremo a extremo permanecen `IN_PROGRESS`._
+_Estado técnico: `DONE`. El [PR #20](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/20) y el CI posterior al merge verificaron exclusión mutua externa, binding durable, ACL privada, CAS de credencial, recuperación de `INSERTING` después de la caducidad original y serialización con la creación posterior de ofertas. La prueba live de Google Events y del booking extremo a extremo permanece `IN_PROGRESS`._
 
 ## Necesidad y alcance
 
@@ -170,6 +170,8 @@ And la disponibilidad conserva una exclusión local inmutable además de observa
 
 ## Evidencia y gates
 
-La evidencia anterior quedó obsoleta tras los defectos encontrados en revisión. Las vueltas de corrección demostraron RED funcional tanto para la carrera `create_booking_offer`/`beginInsert` como para el claim con `calendar.events` pero sin `calendar.events.freebusy`: este último creaba una operación nueva y renovaba el lease de una operación existente. Después pasó el gate local completo con 314 pruebas Vitest (más una integración omitida), lint, typecheck y build, y 442 aserciones pgTAP sobre la base local migrada forward-only; el lint SQL no encontró errores. `scripts/booking-confirmation-races.integration.ps1` volvió a pasar con dos conexiones reales los cuatro órdenes begin/create y begin/expiry, `lock_timeout=8s`, `statement_timeout=9s`, sin deadlock y con cleanup sintético. Revisión de integración y CI siguen pendientes, por lo que el estado no avanza a `DONE`.
+La evidencia anterior quedó obsoleta tras los defectos encontrados en revisión. Las vueltas de corrección demostraron RED funcional tanto para la carrera `create_booking_offer`/`beginInsert` como para el claim con `calendar.events` pero sin `calendar.events.freebusy`: este último creaba una operación nueva y renovaba el lease de una operación existente. Después pasó el gate local completo con Node 24: 314 pruebas Vitest (más una integración omitida), lint, typecheck y build, además de 442 aserciones pgTAP sobre la base local migrada forward-only; el lint SQL no encontró errores. `scripts/booking-confirmation-races.integration.ps1` volvió a pasar con dos conexiones reales los cuatro órdenes begin/create y begin/expiry, `lock_timeout=8s`, `statement_timeout=9s`, sin deadlock y con cleanup sintético.
 
-No se usaron credenciales ni cuenta Google y no se ejecutó una prueba live. Revisión, integración/CI, Google Events live y el recorrido extremo a extremo permanecen `IN_PROGRESS`.
+El [PR #20](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/20) integró el candidato como `676aa68088d13ada1474fb029d51d4eee1c3993f`. El [run de PR 35031807319](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/35031807319) y el [run post-merge 35032036887](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/35032036887) pasaron `validate` y `database`; este último levantó Supabase desde cero, aplicó toda la cadena de migraciones, ejecutó pgTAP y verificó Auth/RLS.
+
+No se usaron credenciales ni cuenta Google y no se ejecutó una prueba live. Google Events live, el recorrido extremo a extremo, las notificaciones y el scheduler permanecen `IN_PROGRESS`.
