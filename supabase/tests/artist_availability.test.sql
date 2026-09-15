@@ -1,5 +1,5 @@
 begin;
-select plan(15);
+select plan(24);
 select has_table('public','artist_availability_rule','availability rule table exists');
 select has_table('public','artist_availability_window','availability window table exists');
 select ok((select relrowsecurity from pg_class where oid='public.artist_availability_rule'::regclass),'rule RLS enabled');
@@ -15,7 +15,14 @@ select throws_ok($$select public.save_artist_availability_rules('20000000-0000-0
 select throws_ok($$select public.save_artist_availability_rules('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000002','50000000-0000-0000-0000-000000000001','UTC',30,0,0,'[]')$$,'42501',null,'artist cannot spoof owner');
 select throws_ok($$select public.save_artist_availability_rules('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','UTC',30,0,0,'[{"weekday":1,"start":"09:00","end":"11:00"},{"weekday":1,"start":"10:00","end":"12:00"}]')$$,'22023',null,'overlapping windows rejected atomically');
 select is((select jsonb_array_length(windows) from public.get_artist_availability_configuration('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001')),1,'failed update preserves prior windows');
-select throws_ok($$select public.save_artist_availability_rules('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','UTC',30,0,0,'[{"weekday":7,"start":"09:00","end":"10:00"}]')$$,'23514',null,'weekday constraint rejects invalid input');
+select throws_ok($$select public.save_artist_availability_rules('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','UTC',30,0,0,'[{"weekday":7,"start":"09:00","end":"10:00"}]')$$,'22023',null,'weekday validation rejects invalid input');
+select ok(has_function_privilege('service_role','public.get_artist_availability_configuration(uuid,uuid,uuid)','execute'),'service role can read configuration through RPC');
+select ok(not has_function_privilege('authenticated','public.get_artist_availability_configuration(uuid,uuid,uuid)','execute'),'authenticated cannot execute configuration RPC');
+select ok(not has_table_privilege('authenticated','public.artist_availability_window','select'),'authenticated has no direct window read');
+select ok(not has_table_privilege('service_role','public.artist_availability_window','select'),'service role has no direct window read');
+select throws_ok($$select public.save_artist_availability_rules('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','Mars/Olympus',30,0,0,'[]')$$,'22023',null,'RPC rejects timezone outside PostgreSQL IANA registry');
+select throws_ok($$select public.save_artist_availability_rules('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','UTC',30,0,0,'[{"weekday":1,"start":"09:00:00","end":"10:00:00"}]')$$,'22023',null,'RPC rejects window seconds');
+select throws_ok($$select public.save_artist_availability_rules('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','UTC',30,0,0,'[{"weekday":1,"start":"09:00","end":"10:00","extra":"x"}]')$$,'22023',null,'RPC rejects malformed window objects');
+select lives_ok($$select public.activate_google_calendar_connection('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','v1.availability-ciphertext.tag',array['https://www.googleapis.com/auth/calendar.calendarlist.readonly','https://www.googleapis.com/auth/calendar.events.freebusy']);select public.assign_artist_calendar('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','artist@example.test')$$,'active same-tenant connection can be assigned');
+select is((select connection_status::text||':'||calendar_id from public.get_artist_availability_configuration('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001')),'ACTIVE:artist@example.test','configuration exposes only assigned active same-tenant connection');
 select * from finish(); rollback;
-
-

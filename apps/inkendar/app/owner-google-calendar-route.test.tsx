@@ -3,7 +3,9 @@ import { createStaticHandler, createStaticRouter, isRouteErrorResponse, StaticRo
 import { describe, expect, it, vi } from "vitest";
 
 const handler = vi.hoisted(() => ({ loader: vi.fn(), action: vi.fn() }));
+const availability = vi.hoisted(() => ({ loader: vi.fn(), action: vi.fn() }));
 vi.mock("./owner-google-calendar.server.js", () => ({ ownerGoogleCalendarHandlers: handler }));
+vi.mock("./owner-availability.server.js", () => ({ ownerAvailabilityHandlers: availability }));
 
 import OwnerCalendars, { ErrorBoundary, loader } from "./routes/owner-calendars.js";
 
@@ -39,6 +41,7 @@ describe("owner Google Calendar route", () => {
 
   it("continues rendering a successful management view", async () => {
     handler.loader.mockResolvedValueOnce(Response.json({ connectionStatus: "NOT_CONNECTED", calendars: [], artists: [] }, { headers: { "Cache-Control": "private, no-store" } }));
+    availability.loader.mockResolvedValueOnce(Response.json({ availabilityByArtist: {} }));
     const { query, dataRoutes } = createStaticHandler(routes);
 
     const result = await query(new Request("https://app.inkendar.es/app/owner/calendars"));
@@ -50,3 +53,5 @@ describe("owner Google Calendar route", () => {
     expect(html).toContain("Google Calendar no está conectado");
   });
 });
+
+it("combines saved availability into the real route render",async()=>{const artist={id:"50000000-0000-4000-8000-000000000001",displayName:"Ana",calendarId:"artist@test"};handler.loader.mockResolvedValueOnce(Response.json({connectionStatus:"ACTIVE",calendars:[],artists:[artist]}));availability.loader.mockResolvedValueOnce(Response.json({availabilityByArtist:{[artist.id]:{timeZone:"Pacific/Kiritimati",windows:[{weekday:6,start:"09:15",end:"12:45"}],slotIncrementMinutes:45,bufferBeforeMinutes:20,bufferAfterMinutes:25}}}));const {query,dataRoutes}=createStaticHandler(routes);const result=await query(new Request("https://app.inkendar.es/app/owner/calendars"));if(result instanceof Response)throw new Error("Expected context");const html=renderToStaticMarkup(<StaticRouterProvider router={createStaticRouter(dataRoutes,result)} context={result}/>);expect(availability.loader).toHaveBeenCalledOnce();expect(html).toContain('value="Pacific/Kiritimati"');expect(html).toContain("6,09:15,12:45");expect(html).toContain('value="45"');});

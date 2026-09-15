@@ -10,7 +10,9 @@ Las reglas son tenant-safe por artista: zona IANA, hasta 28 ventanas semanales n
 
 ## Semántica y seguridad
 
-Los intervalos son semiabiertos `[start,end)`. Busy solapados o adyacentes se fusionan después de aplicar buffers. Los slots se generan sobre la línea temporal UTC desde ventanas civiles IANA y devuelven UTC más representación local sin offset; se prueban los cambios DST de primavera y otoño en Europa. La consulta a Google hace un único `POST /calendar/v3/freeBusy` con `{timeMin,timeMax,timeZone:"UTC",items:[{id}]}` y solo consume `busy.start/end`; nunca eventos, títulos ni descripciones.
+Los intervalos son semiabiertos `[start,end)`. Busy solapados o adyacentes se fusionan después de aplicar buffers. Se enumeran todos los días civiles locales que intersectan el rango UTC, incluidos offsets extremos como `Pacific/Kiritimati`. En un cambio DST ambiguo, el inicio usa el primer instante válido y el final el último, de modo que las dos ocurrencias puedan producir candidatos; un límite inexistente de primavera avanza hasta el primer minuto civil válido y una ventana totalmente inexistente produce cero slots sin abortar el rango. Cada slot devuelve UTC más representación local sin offset. Fechas UTC y `datetime-local` exigen round-trip exacto y no normalizan días imposibles.
+
+La consulta a Google hace un único `POST /calendar/v3/freeBusy` con `{timeMin,timeMax,timeZone:"UTC",items:[{id}]}` y solo consume `busy.start/end`; nunca eventos, títulos ni descripciones. Antes del refresh valida calendario, RFC3339 UTC, orden y rango máximo. Exige exactamente el calendario solicitado, rechaza errores por calendario, JSON o intervalos malformados, respuestas de más de 10.000 busy y `Content-Length` superior a 1 MB; usa timeout de ocho segundos.
 
 Solo OWNER compone secretos, service role y adaptadores. Artista ajeno, ARTIST y anónimo fallan cerrado. Sin calendario, sin reglas o sin scope devuelve estado explícito. `invalid_grant` marca `REAUTH_REQUIRED` conservando asignación y reglas; 429, 5xx, red, timeout o payload inválido devuelven 503 sin mutación.
 
