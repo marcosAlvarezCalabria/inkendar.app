@@ -2,7 +2,7 @@
 
 _Estado: índice activo subordinado a la especificación viva_
 
-_Última actualización: 2026-09-13_
+_Última actualización: 2026-09-16_
 
 Los contratos y criterios completos están en la [Especificación de Inkendar](sellable-mvp-spec.md). El backlog anterior se retiró porque mezclaba `owner`, `manager` y `artist` con permisos incompatibles y mantenía WhatsApp dentro del producto. El historial de Git conserva ese material para consulta histórica.
 
@@ -11,7 +11,7 @@ Los contratos y criterios completos están en la [Especificación de Inkendar](s
 1. Aislar todos los datos y conexiones por estudio.
 2. Permitir que el owner opere web, Instagram y Facebook desde Inkendar con Chatwoot oculto.
 3. Permitir que solo el owner cree y modifique clientes, casos, ofertas, citas, calendarios y contenido.
-4. Permitir que cada artista consulte únicamente su agenda y el contexto necesario de sus tatuajes.
+4. Permitir que cada artista consulte únicamente sus próximas citas confirmadas y el contexto mínimo necesario —nombre visible del cliente, resumen, zona corporal y tamaño— sin contacto, conversaciones, IDs internos ni escritura de agenda; el logout global de la sesión queda explícitamente fuera de esa restricción.
 5. Mantener separado el caso de tatuaje de sus posibles citas y sesiones.
 6. Consultar disponibilidad de Google Calendar sin revelar títulos ni descripciones de eventos.
 7. Ofrecer hasta tres fechas preaprobadas con una retención configurable de 24 horas por defecto.

@@ -7,6 +7,7 @@ export * from "./smtp-booking-notifications.js";
 export * from "./supabase-conversations.js";
 export * from "./supabase-google-calendar.js";
 export * from "./supabase-manual-onboarding.js";
+export * from "./supabase-artist-agenda.js";
 export * from "./supabase-auth.js";
 export * from "./supabase-booking-confirmation.js";
 export * from "./supabase-booking-notifications.js";

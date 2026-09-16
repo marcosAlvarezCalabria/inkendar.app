@@ -1,6 +1,6 @@
 # Contrato técnico: notificaciones de booking, fallback email y scheduler portable
 
-_Estado técnico: `IN_PROGRESS`. El scheduler Chatwoot base quedó integrado mediante el PR #23; este corte añade fallback SMTP y permanece pendiente de revisión, PR/CI y prueba live._
+_Estado técnico: `DONE` en código integrado. Scheduler Chatwoot y fallback SMTP quedaron integrados mediante los PR #23 y #24 con CI verde; la prueba live de notificaciones permanece pendiente._
 
 ## Necesidad y alcance
 
@@ -109,9 +109,9 @@ El scheduler base quedó integrado en `main` mediante el PR #23 y el merge `91d5
 
 Para el fallback email, el RED quedó demostrado por 11 fallos de aplicación, el módulo SMTP ausente, dos fallos de normalización Supabase y pgTAP abortando porque `delivery_channel` no existía. Tras GREEN/REFACTOR pasan 49 pruebas enfocadas y 53 aserciones pgTAP del slice después de reconstruir la base local.
 
-La suite acumulada pasó 495 aserciones pgTAP. `pnpm run check` pasó lint, tipos, 366 pruebas Vitest más una integración omitida y build cliente/SSR. `supabase db lint --local --level warning` no encontró errores y `supabase db diff --local` no encontró drift. La máquina local usa Node 25.2.0 y emite el warning de engine; CI debe repetir el gate con Node 24.
+La suite acumulada pasó 495 aserciones pgTAP. `pnpm run check` pasó lint, tipos, 366 pruebas Vitest más una integración omitida y build cliente/SSR. `supabase db lint --local --level warning` no encontró errores y `supabase db diff --local` no encontró drift. El PR #24 integró el fallback y GitHub Actions repitió los gates con Node 24.
 
-Revisión independiente, PR, CI y prueba live siguen pendientes; esta evidencia no acredita un mensaje real de Chatwoot ni SMTP.
+La prueba live sigue pendiente; la evidencia local y CI no acredita un mensaje real de Chatwoot ni SMTP.
 
 ## Fuera de alcance
 

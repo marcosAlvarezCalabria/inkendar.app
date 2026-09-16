@@ -206,3 +206,50 @@ a {
   background: #17130f;
   font: inherit;
 }
+
+.appointment-list {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.appointment-card {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  border: 1px solid #625448;
+  border-radius: 0.6rem;
+  padding: 1rem;
+  background: #17130f;
+}
+
+.appointment-card h3,
+.appointment-card dd,
+.appointment-details {
+  margin: 0;
+}
+
+.appointment-details,
+.appointment-details > div {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.appointment-details {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+}
+
+.appointment-details dt {
+  color: #d9a562;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.appointment-details dd {
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}

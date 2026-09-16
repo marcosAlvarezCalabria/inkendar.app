@@ -2,7 +2,7 @@
 
 _Estado: especificación viva y fuente de verdad para alcance, comportamiento y progreso_
 
-_Versión: 1.15.0_
+_Versión: 1.16.0_
 
 _Última actualización: 2026-09-16_
 
@@ -48,11 +48,12 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | Operación dentro de Inkendar | `IN_PROGRESS` | Contrato técnico `DONE`: bandeja paginada, mensajes incrementales, respuesta idempotente, vínculo cliente/caso y webhook firmado; el run 34883809683 pasó 156 pruebas, build, migraciones limpias, pgTAP y smoke Auth/RLS. Falta el recorrido live de la PWA con una conexión Chatwoot sintética. |
 | PWA y autenticación | `PASS` | Login email/password, cookies SSR, guards, logout y shells OWNER/ARTIST pasaron `npm run check` con 75 pruebas y un smoke Auth/RLS real con ambos roles en el job `database` del [run 34762663413](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34762663413). El service worker continúa fuera del slice y la suspensión explícita de accesos sigue pendiente. |
 | Clientes y casos de tatuaje | `PASS` | Dominio, aplicación, adaptador Supabase y UI SSR OWNER pasaron `npm run check` con 97 pruebas; migración limpia, seed y 58 aserciones pgTAP del slice pasaron dentro de las 117 aserciones del job `database` en el [run 34774972933](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34774972933). |
+| Agenda privada ARTIST | `IN_PROGRESS` | La agenda SSR read-only, RPC mínima tenant-safe y 27 aserciones pgTAP están verificadas localmente; revisión independiente, PR y CI pendientes. No se ejecutó prueba live ni se añadieron mutaciones de agenda; el único formulario del shell es el logout global. |
 | Alta manual gestionada | `PASS` | El CLI de servidor, Auth Admin, compensación y RPC idempotentes pasaron 32 pruebas enfocadas, `npm run check` con 38 pruebas y 21 aserciones pgTAP dentro del job `database` [run 34756137292](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34756137292). No incluye login, sesión ni UI de autenticación. |
 | Flujo de entrega y CI | `PASS` | `main` exige PR, los checks `validate` y `database`, conversaciones resueltas e historial lineal; ambos jobs pasaron tras integrar el [PR #10](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/10) en el [run 34895446647](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34895446647). |
 | Memoria de agentes | `PASS` | Engram 1.20.0 guarda y recupera memoria del proyecto `inkendar.app`; Codex MCP está configurado y requiere reinicio para cargarlo en nuevos chats. |
 | Supabase y aislamiento multi-tenant | `PASS` | La migración, el seed sintético y las 38 aserciones pgTAP pasaron contra Supabase/Postgres real en GitHub Actions [run 34752758528](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34752758528). |
-| Google Calendar y booking | `IN_PROGRESS` | OAuth/asignación, disponibilidad, ofertas/holds, acceso, selección pública y confirmación recuperable están técnicamente `DONE`. El 2026-09-16 una prueba live sintética verificó FreeBusy, oferta, selección, evento y reconciliación sin duplicados. El scheduler Chatwoot quedó integrado mediante el PR #23 sin prueba live. El fallback SMTP por estudio tiene candidato local `IN_PROGRESS`; faltan revisión, PR/CI y prueba live. Rechazos y recordatorios siguen pendientes. |
+| Google Calendar y booking | `IN_PROGRESS` | OAuth/asignación, disponibilidad, ofertas/holds, acceso, selección pública y confirmación recuperable están técnicamente `DONE`. El 2026-09-16 una prueba live sintética verificó FreeBusy, oferta, selección, evento y reconciliación sin duplicados. Scheduler Chatwoot y fallback SMTP quedaron integrados mediante los PR #23 y #24 con CI verde; no existe prueba live de notificaciones. Rechazos y recordatorios siguen pendientes. |
 | Galería, portfolios y publicación web | `PLANNED` | No existe todavía el almacenamiento, feed público ni componente de integración. |
 | Piloto externo y disposición a pagar | `PLANNED` | No existe todavía evidencia de uso real autorizado ni pago. |
 
@@ -96,12 +97,14 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | 2026-09-15 | DEC-033 | `ACCEPTED` | Una selección preaprobada exige conexión activa, token y scopes FreeBusy+Events antes de crear o renovar claim, y fija de forma tenant-safe su conexión, calendario, opción, event ID y correlación en una operación durable antes de Google. `READY` continúa sujeto a caducidad; un lock común serializa caducidad y la única transición `READY → INSERTING`. Antes de reusar un intervalo vencido, la creación de ofertas materializa su expiración bajo el advisory lock del artista y locks `offer → operation` ordenados. Tras `INSERTING` la selección y su exclusión sobreviven a `expires_at`, y toda recuperación es solo `Events.get`, nunca otro insert. FreeBusy revalida `[start,end)`, la finalización es atómica y `invalid_grant` usa CAS por generación de credencial. | Evitar duplicados, reoferta de un intervalo ambiguo y confirmaciones falsas ante grants incompletos, crash, creación/caducidad concurrentes, respuestas ambiguas, colisiones, reasignaciones o retries, sin degradar credenciales reconectadas y manteniendo Google como agenda operativa. |
 | 2026-09-16 | DEC-034 | `ACCEPTED` | Confirmar o caducar una oferta materializa una intención durable única; un runner server-only y portable caduca lotes acotados y envía confirmaciones/caducidades por la única conversación Chatwoot del mismo caso y tenant. Éxitos convergen, fallos confirmados reintentan como máximo tres veces, resultados ambiguos o leases vencidos quedan `UNKNOWN` sin reenvío, y la falta de una ruta inequívoca queda `NO_ROUTE`. | Chatwoot no documenta idempotencia outbound; separar intención, lease y efecto externo evita duplicados y falsas afirmaciones sin persistir mensajes, payloads, tokens ni PII. |
 | 2026-09-16 | DEC-035 | `ACCEPTED` | El runner prefiere exactamente una ruta Chatwoot tenant-safe; con cero o múltiples rutas usa el email válido del customer solo si el estudio dispone de configuración SMTP server-only. SMTP autenticado exige TLS, guarda únicamente un identificador opaco derivado, trata rechazos confirmados como `FAILED` y resultados ambiguos como `UNKNOWN`. | Completar el aviso transaccional sin elegir un SaaS de email, copiar PII al outbox o navegador, ni debilitar la política conservadora frente a duplicados. |
+| 2026-09-16 | DEC-036 | `ACCEPTED` | La agenda ARTIST se sirve mediante SSR y una RPC `auth.uid()` de salida mínima que exige identidad coherente, filtra solo citas/opciones `CONFIRMED` propias con `end_at >= now`, ordena y limita a 50; usa la zona IANA de disponibilidad o `UTC` explícito y no concede acceso general a tablas. | Entregar preparación útil en solo lectura sin duplicar Google, revelar PII/IDs o abrir capacidades OWNER al artista. |
 La arquitectura técnica está en [Arquitectura de aplicación](../architecture/application-architecture.md) y el proceso de entrega en [Flujo de desarrollo, revisión e integración](../development/delivery-workflow.md).
 
 ## Historial de la especificación
 
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
+| 2026-09-16 | 1.16.0 | Se implementó localmente la agenda SSR privada y read-only de ARTIST con salida mínima, límite 50, frontera inclusiva de próximas citas, zona explícita y RPC tenant-safe; revisión, PR y CI siguen pendientes. La UI no ofrece mutaciones de agenda y conserva únicamente el logout global de seguridad de sesión. El fallback SMTP se sincronizó con su integración mediante PR #24 y CI verde, sin atribuirle prueba live. | Preparar al artista con el contexto estrictamente necesario sin acceso a conversaciones, PII, IDs, Google o mutaciones de agenda y eliminar estado documental obsoleto. |
 | 2026-09-16 | 1.15.0 | Se implementó localmente el fallback SMTP server-only por estudio: Chatwoot sigue siendo preferido, email se obtiene tenant-safe solo en memoria, falta de ruta/configuración termina `NO_ROUTE`, y rechazos/ambigüedades conservan `FAILED`/`UNKNOWN`. Revisión, PR/CI y prueba live siguen pendientes. | Completar el canal de respaldo con transporte estándar y seguro sin persistir destinatarios, contenido ni credenciales y sin escoger un SaaS de email. |
 | 2026-09-16 | 1.14.0 | Se implementó e integró mediante el PR #23 el primer corte server-only de notificaciones y scheduler: intención única al confirmar/caducar, expiración global acotada que preserva `INSERTING`/`CONFIRMED`, ruta Chatwoot original inequívoca, leases, reintentos acotados y terminales `UNKNOWN`/`NO_ROUTE`. PR y CI pasaron; la prueba live sigue pendiente. | Hacer observable y recuperable el aviso de booking sin asumir idempotencia de Chatwoot, persistir contenido ni elegir hosting cron. |
 | 2026-09-16 | 1.13.0 | Una prueba live totalmente sintética verificó la conexión con los tres scopes, FreeBusy y exclusión de ocupación, candidatos exactos, oferta de una opción, enlace y selección pública, creación de un único evento privado/opaco sin asistentes, persistencia final `CONFIRMED`/`FINALIZED` y reintento `RECONCILE_ONLY` sin duplicados. | Cerrar la evidencia live del recorrido preaprobado sin atribuir notificaciones, scheduler, elección libre, aprobación posterior, edición o cancelación no verificadas. |
@@ -323,11 +326,13 @@ And vuelve a comprobar Google Calendar antes de confirmar
 #### Vista del artista
 
 ```gherkin
-Given un artista autenticado
+Given un artista autenticado con identidad coherente
 When abre su agenda
-Then solo ve sus citas y el contexto necesario para preparar el tatuaje
-And no puede leer conversaciones ni citas de otros artistas
-And no puede responder clientes, confirmar citas o modificar imágenes
+Then solo ve sus próximas citas CONFIRMED ordenadas y acotadas
+And cada fila contiene intervalo y zona explícitos, nombre visible del cliente, resumen, zona corporal y tamaño si existen
+And no contiene contacto, conversaciones, Google, tokens, IDs internos, notas ni referencias
+And no puede leer citas de otros artistas o tenants
+And no puede responder clientes, confirmar o cancelar citas, ni modificar contenido
 ```
 
 #### Publicación en una web existente
@@ -375,8 +380,8 @@ El desarrollo técnico con datos sintéticos puede comenzar mientras se completa
 
 1. Completar en paralelo la prueba bidireccional de Facebook Messenger.
 2. Validar, con autorización explícita y cuentas sintéticas, los recorridos live de Chatwoot, Google FreeBusy, Google Events y booking; OAuth, listado y asignación live ya pasaron.
-3. Revisar, integrar y validar live el fallback SMTP; después validar live el recorrido completo de notificaciones/scheduler y completar avisos todavía fuera de alcance.
-4. Añadir la vista de artista, galería y portfolios administrados por el owner.
+3. Validar live el recorrido completo de notificaciones/scheduler ya integrado y completar avisos todavía fuera de alcance.
+4. Revisar e integrar la vista de artista; después añadir galería y portfolios administrados por el owner.
 5. Implementar el feed público y probarlo en una web nueva y otra existente.
 6. Verificar privacidad, exportación, monitorización y onboarding antes de datos reales.
 7. Ejecutar el recorrido completo con un estudio piloto cualificado antes de cobrar.
