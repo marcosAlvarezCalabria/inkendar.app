@@ -1,6 +1,7 @@
 export * from "./authentication.js";
 export * from "./booking-offer-access.js";
 export * from "./booking-confirmation.js";
+export * from "./booking-notifications.js";
 export * from "./booking-offers.js";
 export * from "./conversations.js";
 export * from "./customer-cases.js";

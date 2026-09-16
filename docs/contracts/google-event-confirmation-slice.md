@@ -1,6 +1,6 @@
 # Contrato técnico: confirmación recuperable con Google Calendar
 
-_Estado técnico: `DONE`. El [PR #20](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/20) y el CI posterior al merge verificaron exclusión mutua externa, binding durable, ACL privada, CAS de credencial, recuperación de `INSERTING` después de la caducidad original y serialización con la creación posterior de ofertas. Google Events, la confirmación preaprobada y la reconciliación sin duplicados quedaron verificadas live con datos sintéticos el 2026-09-16; notificaciones y scheduler permanecen pendientes._
+_Estado técnico: `DONE`. El [PR #20](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/20) y el CI posterior al merge verificaron exclusión mutua externa, binding durable, ACL privada, CAS de credencial, recuperación de `INSERTING` después de la caducidad original y serialización con la creación posterior de ofertas. Google Events, la confirmación preaprobada y la reconciliación sin duplicados quedaron verificadas live con datos sintéticos el 2026-09-16; [notificaciones y scheduler](booking-notification-scheduler-slice.md) son un slice posterior `IN_PROGRESS`._
 
 ## Necesidad y alcance
 

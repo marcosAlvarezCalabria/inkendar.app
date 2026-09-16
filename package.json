@@ -16,6 +16,7 @@
     "dev": "pnpm --filter @inkendar/app run dev",
     "lint": "eslint .",
     "onboard": "tsx scripts/manual-onboarding.ts",
+    "notifications": "tsx scripts/booking-notifications.ts",
     "start": "pnpm --filter @inkendar/app run start",
     "test": "vitest run",
     "test:auth:integration": "vitest run packages/infrastructure/src/supabase-auth.integration.test.ts",
