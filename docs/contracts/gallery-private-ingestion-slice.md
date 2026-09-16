@@ -1,6 +1,6 @@
 # Ingestión privada y asignación de galería
 
-_Estado técnico: IN_PROGRESS local_
+_Estado técnico: DONE integrado mediante PR #26 y CI verde; sin prueba live_
 
 ## Requisito
 
@@ -52,10 +52,10 @@ And el HTML no contiene URL firmada, token, paths internos, bucket, IDs internos
 - Entrada: exactamente un `File`; bytes máximos `10 * 1024 * 1024`; formatos decodificados `jpeg | png | webp`; una sola página/frame; ancho y alto `1..12000`; producto máximo `40_000_000`.
 - Salida WebP server-only: master sanitizada a tamaño original, calidad 88; display calidad 82 y ancho máximo 1600; thumb calidad 78 y ancho máximo 480. Ninguna variante hace upscale y ninguna conserva EXIF, ICC, XMP o GPS.
 - Paths: `<studio UUID>/<asset UUID>/<variant>.webp`. No contienen filename del usuario. Bucket privado `gallery-private`; no se persisten binarios ni URLs firmadas. La UI recibe solo `thumbnailHandle` (UUID público aleatorio) y ruta `/app/owner/gallery/thumbnails/:handle`.
-- Persistencia: estado único `DRAFT`, `position` monotónica por destino, metadata por variante, timestamps y FKs/checks compuestos tenant-safe. Tablas sin grants directos; RPCs `SECURITY DEFINER`, `search_path=''`, concedidas solo a `authenticated`, ligadas a `auth.uid()` y revocadas a `service_role`. `service_role` se usa exclusivamente para objetos Storage tras el guard OWNER.
+- Persistencia de ingestión: cada asset nace `DRAFT` y recibe `max(position)+1` en su grupo, con metadata por variante, timestamps y FKs/checks compuestos tenant-safe. La evolución posterior a `DISCARDED` pertenece al contrato de curación enlazado abajo. Tablas sin grants directos; RPCs `SECURITY DEFINER`, `search_path=''`, concedidas solo a `authenticated`, ligadas a `auth.uid()` y revocadas a `service_role`. `service_role` se usa exclusivamente para objetos Storage tras el guard OWNER.
 - Lectura de miniatura: el resolver exige OWNER del tenant, asset `DRAFT` y variante `THUMB`; la URL firmada dura 30 segundos y permanece server-only. El fetch acepta únicamente el origen Supabase configurado y el prefijo del bucket privado, prohíbe redirects, exige `image/webp`, tamaño persistido máximo 10 MiB y timeout de 3 segundos. La respuesta proxy usa `private, no-store` y `nosniff`.
 - Consistencia: Storage y Postgres no forman una transacción. Los uploads preceden al insert; cualquier fallo activa compensación best-effort. Una respuesta Storage ambigua puede dejar un huérfano privado, nunca una fila completa ni contenido público.
 
-## Fuera de alcance
+## Evolución y fuera de alcance
 
-Edición, reorder, borrado de assets existentes, publicación/retirada, feed público, CDN/cache, web component, API pública y cualquier escritura ARTIST.
+La edición, reasignación, reorder y descarte recuperable posteriores se definen en [Curación privada de borradores de galería](gallery-draft-curation-slice.md). Publicación/retirada, feed público, CDN/cache, web component, API pública, hard delete y cualquier escritura ARTIST continúan fuera de este contrato.
