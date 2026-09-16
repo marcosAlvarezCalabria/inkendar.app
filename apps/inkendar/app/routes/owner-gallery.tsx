@@ -4,7 +4,7 @@ import type { Route } from "./+types/owner-gallery";
 import { ownerGalleryHandlers } from "../owner-gallery.server.js";
 
 export type GalleryArtistOption = Readonly<{ id: string; displayName: string }>;
-export type OwnerGalleryData = Readonly<{ artists: readonly GalleryArtistOption[]; drafts: readonly GalleryDraftView[] }>;
+export type OwnerGalleryData = Readonly<{ artists: readonly GalleryArtistOption[]; drafts: readonly (GalleryDraftView & Readonly<{ thumbnailSrc: string }>)[] }>;
 export function meta(): Route.MetaDescriptors { return [{ title: "Galería privada | Inkendar" }]; }
 export function headers() { return { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff" }; }
 export async function loader({ request }: Route.LoaderArgs) { return ownerGalleryHandlers.loader(request); }
@@ -25,6 +25,6 @@ export function OwnerGalleryView({ data, error }: Readonly<{ data: OwnerGalleryD
         <button type="submit">Guardar borrador privado</button>
       </form>
     </section>
-    <section className="records" aria-labelledby="gallery-drafts-title"><h2 id="gallery-drafts-title">Borradores privados</h2>{data.drafts.length ? <ul className="gallery-grid">{data.drafts.map((draft) => <li className="shell-panel" key={draft.publicId}><img src={draft.thumbnailUrl} alt={draft.altText} width={draft.width} height={draft.height} /><h3>{draft.target === "GALLERY" ? "Galería general" : draft.artistDisplayName ?? "Portfolio"}</h3><p>Posición {draft.position} · {draft.width} × {draft.height}</p></li>)}</ul> : <p>Todavía no hay borradores.</p>}</section>
+    <section className="records" aria-labelledby="gallery-drafts-title"><h2 id="gallery-drafts-title">Borradores privados</h2>{data.drafts.length ? <ul className="gallery-grid">{data.drafts.map((draft) => <li className="shell-panel" key={draft.thumbnailHandle}><img src={draft.thumbnailSrc} alt={draft.altText} width={draft.width} height={draft.height} /><h3>{draft.target === "GALLERY" ? "Galería general" : draft.artistDisplayName ?? "Portfolio"}</h3><p>Posición {draft.position} · {draft.width} × {draft.height}</p></li>)}</ul> : <p>Todavía no hay borradores.</p>}</section>
   </main>;
 }

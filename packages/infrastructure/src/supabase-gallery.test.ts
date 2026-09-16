@@ -6,7 +6,7 @@ const assetId = "60000000-0000-4000-8000-000000000001";
 
 describe("Supabase gallery adapters", () => {
   it("uses auth-bound RPC parameters without a caller-provided owner identity", async () => {
-    const data = { createDraft: vi.fn().mockResolvedValue({ data: assetId, error: null }), listDrafts: vi.fn().mockResolvedValue({ data: [], error: null }) };
+    const data = { createDraft: vi.fn().mockResolvedValue({ data: assetId, error: null }), listDrafts: vi.fn().mockResolvedValue({ data: [], error: null }), resolveThumbnail: vi.fn() };
     const repository = new SupabaseGalleryRepository(data);
     await repository.createDraft({ id: assetId, studioId, target: "GALLERY", artistProfileId: null, altText: "Pieza", variants: [
       { kind: "MASTER", path: `${studioId}/${assetId}/master.webp`, width: 10, height: 20, mimeType: "image/webp", byteSize: 30 },
@@ -18,12 +18,13 @@ describe("Supabase gallery adapters", () => {
     expect(Object.keys(parameters).join(" ")).not.toMatch(/owner|user/i);
   });
 
-  it("maps a bounded ordered list and rejects foreign thumbnail paths", async () => {
-    const data = { createDraft: vi.fn(), listDrafts: vi.fn().mockResolvedValue({ data: [{ public_id: "public-safe", target: "GALLERY", artist_display_name: null, alt_text: "Pieza", position: 1, width: 480, height: 320, thumb_path: `${studioId}/${assetId}/thumb.webp` }], error: null }) };
+  it("maps opaque thumbnail handles and resolves paths only on demand", async () => {
+    const handle = "90000000-0000-4000-8000-000000000001";
+    const data = { createDraft: vi.fn(), listDrafts: vi.fn().mockResolvedValue({ data: [{ thumbnail_handle: handle, target: "GALLERY", artist_display_name: null, alt_text: "Pieza", position: 1, width: 480, height: 320 }], error: null }), resolveThumbnail: vi.fn().mockResolvedValue({ data: [{ object_path: `${studioId}/${assetId}/thumb.webp`, byte_size: 10 }], error: null }) };
     const repository = new SupabaseGalleryRepository(data);
-    await expect(repository.listDrafts(studioId, 100)).resolves.toHaveLength(1);
-    data.listDrafts.mockResolvedValueOnce({ data: [{ public_id: "x", target: "GALLERY", artist_display_name: null, alt_text: "Pieza", position: 1, width: 1, height: 1, thumb_path: `other/${assetId}/thumb.webp` }], error: null });
-    await expect(repository.listDrafts(studioId, 100)).rejects.toThrow("Gallery persistence failed");
+    await expect(repository.listDrafts(studioId, 100)).resolves.toEqual([expect.objectContaining({ thumbnailHandle: handle })]);
+    await expect(repository.resolveThumbnail(handle)).resolves.toEqual({ path: `${studioId}/${assetId}/thumb.webp`, byteSize: 10 });
+    expect(data.resolveThumbnail).toHaveBeenCalledWith({ p_handle: handle });
   });
 
   it("keeps the bucket private boundary and bounds signed URL expiry", async () => {

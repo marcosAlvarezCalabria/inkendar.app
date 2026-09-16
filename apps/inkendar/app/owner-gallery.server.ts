@@ -12,7 +12,7 @@ export function createOwnerGalleryHandlers(dependencies: Dependencies = defaults
   return {
     async loader(request: Request): Promise<Response> {
       const authorization = await dependencies.authorize(request); if (authorization instanceof Response) return authorization;
-      try { const [drafts, artists] = await Promise.all([dependencies.createService(authorization.access, request).list(authorization.access.studioId), (dependencies.listArtists ?? defaults.listArtists)(request)]); return Response.json({ drafts, artists }, { headers: privateHeaders(authorization.headers) }); }
+      try { const [drafts, artists] = await Promise.all([dependencies.createService(authorization.access, request).list(authorization.access.studioId), (dependencies.listArtists ?? defaults.listArtists)(request)]); return Response.json({ drafts: drafts.map((draft) => ({ ...draft, thumbnailSrc: `/app/owner/gallery/thumbnails/${encodeURIComponent(draft.thumbnailHandle)}` })), artists }, { headers: privateHeaders(authorization.headers) }); }
       catch { return Response.json({ error: "No se pudo cargar la galería." }, { status: 500, headers: privateHeaders(authorization.headers) }); }
     },
     async action(request: Request): Promise<Response> {

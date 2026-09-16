@@ -41,8 +41,9 @@ And un posible huérfano privado queda como riesgo explícito para reconciliaci�
 Given un OWNER autenticado
 When abre /app/owner/gallery
 Then ve como máximo 100 borradores de su estudio en orden estable por posición y creación
-And cada miniatura usa una URL firmada server-side con validez de 60 segundos
-And el HTML no contiene paths internos, bucket, IDs internos ni errores del proveedor
+And cada miniatura usa una ruta same-origin con handle opaco separado de IDs internos
+And un resource route OWNER resuelve el handle mediante `auth.uid()`, firma y descarga solo en servidor
+And el HTML no contiene URL firmada, token, paths internos, bucket, IDs internos ni errores del proveedor
 ```
 
 ## Límites y tipos
@@ -50,8 +51,9 @@ And el HTML no contiene paths internos, bucket, IDs internos ni errores del prov
 - `target`: `GALLERY | ARTIST_PORTFOLIO`; `artistProfileId` es nulo para `GALLERY` y obligatorio para portfolio.
 - Entrada: exactamente un `File`; bytes máximos `10 * 1024 * 1024`; formatos decodificados `jpeg | png | webp`; una sola página/frame; ancho y alto `1..12000`; producto máximo `40_000_000`.
 - Salida WebP server-only: master sanitizada a tamaño original, calidad 88; display calidad 82 y ancho máximo 1600; thumb calidad 78 y ancho máximo 480. Ninguna variante hace upscale y ninguna conserva EXIF, ICC, XMP o GPS.
-- Paths: `<studio UUID>/<asset UUID>/<variant>.webp`. No contienen filename del usuario. Bucket privado `gallery-private`; no se persisten binarios ni URLs firmadas.
-- Persistencia: estado único `DRAFT`, `position` monotónica por destino, metadata por variante, timestamps y FKs/checks compuestos tenant-safe. Tablas sin grants directos; RPCs `SECURITY DEFINER`, `search_path=''`, exclusivas de `service_role` y ligadas a owner + studio.
+- Paths: `<studio UUID>/<asset UUID>/<variant>.webp`. No contienen filename del usuario. Bucket privado `gallery-private`; no se persisten binarios ni URLs firmadas. La UI recibe solo `thumbnailHandle` (UUID público aleatorio) y ruta `/app/owner/gallery/thumbnails/:handle`.
+- Persistencia: estado único `DRAFT`, `position` monotónica por destino, metadata por variante, timestamps y FKs/checks compuestos tenant-safe. Tablas sin grants directos; RPCs `SECURITY DEFINER`, `search_path=''`, concedidas solo a `authenticated`, ligadas a `auth.uid()` y revocadas a `service_role`. `service_role` se usa exclusivamente para objetos Storage tras el guard OWNER.
+- Lectura de miniatura: el resolver exige OWNER del tenant, asset `DRAFT` y variante `THUMB`; la URL firmada dura 30 segundos y permanece server-only. El fetch acepta únicamente el origen Supabase configurado y el prefijo del bucket privado, prohíbe redirects, exige `image/webp`, tamaño persistido máximo 10 MiB y timeout de 3 segundos. La respuesta proxy usa `private, no-store` y `nosniff`.
 - Consistencia: Storage y Postgres no forman una transacción. Los uploads preceden al insert; cualquier fallo activa compensación best-effort. Una respuesta Storage ambigua puede dejar un huérfano privado, nunca una fila completa ni contenido público.
 
 ## Fuera de alcance

@@ -16,5 +16,6 @@ export * from "./supabase-booking-offers.js";
 export * from "./supabase-customer-cases.js";
 export * from "./google-availability.js";
 export * from "./sharp-gallery-images.js";
+export * from "./gallery-thumbnail-reader.js";
 export * from "./supabase-gallery.js";
 export * from "./supabase-availability.js";
