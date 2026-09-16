@@ -1,6 +1,6 @@
 # Contrato técnico: conexión Google OAuth y calendarios por artista
 
-_Estado técnico: `DONE`. OAuth, listado y asignación live pasaron localmente el 2026-09-15 con owner sintético; FreeBusy y Google Events live, junto al booking extremo a extremo, permanecen `IN_PROGRESS`._
+_Estado técnico: `DONE`. OAuth, listado y asignación live pasaron localmente el 2026-09-15 con owner sintético. FreeBusy, Google Events y el booking preaprobado live pasaron con datos sintéticos el 2026-09-16; notificaciones y scheduler permanecen pendientes._
 
 ## Necesidad y alcance
 

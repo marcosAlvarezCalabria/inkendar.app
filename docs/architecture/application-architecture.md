@@ -98,13 +98,13 @@ El corte OAuth inicial pide `calendar.calendarlist.readonly` y lista metadata de
 
 ### Disponibilidad por artista
 
-_Estado técnico del slice: `DONE`; el PR #12 y el CI posterior al merge verificaron código, build, migraciones limpias y pgTAP. La prueba live de FreeBusy sigue `IN_PROGRESS`._
+_Estado técnico del slice: `DONE`; el PR #12 y el CI posterior al merge verificaron código, build, migraciones limpias y pgTAP. FreeBusy live quedó verificado con datos sintéticos el 2026-09-16._
 
 El dominio enumera los días civiles IANA que intersectan el rango UTC y resuelve folds con inicio temprano/final tardío y gaps avanzando al primer minuto válido; genera slots desde reglas y busy UTC sin depender de Google ni Supabase. Aplicación coordina ArtistAvailabilityRepositoryPort y GoogleFreeBusyPort; infraestructura implementa FreeBusy y RPC owner-bound. Las asignaciones, reglas y conexión deben pertenecer al mismo estudio; títulos y descripciones de eventos no cruzan la frontera.
 
 ### Ofertas preaprobadas y holds
 
-_Estado técnico del slice: `DONE`; el PR #14 y el CI posterior al merge verificaron código, build, migraciones limpias, pgTAP y Auth/RLS con datos sintéticos. No existe evidencia live._
+_Estado técnico del slice: `DONE`; el PR #14 y el CI posterior al merge verificaron código, build, migraciones limpias, pgTAP y Auth/RLS con datos sintéticos. Una oferta preaprobada de una opción quedó verificada dentro del recorrido live sintético del 2026-09-16._
 
 El módulo de booking introduce `BookingOfferRepositoryPort` y un reloj inyectable en aplicación. Supabase conserva el plazo positivo por estudio —24 horas por defecto—, ofertas `OPEN | SELECTED_PENDING_CONFIRMATION | CONFIRMED | EXPIRED` y opciones `HELD | SELECTED | CONFIRMED | RELEASED`. RPCs `SECURITY DEFINER` exclusivas de `service_role` validan OWNER, tenant, caso `OPEN` y artista, y crean de una a tres opciones en una transacción serializada por estudio/artista para rechazar intervalos solapados, incluida una selección pendiente o cita confirmada.
 
@@ -112,7 +112,7 @@ La disponibilidad carga mediante RPC los holds `HELD` de ofertas `OPEN`, el úni
 
 ### Acceso y selección pública de ofertas
 
-_Estado técnico del acceso de solo lectura y de la selección: `DONE`; los PR #16 y #18 y sus CI posteriores al merge verificaron código, build, migraciones limpias, pgTAP y Auth/RLS con datos sintéticos. No existe evidencia live._
+_Estado técnico del acceso de solo lectura y de la selección: `DONE`; los PR #16 y #18 y sus CI posteriores al merge verificaron código, build, migraciones limpias, pgTAP y Auth/RLS con datos sintéticos. La emisión del enlace y la selección pública quedaron verificadas dentro del recorrido live sintético del 2026-09-16._
 
 El OWNER emite o rota mediante `POST` same-origin una credencial base64url de 32 bytes para una oferta `OPEN` vigente de su tenant. Aplicación recibe reloj, aleatoriedad y SHA-256 por dependencias; solo el hash llega a una tabla tenant-safe inaccesible al browser. RPCs `SECURITY DEFINER`, con `search_path` vacío y ejecución exclusiva de `service_role`, rotan el hash bajo autorización OWNER y resuelven una vista pública mínima. `/offers/:token` compone persistencia solo tras validar formas canónicas y conserva no-store/no-referrer, errores uniformes y ausencia de redirects.
 
@@ -120,13 +120,15 @@ Cada opción usa un UUID v4 público separado de su ID. El GET abierto entrega e
 
 ### Confirmación recuperable con Google Events
 
-_Estado técnico del slice: `DONE`; el PR #20 y el CI posterior al merge verificaron código, build, migraciones limpias, pgTAP y Auth/RLS con datos sintéticos. Google Events live y booking extremo a extremo permanecen `IN_PROGRESS`._
+_Estado técnico del slice: `DONE`; el PR #20 y el CI posterior al merge verificaron código, build, migraciones limpias, pgTAP y Auth/RLS con datos sintéticos. Google Events, confirmación y reconciliación live quedaron verificadas con datos sintéticos el 2026-09-16; notificaciones y scheduler permanecen pendientes._
 
 Aplicación deriva de la opción un `eventId` SHA-256/base32hex y una correlación privada separados. Una RPC de claim bloquea la oferta y, antes de crear o renovar una operación, exige la conexión fijada `ACTIVE`, token y los scopes `calendar.events.freebusy` y `calendar.events`; si falta alguno devuelve `RECONNECT_REQUIRED` sin tocar lease, estado ni binding. El claim inicial persiste antes de Google el tuple inmutable estudio/artista/oferta/opción/conexión/calendario/evento/correlación. Un lease `READY` puede recuperarse solo antes de `expires_at`; `beginInsert` bloquea primero la oferta y realiza el CAS único `READY → INSERTING`, serializado con la expiración y sin reconsultar la asignación mutable. A partir de `INSERTING`, incluso tras `expires_at`, crash o lease vencida, la selección y su exclusión permanecen recuperables y los siguientes workers reciben `RECONCILE_ONLY`: consultan `Events.get` pero nunca adquieren una segunda autoridad de insert.
 
 Cada intento con claim consulta primero `Events.get`; solo un `404`, modo insertable, FreeBusy libre para exactamente `[start,end)` y `beginInsert` exitoso permiten insertar un evento `private`, `opaque`, sin asistentes ni PII. Una respuesta perdida se reconcilia por la identidad fijada aunque cambie la asignación del artista. Cualquier mismatch, payload inválido o ambigüedad no resuelta mantiene la selección pendiente y nunca reemplaza el evento; `invalid_grant` marca `REAUTH_REQUIRED` solo si coincide la generación de credencial usada.
 
 Supabase finaliza en una sola RPC serializada y tenant-safe: crea una `appointment` única y su relación `appointment_google_event`, y mueve oferta/opción a `CONFIRMED`. Los retries exactos devuelven el instante original; una relación distinta falla cerrada. Las tablas tienen RLS sin acceso directo y las RPCs son `SECURITY DEFINER`, `search_path=''`, exclusivas de `service_role`. La UI pública solo afirma «Cita confirmada» tras leer ese estado persistido.
+
+La evidencia live sintética del 2026-09-16 recorrió una oferta preaprobada de una opción hasta `CONFIRMED`. Google conservó exactamente un evento correlacionado `private`, `opaque`, sin asistentes y con resumen genérico; el reintento `RECONCILE_ONLY` mantuvo el mismo único evento. La persistencia terminó con oferta/opción `CONFIRMED`, una cita, una relación Google y la operación `FINALIZED`. Esta evidencia valida el recorrido ejercitado y su idempotencia observable, no notificaciones, scheduler, elección libre, aprobación posterior, edición ni cancelación.
 
 ## 2. Alternativas consideradas
 
@@ -315,6 +317,7 @@ La recomendación añade un backend propio delgado, pero concentra allí autoriz
 
 | Fecha | Cambio | Motivo |
 |---|---|---|
+| 2026-09-16 | Evidencia live sintética de FreeBusy, booking preaprobado y reconciliación Google Events sin duplicados | Registrar el gate operativo verificado sin ampliar el alcance a notificaciones, scheduler u otros flujos no probados. |
 | 2026-09-13 | Esquema inicial de identidad, helpers privados y RLS multi-tenant | Fijar una frontera de autorización comprobable antes de incorporar UI, proveedores o datos operativos. |
 | 2026-09-10 | Primera propuesta de arquitectura de aplicación | Convertir las decisiones de producto en una estructura implementable y comparar alternativas antes de escribir el panel. |
 | 2026-09-10 | Separación de la landing y contrato de contenido web | Conectar galerías con webs nuevas o existentes sin mezclar marketing de Inkendar ni exponer datos privados. |
