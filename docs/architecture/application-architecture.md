@@ -132,7 +132,7 @@ La evidencia live sintética del 2026-09-16 recorrió una oferta preaprobada de 
 
 ### Notificaciones de booking y scheduler portable
 
-_Estado técnico: scheduler Chatwoot integrado mediante PR #23; fallback SMTP local `IN_PROGRESS`, pendiente de revisión, PR/CI y prueba live._
+_Estado técnico: scheduler Chatwoot y fallback SMTP integrados mediante los PR #23 y #24 con CI verde; la prueba live de notificaciones permanece pendiente._
 
 Un trigger transaccional sobre `booking_offer` materializa una sola `booking_notification_job` por oferta y evento `CONFIRMED | EXPIRED`. La tabla guarda IDs, estado, intentos, lease e ID externo confirmado; nunca texto, payloads, tokens ni datos de contacto. Una RPC global de `service_role` caduca como máximo 100 ofertas por invocación con `FOR UPDATE SKIP LOCKED`, libera solo estados provisionales y preserva `INSERTING` y `CONFIRMED`.
 
@@ -143,6 +143,16 @@ El runner verifica estudio y account contra `INKENDAR_CHATWOOT_CONNECTIONS_JSON`
 Asunto y cuerpo genéricos existen solo durante el envío. Una aceptación SMTP se reduce a un hash opaco `smtp_` del message ID. Un éxito confirmado termina en `SUCCEEDED`; rechazos confirmados reintentan hasta tres veces, mientras red, timeout, respuesta ambigua, fallo al guardar éxito o lease vencido terminan en `UNKNOWN` sin reenvío automático. La falta de configuración SMTP del estudio se transiciona a `NO_ROUTE`, que no se reabre automáticamente.
 
 El ejecutor se invoca con `pnpm run notifications` y no depende de un hosting cron concreto. Rechazos de booking, recordatorios, UI y elección de un SaaS de email quedan fuera.
+
+### Agenda privada ARTIST
+
+_Estado técnico del slice: `IN_PROGRESS`; implementación y evidencia local completas, pendientes de revisión independiente, PR y CI._
+
+`/app/artist` conserva el guard SSR `ARTIST`, cookies de sesión y respuestas `private, no-store`. Aplicación depende de `ArtistAgendaRepositoryPort`, recibe un reloj inyectable y fija un máximo de 50 filas. Infraestructura usa el cliente Supabase SSR de la petición; no compone `service_role` ni consulta Google.
+
+La RPC `get_artist_agenda` es `SECURITY DEFINER`, fija `search_path=''`, se concede solo a `authenticated` y resuelve `auth.uid()`. Exige exactamente una membership y una relación coherente ARTIST con `user_profile` y `artist_profile`; OWNER, anon, `service_role` e identidades incompletas fallan cerrado. Conserva los joins compuestos de tenant entre `appointment`, `booking_option`, `tattoo_case` y `customer`, exige cita/opción `CONFIRMED`, incluye `end_at = now`, impide retroceder el reloj mediante `greatest(p_now, now())`, ordena por inicio y limita a 50. No abre acceso general ni escritura a las tablas.
+
+El DTO contiene solo intervalo, nombre visible del customer, resumen, body area y size opcionales y la zona IANA de `artist_availability_rule`; si aún no existe regla, muestra `UTC` explícito. La UI semántica no contiene formularios ni IDs, contacto, conversaciones, Google, tokens, notas, referencias o estados editables. Este lector representa la cita persistida en Supabase y no sustituye ni duplica Google Calendar.
 
 ## 2. Alternativas consideradas
 
@@ -332,6 +342,7 @@ La recomendación añade un backend propio delgado, pero concentra allí autoriz
 
 | Fecha | Cambio | Motivo |
 |---|---|---|
+| 2026-09-16 | Agenda privada ARTIST mediante SSR y RPC mínima ligada a `auth.uid()` | Mostrar solo próximas citas confirmadas propias y contexto de preparación sin PII, IDs, Google directo ni mutaciones. |
 | 2026-09-16 | Fallback SMTP server-only por estudio detrás de un puerto de aplicación | Avisar cuando no existe una única ruta Chatwoot sin persistir PII/credenciales ni acoplarse a un SaaS de email. |
 | 2026-09-16 | Intención durable y runner portable para confirmación/caducidad por Chatwoot original | Ejecutar notificaciones sin persistir contenido ni duplicar envíos ante resultados ambiguos, preservando el hosting cron como decisión abierta. |
 | 2026-09-16 | Evidencia live sintética de FreeBusy, booking preaprobado y reconciliación Google Events sin duplicados | Registrar el gate operativo verificado sin ampliar el alcance a notificaciones, scheduler u otros flujos no probados. |

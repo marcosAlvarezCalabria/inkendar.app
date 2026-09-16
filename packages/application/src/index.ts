@@ -1,4 +1,5 @@
 export * from "./authentication.js";
+export * from "./artist-agenda.js";
 export * from "./booking-offer-access.js";
 export * from "./booking-confirmation.js";
 export * from "./booking-notifications.js";
