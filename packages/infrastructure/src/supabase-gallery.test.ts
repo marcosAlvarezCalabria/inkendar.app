@@ -20,7 +20,7 @@ describe("Supabase gallery adapters", () => {
 
   it("maps opaque thumbnail handles and resolves paths only on demand", async () => {
     const handle = "90000000-0000-4000-8000-000000000001";
-    const data = gatewayWith({ listDrafts: vi.fn().mockResolvedValue({ data: [{ thumbnail_handle: handle, target: "GALLERY", artist_profile_id: null, artist_display_name: null, alt_text: "Pieza", position: 1, width: 480, height: 320 }], error: null }), resolveThumbnail: vi.fn().mockResolvedValue({ data: [{ object_path: `${studioId}/${assetId}/thumb.webp`, byte_size: 10 }], error: null }) });
+    const data = gatewayWith({ listDrafts: vi.fn().mockResolvedValue({ data: [{ thumbnail_handle: handle, status: "DRAFT", target: "GALLERY", artist_profile_id: null, artist_display_name: null, alt_text: "Pieza", position: 1, width: 480, height: 320 }], error: null }), resolveThumbnail: vi.fn().mockResolvedValue({ data: [{ object_path: `${studioId}/${assetId}/thumb.webp`, byte_size: 10 }], error: null }) });
     const repository = new SupabaseGalleryRepository(data);
     await expect(repository.listDrafts(studioId, 100)).resolves.toEqual([expect.objectContaining({ thumbnailHandle: handle })]);
     await expect(repository.resolveThumbnail(handle)).resolves.toEqual({ path: `${studioId}/${assetId}/thumb.webp`, byteSize: 10 });

@@ -1,7 +1,7 @@
 begin;
 select plan(54);
 
-select is((select string_agg(e.enumlabel,',' order by e.enumsortorder) from pg_enum e where e.enumtypid='public.gallery_asset_status'::regtype),'DRAFT,DISCARDED','gallery status supports recoverable discard');
+select is((select string_agg(e.enumlabel,',' order by e.enumsortorder) from pg_enum e where e.enumtypid='public.gallery_asset_status'::regtype),'DRAFT,DISCARDED,PUBLISHING,PUBLISHED,RETIRING,RETIRED','gallery status supports recoverable discard and forward publication lifecycle');
 select has_function('public','update_gallery_draft',array['uuid','text','text','uuid'],'draft update RPC exists');
 select has_function('public','move_gallery_draft',array['uuid','text'],'draft move RPC exists');
 select has_function('public','discard_gallery_draft',array['uuid'],'draft discard RPC exists');

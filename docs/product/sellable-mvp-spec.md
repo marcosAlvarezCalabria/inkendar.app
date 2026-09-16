@@ -2,7 +2,7 @@
 
 _Estado: especificación viva y fuente de verdad para alcance, comportamiento y progreso_
 
-_Versión: 1.18.0_
+_Versión: 1.19.0_
 
 _Última actualización: 2026-09-16_
 
@@ -54,7 +54,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | Memoria de agentes | `PASS` | Engram 1.20.0 guarda y recupera memoria del proyecto `inkendar.app`; Codex MCP está configurado y requiere reinicio para cargarlo en nuevos chats. |
 | Supabase y aislamiento multi-tenant | `PASS` | La migración, el seed sintético y las 38 aserciones pgTAP pasaron contra Supabase/Postgres real en GitHub Actions [run 34752758528](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34752758528). |
 | Google Calendar y booking | `IN_PROGRESS` | OAuth/asignación, disponibilidad, ofertas/holds, acceso, selección pública y confirmación recuperable están técnicamente `DONE`. El 2026-09-16 una prueba live sintética verificó FreeBusy, oferta, selección, evento y reconciliación sin duplicados. Scheduler Chatwoot y fallback SMTP quedaron integrados mediante los PR #23 y #24 con CI verde; no existe prueba live de notificaciones. Rechazos y recordatorios siguen pendientes. |
-| Galería, portfolios y publicación web | `IN_PROGRESS` | El PR #26 integró con CI verde la ingestión OWNER privada, sanitización y proxy SSR handle-only, sin prueba live. Existe localmente la curación de DRAFT: edición/reasignación tenant-safe, reorder atómico y descarte recuperable `DISCARDED`; revisión/PR/CI están pendientes. Publicación, feed, CDN y componente aún no existen. |
+| Galería, portfolios y publicación web | `IN_PROGRESS` | Los PR #26 y #27 integraron con CI verde ingestión/sanitización/proxy y curación OWNER de DRAFT, sin prueba live. Existe localmente publicación/retirada durable: binding opaco único, copia exclusiva de DISPLAY/THUMB a `gallery-public`, retries `PUBLISHING`/`RETIRING` y retirada sin borrar privados. Revisión/PR/CI están pendientes; feed, endpoint público, CDN y componente aún no existen. |
 | Piloto externo y disposición a pagar | `PLANNED` | No existe todavía evidencia de uso real autorizado ni pago. |
 
 ## Registro de decisiones
@@ -99,12 +99,14 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | 2026-09-16 | DEC-035 | `ACCEPTED` | El runner prefiere exactamente una ruta Chatwoot tenant-safe; con cero o múltiples rutas usa el email válido del customer solo si el estudio dispone de configuración SMTP server-only. SMTP autenticado exige TLS, guarda únicamente un identificador opaco derivado, trata rechazos confirmados como `FAILED` y resultados ambiguos como `UNKNOWN`. | Completar el aviso transaccional sin elegir un SaaS de email, copiar PII al outbox o navegador, ni debilitar la política conservadora frente a duplicados. |
 | 2026-09-16 | DEC-036 | `ACCEPTED` | La agenda ARTIST se sirve mediante SSR y una RPC `auth.uid()` de salida mínima que exige identidad coherente, filtra solo citas/opciones `CONFIRMED` propias con `end_at >= now`, ordena y limita a 50; usa la zona IANA de disponibilidad o `UTC` explícito y no concede acceso general a tablas. | Entregar preparación útil en solo lectura sin duplicar Google, revelar PII/IDs o abrir capacidades OWNER al artista. |
 | 2026-09-16 | DEC-037 | `ACCEPTED` | La curación privada resuelve assets exclusivamente por handle público opaco y `auth.uid()`; create, update/reassign, move y discard se serializan primero con un único advisory xact lock por estudio, la reasignación anexa al nuevo grupo, el reorder intercambia solo el DRAFT vecino y el descarte conserva fila y objetos en estado `DISCARDED`. | Permitir preparación editorial recuperable sin ciclos de locks, publicación, IDs internos, acceso ARTIST, hard delete ni Storage público; estudios distintos conservan concurrencia independiente. |
+| 2026-09-16 | DEC-038 | `ACCEPTED` | La publicación OWNER usa estados forward-only `DRAFT → PUBLISHING → PUBLISHED → RETIRING → RETIRED`, un binding UUID aleatorio inmutable separado del handle y dos efectos Storage reintentables sobre DISPLAY/THUMB. Cada begin auth-bound fija o reutiliza el binding bajo el lock común del estudio antes de Storage; finalize exige estado y binding exactos. | Evitar claves múltiples, masters públicos, falsas publicaciones y retiros no recuperables ante respuestas perdidas o ambiguas, manteniendo metadata y objetos privados fuera del cliente y del bucket público. |
 La arquitectura técnica está en [Arquitectura de aplicación](../architecture/application-architecture.md) y el proceso de entrega en [Flujo de desarrollo, revisión e integración](../development/delivery-workflow.md).
 
 ## Historial de la especificación
 
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
+| 2026-09-16 | 1.19.0 | El PR #27 integró la curación privada con CI verde. Se implementó localmente la publicación/retirada OWNER recuperable: estados forward-only, binding público opaco único, begin/finalize tenant-safe, copia server-only de DISPLAY/THUMB WebP a bucket público con upsert/cache 300 s, retirada idempotente y UI SSR de retry. Feed, endpoint público, CDN, componente, revisión/PR/CI y prueba live siguen pendientes. | Publicar únicamente derivados sanitizados y hacer recuperables respuestas Storage ambiguas sin exponer key, paths, URLs, master ni IDs internos. |
 | 2026-09-16 | 1.18.0 | El PR #26 integró con CI verde la ingestión privada y el proxy de miniaturas, sin prueba live. Se implementó localmente la curación OWNER de DRAFT mediante handle opaco: alt/destino/artista same-tenant, append al reasignar, MOVE_UP/MOVE_DOWN atómicos y descarte recuperable DISCARDED sin borrar Storage; revisión, PR y CI quedan pendientes. | Completar la preparación privada y ordenable antes de diseñar publicación o cualquier superficie pública. |
 | 2026-09-16 | 1.17.0 | Se implementó localmente la ingestión privada OWNER de galería y portfolios: límites 10 MiB/12000 px/40 MP, rechazo de animación, re-encode WebP sin metadata, master sanitizada, display/thumb sin upscale, Storage privado con compensación, RPC ligada a `auth.uid()` y listado SSR/proxy con handle opaco, sin URL firmada en HTML. Publicación y feed siguen fuera de alcance; revisión, PR y CI pendientes. La agenda ARTIST quedó integrada mediante PR #25 y CI verde, sin atribuir prueba live. | Preparar contenido privado tenant-safe antes de abrir cualquier superficie pública y sincronizar el gate real de agenda. |
 | 2026-09-16 | 1.16.0 | Se implementó localmente la agenda SSR privada y read-only de ARTIST con salida mínima, límite 50, frontera inclusiva de próximas citas, zona explícita y RPC tenant-safe; revisión, PR y CI siguen pendientes. La UI no ofrece mutaciones de agenda y conserva únicamente el logout global de seguridad de sesión. El fallback SMTP se sincronizó con su integración mediante PR #24 y CI verde, sin atribuirle prueba live. | Preparar al artista con el contexto estrictamente necesario sin acceso a conversaciones, PII, IDs, Google o mutaciones de agenda y eliminar estado documental obsoleto. |
@@ -366,15 +368,19 @@ When edita el alt o destino, los mueve un paso o descarta uno desde /app/owner/g
 Then Inkendar resuelve el asset solo por handle opaco y auth.uid()
 And create, reasignación, reorder y descarte toman primero un lock común por estudio antes de row locks, sin bloquear estudios distintos
 And el descarte conserva metadata y objetos privados como DISCARDED
-And solo los DRAFT continúan en el listado y el proxy de miniaturas
+And solo DRAFT admite curación; el listado y proxy OWNER incluyen además PUBLISHING, PUBLISHED y RETIRING, pero ocultan DISCARDED y RETIRED
 ```
 
 ```gherkin
-Given un owner autenticado que sube una imagen válida
-When asigna la imagen a la galería o al portfolio de un artista y la publica
-Then Inkendar valida formato, peso y resolución
-And elimina metadatos privados y genera variantes optimizadas
-And la web muestra la versión publicada en el orden elegido
+Given un owner autenticado y un asset DRAFT identificado solo por handle opaco
+When solicita PUBLISH mediante POST same-origin
+Then Inkendar fija una única publication key aleatoria antes de Storage y cambia a PUBLISHING
+And copia únicamente DISPLAY y THUMB WebP a paths derivados de esa key, nunca MASTER
+And solo después de verificar ambos uploads finaliza PUBLISHED con published_at
+And un retry reutiliza binding y paths; PUBLISHED converge sin tocar Storage
+When el owner solicita RETIRE sobre PUBLISHED
+Then Inkendar cambia primero a RETIRING, elimina ambos objetos públicos idempotentemente y finaliza RETIRED con retired_at
+And un fallo o respuesta ambigua conserva el estado intermedio reintentable y todos los objetos privados
 ```
 
 ### Modelo de entrega y gates
@@ -403,7 +409,7 @@ El desarrollo técnico con datos sintéticos puede comenzar mientras se completa
 1. Completar en paralelo la prueba bidireccional de Facebook Messenger.
 2. Validar, con autorización explícita y cuentas sintéticas, los recorridos live de Chatwoot, Google FreeBusy, Google Events y booking; OAuth, listado y asignación live ya pasaron.
 3. Validar live el recorrido completo de notificaciones/scheduler ya integrado y completar avisos todavía fuera de alcance.
-4. Revisar e integrar la curación privada de borradores de galería; la ingestión quedó integrada mediante PR #26 y la vista ARTIST mediante PR #25, ambas con CI verde y sin prueba live.
+4. Revisar e integrar la publicación/retirada recuperable de galería; ingestión, curación y vista ARTIST quedaron integradas mediante los PR #26, #27 y #25 con CI verde y sin prueba live.
 5. Implementar el feed público y probarlo en una web nueva y otra existente.
 6. Verificar privacidad, exportación, monitorización y onboarding antes de datos reales.
 7. Ejecutar el recorrido completo con un estudio piloto cualificado antes de cobrar.
