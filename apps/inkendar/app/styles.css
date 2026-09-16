@@ -190,6 +190,21 @@ a {
   align-items: end;
 }
 
+.record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.record-actions form,
+.record-actions button {
+  flex: 1 1 7rem;
+}
+
+.gallery-draft-card .record-form {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .record-form label {
   color: #f5f0e8;
   font-weight: 650;

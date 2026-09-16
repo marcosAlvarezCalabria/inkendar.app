@@ -2,7 +2,7 @@
 
 _Estado: especificación viva y fuente de verdad para alcance, comportamiento y progreso_
 
-_Versión: 1.16.0_
+_Versión: 1.18.0_
 
 _Última actualización: 2026-09-16_
 
@@ -54,7 +54,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | Memoria de agentes | `PASS` | Engram 1.20.0 guarda y recupera memoria del proyecto `inkendar.app`; Codex MCP está configurado y requiere reinicio para cargarlo en nuevos chats. |
 | Supabase y aislamiento multi-tenant | `PASS` | La migración, el seed sintético y las 38 aserciones pgTAP pasaron contra Supabase/Postgres real en GitHub Actions [run 34752758528](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34752758528). |
 | Google Calendar y booking | `IN_PROGRESS` | OAuth/asignación, disponibilidad, ofertas/holds, acceso, selección pública y confirmación recuperable están técnicamente `DONE`. El 2026-09-16 una prueba live sintética verificó FreeBusy, oferta, selección, evento y reconciliación sin duplicados. Scheduler Chatwoot y fallback SMTP quedaron integrados mediante los PR #23 y #24 con CI verde; no existe prueba live de notificaciones. Rechazos y recordatorios siguen pendientes. |
-| Galería, portfolios y publicación web | `IN_PROGRESS` | Existe localmente la ingestión OWNER privada: validación por decoder, master sanitizada y variantes WebP, asignación tenant-safe y listado SSR con miniaturas servidas por proxy OWNER same-origin y handle opaco. Revisión, PR y CI están pendientes; publicación, feed, CDN y componente aún no existen. |
+| Galería, portfolios y publicación web | `IN_PROGRESS` | El PR #26 integró con CI verde la ingestión OWNER privada, sanitización y proxy SSR handle-only, sin prueba live. Existe localmente la curación de DRAFT: edición/reasignación tenant-safe, reorder atómico y descarte recuperable `DISCARDED`; revisión/PR/CI están pendientes. Publicación, feed, CDN y componente aún no existen. |
 | Piloto externo y disposición a pagar | `PLANNED` | No existe todavía evidencia de uso real autorizado ni pago. |
 
 ## Registro de decisiones
@@ -98,12 +98,14 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | 2026-09-16 | DEC-034 | `ACCEPTED` | Confirmar o caducar una oferta materializa una intención durable única; un runner server-only y portable caduca lotes acotados y envía confirmaciones/caducidades por la única conversación Chatwoot del mismo caso y tenant. Éxitos convergen, fallos confirmados reintentan como máximo tres veces, resultados ambiguos o leases vencidos quedan `UNKNOWN` sin reenvío, y la falta de una ruta inequívoca queda `NO_ROUTE`. | Chatwoot no documenta idempotencia outbound; separar intención, lease y efecto externo evita duplicados y falsas afirmaciones sin persistir mensajes, payloads, tokens ni PII. |
 | 2026-09-16 | DEC-035 | `ACCEPTED` | El runner prefiere exactamente una ruta Chatwoot tenant-safe; con cero o múltiples rutas usa el email válido del customer solo si el estudio dispone de configuración SMTP server-only. SMTP autenticado exige TLS, guarda únicamente un identificador opaco derivado, trata rechazos confirmados como `FAILED` y resultados ambiguos como `UNKNOWN`. | Completar el aviso transaccional sin elegir un SaaS de email, copiar PII al outbox o navegador, ni debilitar la política conservadora frente a duplicados. |
 | 2026-09-16 | DEC-036 | `ACCEPTED` | La agenda ARTIST se sirve mediante SSR y una RPC `auth.uid()` de salida mínima que exige identidad coherente, filtra solo citas/opciones `CONFIRMED` propias con `end_at >= now`, ordena y limita a 50; usa la zona IANA de disponibilidad o `UTC` explícito y no concede acceso general a tablas. | Entregar preparación útil en solo lectura sin duplicar Google, revelar PII/IDs o abrir capacidades OWNER al artista. |
+| 2026-09-16 | DEC-037 | `ACCEPTED` | La curación privada resuelve assets exclusivamente por handle público opaco y `auth.uid()`; las reasignaciones anexan al nuevo grupo bajo locks ordenados, el reorder intercambia solo el DRAFT vecino bajo lock de grupo y el descarte conserva fila y objetos en estado `DISCARDED`. | Permitir preparación editorial concurrente y recuperable sin abrir publicación, IDs internos, acceso ARTIST, hard delete ni Storage público. |
 La arquitectura técnica está en [Arquitectura de aplicación](../architecture/application-architecture.md) y el proceso de entrega en [Flujo de desarrollo, revisión e integración](../development/delivery-workflow.md).
 
 ## Historial de la especificación
 
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
+| 2026-09-16 | 1.18.0 | El PR #26 integró con CI verde la ingestión privada y el proxy de miniaturas, sin prueba live. Se implementó localmente la curación OWNER de DRAFT mediante handle opaco: alt/destino/artista same-tenant, append al reasignar, MOVE_UP/MOVE_DOWN atómicos y descarte recuperable DISCARDED sin borrar Storage; revisión, PR y CI quedan pendientes. | Completar la preparación privada y ordenable antes de diseñar publicación o cualquier superficie pública. |
 | 2026-09-16 | 1.17.0 | Se implementó localmente la ingestión privada OWNER de galería y portfolios: límites 10 MiB/12000 px/40 MP, rechazo de animación, re-encode WebP sin metadata, master sanitizada, display/thumb sin upscale, Storage privado con compensación, RPC ligada a `auth.uid()` y listado SSR/proxy con handle opaco, sin URL firmada en HTML. Publicación y feed siguen fuera de alcance; revisión, PR y CI pendientes. La agenda ARTIST quedó integrada mediante PR #25 y CI verde, sin atribuir prueba live. | Preparar contenido privado tenant-safe antes de abrir cualquier superficie pública y sincronizar el gate real de agenda. |
 | 2026-09-16 | 1.16.0 | Se implementó localmente la agenda SSR privada y read-only de ARTIST con salida mínima, límite 50, frontera inclusiva de próximas citas, zona explícita y RPC tenant-safe; revisión, PR y CI siguen pendientes. La UI no ofrece mutaciones de agenda y conserva únicamente el logout global de seguridad de sesión. El fallback SMTP se sincronizó con su integración mediante PR #24 y CI verde, sin atribuirle prueba live. | Preparar al artista con el contexto estrictamente necesario sin acceso a conversaciones, PII, IDs, Google o mutaciones de agenda y eliminar estado documental obsoleto. |
 | 2026-09-16 | 1.15.0 | Se implementó localmente el fallback SMTP server-only por estudio: Chatwoot sigue siendo preferido, email se obtiene tenant-safe solo en memoria, falta de ruta/configuración termina `NO_ROUTE`, y rechazos/ambigüedades conservan `FAILED`/`UNKNOWN`. Revisión, PR/CI y prueba live siguen pendientes. | Completar el canal de respaldo con transporte estándar y seguro sin persistir destinatarios, contenido ni credenciales y sin escoger un SaaS de email. |
@@ -359,6 +361,15 @@ And ninguna URL firmada, token, bucket, path o ID interno aparece en HTML
 ```
 
 ```gherkin
+Given un owner autenticado y borradores DRAFT de su estudio
+When edita el alt o destino, los mueve un paso o descarta uno desde /app/owner/gallery
+Then Inkendar resuelve el asset solo por handle opaco y auth.uid()
+And serializa reasignación y reorder por grupo sin afectar otros tenants
+And el descarte conserva metadata y objetos privados como DISCARDED
+And solo los DRAFT continúan en el listado y el proxy de miniaturas
+```
+
+```gherkin
 Given un owner autenticado que sube una imagen válida
 When asigna la imagen a la galería o al portfolio de un artista y la publica
 Then Inkendar valida formato, peso y resolución
@@ -392,7 +403,7 @@ El desarrollo técnico con datos sintéticos puede comenzar mientras se completa
 1. Completar en paralelo la prueba bidireccional de Facebook Messenger.
 2. Validar, con autorización explícita y cuentas sintéticas, los recorridos live de Chatwoot, Google FreeBusy, Google Events y booking; OAuth, listado y asignación live ya pasaron.
 3. Validar live el recorrido completo de notificaciones/scheduler ya integrado y completar avisos todavía fuera de alcance.
-4. Revisar e integrar la ingestión privada de galería y portfolios OWNER; la vista ARTIST ya quedó integrada mediante PR #25.
+4. Revisar e integrar la curación privada de borradores de galería; la ingestión quedó integrada mediante PR #26 y la vista ARTIST mediante PR #25, ambas con CI verde y sin prueba live.
 5. Implementar el feed público y probarlo en una web nueva y otra existente.
 6. Verificar privacidad, exportación, monitorización y onboarding antes de datos reales.
 7. Ejecutar el recorrido completo con un estudio piloto cualificado antes de cobrar.
