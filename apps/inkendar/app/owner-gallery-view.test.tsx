@@ -14,7 +14,8 @@ describe("OwnerGalleryView", () => {
     expect(html).toContain("Borradores privados");
     expect(html).toContain("North Artist");
     expect(html).toContain(`/app/owner/gallery/thumbnails/${handle}`);
-    for (const intent of ["CREATE_DRAFT", "UPDATE_DRAFT", "MOVE_UP", "MOVE_DOWN", "DISCARD_DRAFT"]) expect(html).toContain(`value="${intent}"`);
+    for (const intent of ["CREATE_DRAFT", "UPDATE", "MOVE_UP", "MOVE_DOWN", "DISCARD"]) expect(html).toContain(`value="${intent}"`);
+    expect(html).not.toMatch(/value="(?:UPDATE_DRAFT|DISCARD_DRAFT)"/);
     expect(html).toContain("Descartar borrador");
     expect(html).toContain("Podrás recuperarlo más adelante");
     expect(html).not.toMatch(/publicar|eliminar permanentemente|borrar objeto/i);

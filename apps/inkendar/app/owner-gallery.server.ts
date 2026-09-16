@@ -40,7 +40,7 @@ export function createOwnerGalleryHandlers(dependencies: Dependencies = defaults
           const file = singleFile(form, "image"), artist = optional(form, "artistProfileId");
           if (file.size < 1 || file.size > GALLERY_MAX_FILE_BYTES) throw new InvalidGalleryInputError();
           await dependencies.createService(authorization.access, request).ingest({ studioId: authorization.access.studioId, bytes: new Uint8Array(await file.arrayBuffer()), altText: required(form, "altText"), target: required(form, "target"), artistProfileId: artist?.trim() ? artist.trim() : null });
-        } else if (intent === "UPDATE_DRAFT") {
+        } else if (intent === "UPDATE") {
           if (!urlEncoded) throw new InvalidGalleryInputError();
           exactFields(form, ["intent", "handle", "altText", "target", "artistProfileId"]);
           const artist = optional(form, "artistProfileId");
@@ -49,7 +49,7 @@ export function createOwnerGalleryHandlers(dependencies: Dependencies = defaults
           if (!urlEncoded) throw new InvalidGalleryInputError();
           exactFields(form, ["intent", "handle"]);
           await curation(dependencies, authorization.access, request).move(required(form, "handle"), intent);
-        } else if (intent === "DISCARD_DRAFT") {
+        } else if (intent === "DISCARD") {
           if (!urlEncoded) throw new InvalidGalleryInputError();
           exactFields(form, ["intent", "handle"]);
           await curation(dependencies, authorization.access, request).discard(required(form, "handle"));

@@ -30,7 +30,7 @@ export function OwnerGalleryView({ data, error }: Readonly<{ data: OwnerGalleryD
       <img src={draft.thumbnailSrc} alt={draft.altText} width={draft.width} height={draft.height} />
       <h3>{draft.target === "GALLERY" ? "Galería general" : draft.artistDisplayName ?? "Portfolio"}</h3><p>Posición {draft.position} · {draft.width} × {draft.height}</p>
       <form method="post" className="record-form" aria-label={`Editar ${draft.altText}`}>
-        <input type="hidden" name="intent" value="UPDATE_DRAFT" /><input type="hidden" name="handle" value={draft.thumbnailHandle} />
+        <input type="hidden" name="intent" value="UPDATE" /><input type="hidden" name="handle" value={draft.thumbnailHandle} />
         <label>Texto alternativo<input name="altText" defaultValue={draft.altText} minLength={1} maxLength={160} required /></label>
         <label>Destino<select name="target" defaultValue={draft.target} required><option value="GALLERY">Galería general</option><option value="ARTIST_PORTFOLIO">Portfolio de artista</option></select></label>
         <label>Artista<select name="artistProfileId" defaultValue={draft.artistProfileId ?? ""}><option value="">Sin artista</option>{data.artists.map((artist) => <option key={artist.id} value={artist.id}>{artist.displayName}</option>)}</select></label>
@@ -40,7 +40,7 @@ export function OwnerGalleryView({ data, error }: Readonly<{ data: OwnerGalleryD
         <form method="post"><input type="hidden" name="intent" value="MOVE_UP" /><input type="hidden" name="handle" value={draft.thumbnailHandle} /><button type="submit" className="secondary" aria-label={`Subir ${draft.altText}`}>Subir</button></form>
         <form method="post"><input type="hidden" name="intent" value="MOVE_DOWN" /><input type="hidden" name="handle" value={draft.thumbnailHandle} /><button type="submit" className="secondary" aria-label={`Bajar ${draft.altText}`}>Bajar</button></form>
       </div>
-      <form method="post" className="record-form"><input type="hidden" name="intent" value="DISCARD_DRAFT" /><input type="hidden" name="handle" value={draft.thumbnailHandle} /><p>Oculta este borrador de la lista y de sus miniaturas. Podrás recuperarlo más adelante.</p><button type="submit" className="secondary" aria-label={`Descartar borrador ${draft.altText}`}>Descartar borrador</button></form>
+      <form method="post" className="record-form"><input type="hidden" name="intent" value="DISCARD" /><input type="hidden" name="handle" value={draft.thumbnailHandle} /><p>Oculta este borrador de la lista y de sus miniaturas. Podrás recuperarlo más adelante.</p><button type="submit" className="secondary" aria-label={`Descartar borrador ${draft.altText}`}>Descartar borrador</button></form>
     </li>)}</ul> : <p>Todavía no hay borradores.</p>}</section>
   </main>;
 }

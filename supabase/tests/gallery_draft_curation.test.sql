@@ -103,8 +103,8 @@ select throws_ok($$select public.update_gallery_draft('90000000-0000-4000-8000-0
 select throws_ok($$select public.move_gallery_draft('90000000-0000-4000-8000-000000000999','MOVE_UP')$$,'42501','gallery draft unavailable','unknown handle cannot move');
 select throws_ok($$select public.discard_gallery_draft('90000000-0000-4000-8000-000000000999')$$,'42501','gallery draft unavailable','unknown handle cannot discard');
 reset role;
-select ok(position('pg_advisory_xact_lock' in pg_get_functiondef('public.update_gallery_draft(uuid,text,text,uuid)'::regprocedure))>0,'reassignment serializes group mutations in SQL');
-select ok(position('pg_advisory_xact_lock' in pg_get_functiondef('public.move_gallery_draft(uuid,text)'::regprocedure))>0 and position('set constraints public.gallery_asset_position_unique deferred' in lower(pg_get_functiondef('public.move_gallery_draft(uuid,text)'::regprocedure)))>0,'move serializes the group and defers the atomic swap constraint');
+select ok(position('private.lock_gallery_studio' in pg_get_functiondef('public.update_gallery_draft(uuid,text,text,uuid)'::regprocedure))>0,'reassignment joins studio-wide SQL serialization');
+select ok(position('private.lock_gallery_studio' in pg_get_functiondef('public.move_gallery_draft(uuid,text)'::regprocedure))>0 and position('set constraints public.gallery_asset_position_unique deferred' in lower(pg_get_functiondef('public.move_gallery_draft(uuid,text)'::regprocedure)))>0,'move joins studio-wide serialization and defers the atomic swap constraint');
 select ok((pg_get_functiondef('public.update_gallery_draft(uuid,text,text,uuid)'::regprocedure)||pg_get_functiondef('public.move_gallery_draft(uuid,text)'::regprocedure)||pg_get_functiondef('public.discard_gallery_draft(uuid)'::regprocedure)) !~* '(delete[[:space:]]+from|storage\.)','curation RPCs contain no hard delete or Storage access');
 
 select * from finish();
