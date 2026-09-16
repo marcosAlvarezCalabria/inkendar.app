@@ -1,6 +1,6 @@
 begin;
 
-select plan(41);
+select plan(53);
 
 select has_type('public','booking_notification_event_type','notification event type exists');
 select enum_has_labels('public','booking_notification_event_type',array['CONFIRMED','EXPIRED'],'only supported booking events are materialized');
@@ -9,6 +9,9 @@ select enum_has_labels('public','booking_notification_status',array['PENDING','L
 select has_table('public','booking_notification_job','durable notification jobs exist');
 select hasnt_column('public','booking_notification_job','content','message text is never persisted');
 select hasnt_column('public','booking_notification_job','payload','provider payload is never persisted');
+select hasnt_column('public','booking_notification_job','subject','email subject is never persisted');
+select hasnt_column('public','booking_notification_job','recipient','email recipient is never persisted');
+select hasnt_column('public','booking_notification_job','customer_email','customer email is never persisted in the outbox');
 select ok((select relrowsecurity from pg_class where oid='public.booking_notification_job'::regclass),'notification RLS enabled');
 select ok(not has_table_privilege('service_role','public.booking_notification_job','select'),'service role uses guarded RPCs');
 select ok(not has_table_privilege('authenticated','public.booking_notification_job','select'),'browser cannot read jobs');
@@ -19,8 +22,8 @@ select ok(not has_function_privilege('authenticated','public.claim_booking_notif
 select is((select proconfig from pg_proc where oid='public.claim_booking_notification_job(timestamptz,timestamptz)'::regprocedure),array['search_path=""'],'claim fixes empty search path');
 select is((select count(*) from pg_constraint where conrelid='public.booking_notification_job'::regclass and contype='u' and pg_get_constraintdef(oid) ilike '%booking_offer_id%event_type%'),1::bigint,'one job exists per offer event');
 
-insert into public.customer(id,studio_id,name,status) values
-('60000000-0000-0000-0000-000000000080','20000000-0000-0000-0000-000000000001','Notification client','ACTIVE');
+insert into public.customer(id,studio_id,name,email,status) values
+('60000000-0000-0000-0000-000000000080','20000000-0000-0000-0000-000000000001','Notification client','notification-client@example.test','ACTIVE');
 insert into public.tattoo_case(id,studio_id,customer_id,summary,artist_profile_id,status) values
 ('70000000-0000-0000-0000-000000000080','20000000-0000-0000-0000-000000000001','60000000-0000-0000-0000-000000000080','Synthetic notification case','50000000-0000-0000-0000-000000000001','OPEN');
 insert into public.conversation_link(id,studio_id,provider,external_account_id,external_inbox_id,external_conversation_id,customer_id,tattoo_case_id) values
@@ -42,6 +45,8 @@ select is((select count(*) from public.booking_notification_job where booking_of
 set local role service_role;
 create temporary table first_claim as select * from public.claim_booking_notification_job('2026-09-17T10:00:01Z','2026-09-17T10:00:31Z');
 select is((select claim_status from first_claim),'CLAIMED','one worker claims the routed job');
+select is((select delivery_channel from first_claim),'CHATWOOT','exactly one original Chatwoot route remains preferred');
+select is((select customer_email from first_claim),null,'preferred Chatwoot claim does not expose fallback email');
 select is((select external_account_id from first_claim),'3','claim keeps the linked account');
 select is((select external_conversation_id from first_claim),'42','claim keeps the linked original conversation');
 select lives_ok($$select public.transition_booking_notification_job((select job_id from first_claim),(select lease_id from first_claim),'FAILED',null,'2026-09-17T10:01:01Z','2026-09-17T10:00:02Z')$$,'confirmed failure becomes retryable');
@@ -61,10 +66,28 @@ insert into public.conversation_link(id,studio_id,provider,external_account_id,e
 ('80000000-0000-0000-0000-000000000081','20000000-0000-0000-0000-000000000001','chatwoot','3','7','43','60000000-0000-0000-0000-000000000080','70000000-0000-0000-0000-000000000080');
 update public.booking_offer set status='CONFIRMED' where id=(select id from no_route_offer);
 set local role service_role;
-select is((select claim_status from public.claim_booking_notification_job('2026-09-17T10:02:00Z','2026-09-17T10:02:30Z')),'NO_ROUTE','zero or multiple original conversations become explicit no-route');
+create temporary table email_claim as select * from public.claim_booking_notification_job('2026-09-17T10:02:00Z','2026-09-17T10:02:30Z');
+select is((select claim_status from email_claim),'CLAIMED','multiple original conversations fall back to email');
+select is((select delivery_channel from email_claim),'EMAIL','fallback claim identifies only the email channel');
+select is((select customer_email from email_claim),'notification-client@example.test','fallback uses the same-tenant customer email');
+select is((select external_conversation_id from email_claim),null,'fallback does not select an ambiguous conversation');
+select lives_ok($$select public.transition_booking_notification_job((select job_id from email_claim),(select lease_id from email_claim),'SUCCEEDED','smtp_abcdefghijklmnopqrstuvwxyz0123456789ABCDE',null,'2026-09-17T10:02:01Z')$$,'email success stores only a non-sensitive external identifier');
 reset role;
-select is((select status::text from public.booking_notification_job where booking_offer_id=(select id from no_route_offer)),'NO_ROUTE','no-route is terminal without claiming delivery');
+select is((select status::text from public.booking_notification_job where booking_offer_id=(select id from no_route_offer)),'SUCCEEDED','email fallback converges to success');
 select is((select event_type::text from public.booking_notification_job where booking_offer_id=(select id from no_route_offer)),'CONFIRMED','confirmation materializes its distinct durable event');
+
+update public.customer set email=null where id='60000000-0000-0000-0000-000000000080';
+create temporary table missing_email_offer as
+select (public.create_booking_offer('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','70000000-0000-0000-0000-000000000080','50000000-0000-0000-0000-000000000001','[{"startUtc":"2026-09-21T11:00:00.000Z","endUtc":"2026-09-21T12:00:00.000Z"}]','2026-09-17T10:00:00Z')->>'id')::uuid id;
+update public.booking_offer set status='CONFIRMED' where id=(select id from missing_email_offer);
+set local role service_role;
+select is((select claim_status from public.claim_booking_notification_job('2026-09-17T10:02:02Z','2026-09-17T10:02:32Z')),'NO_ROUTE','ambiguous Chatwoot without customer email becomes no-route');
+reset role;
+select is((select status::text from public.booking_notification_job where booking_offer_id=(select id from missing_email_offer)),'NO_ROUTE','missing fallback is terminal without claiming delivery');
+update public.customer set email='notification-client@example.test' where id='60000000-0000-0000-0000-000000000080';
+set local role service_role;
+select is((select count(*) from public.claim_booking_notification_job('2026-09-17T10:02:03Z','2026-09-17T10:02:33Z')),0::bigint,'historical no-route jobs are not reopened when email appears');
+reset role;
 
 delete from public.conversation_link where id='80000000-0000-0000-0000-000000000081';
 create temporary table ambiguous_offer as

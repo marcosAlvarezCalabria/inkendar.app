@@ -5,7 +5,7 @@ import { SupabaseBookingNotificationRepository, type BookingNotificationDataGate
 function gateway(): BookingNotificationDataGateway {
   return {
     materializeExpirations: vi.fn(async () => ({ data: 2, error: null })),
-    claimNext: vi.fn(async () => ({ data: [{ claim_status: "CLAIMED", job_id: "90000000-0000-4000-8000-000000000001", studio_id: "20000000-0000-4000-8000-000000000001", event_type: "CONFIRMED", attempt_count: 1, lease_id: "91000000-0000-4000-8000-000000000001", external_account_id: "3", external_conversation_id: "42" }], error: null })),
+    claimNext: vi.fn(async () => ({ data: [{ claim_status: "CLAIMED", job_id: "90000000-0000-4000-8000-000000000001", studio_id: "20000000-0000-4000-8000-000000000001", event_type: "CONFIRMED", attempt_count: 1, lease_id: "91000000-0000-4000-8000-000000000001", delivery_channel: "CHATWOOT", external_account_id: "3", external_conversation_id: "42", customer_email: null }], error: null })),
     transition: vi.fn(async () => ({ data: null, error: null })),
   };
 }
@@ -16,10 +16,38 @@ describe("Supabase booking notifications", () => {
     const repository = new SupabaseBookingNotificationRepository(data);
     await expect(repository.materializeExpirations("2026-09-16T10:00:00.000Z", 10)).resolves.toBe(2);
     await expect(repository.claimNext("2026-09-16T10:00:00.000Z", "2026-09-16T10:00:30.000Z")).resolves.toEqual({
-      kind: "CLAIMED", jobId: "90000000-0000-4000-8000-000000000001", studioId: "20000000-0000-4000-8000-000000000001", eventType: "CONFIRMED", attemptCount: 1, leaseId: "91000000-0000-4000-8000-000000000001", externalAccountId: "3", externalConversationId: "42",
+      kind: "CLAIMED", jobId: "90000000-0000-4000-8000-000000000001", studioId: "20000000-0000-4000-8000-000000000001", eventType: "CONFIRMED", attemptCount: 1, leaseId: "91000000-0000-4000-8000-000000000001", route: { kind: "CHATWOOT", externalAccountId: "3", externalConversationId: "42" },
     });
     expect(data.materializeExpirations).toHaveBeenCalledWith({ p_now: "2026-09-16T10:00:00.000Z", p_limit: 10 });
     expect(data.claimNext).toHaveBeenCalledWith({ p_now: "2026-09-16T10:00:00.000Z", p_lease_expires_at: "2026-09-16T10:00:30.000Z" });
+  });
+
+  it("normalizes an email claim without persisting or returning message content", async () => {
+    const data = gateway();
+    vi.mocked(data.claimNext).mockResolvedValueOnce({ data: [{
+      claim_status: "CLAIMED",
+      job_id: "90000000-0000-4000-8000-000000000001",
+      studio_id: "20000000-0000-4000-8000-000000000001",
+      event_type: "EXPIRED",
+      attempt_count: 1,
+      lease_id: "91000000-0000-4000-8000-000000000001",
+      delivery_channel: "EMAIL",
+      external_account_id: null,
+      external_conversation_id: null,
+      customer_email: "client@example.test",
+    }], error: null });
+    await expect(new SupabaseBookingNotificationRepository(data).claimNext(
+      "2026-09-16T10:00:00.000Z",
+      "2026-09-16T10:00:30.000Z",
+    )).resolves.toEqual({
+      kind: "CLAIMED",
+      jobId: "90000000-0000-4000-8000-000000000001",
+      studioId: "20000000-0000-4000-8000-000000000001",
+      eventType: "EXPIRED",
+      attemptCount: 1,
+      leaseId: "91000000-0000-4000-8000-000000000001",
+      route: { kind: "EMAIL", recipient: "client@example.test" },
+    });
   });
 
   it.each(["EMPTY", "NO_ROUTE", "UNKNOWN"])("normalizes the %s claim state without provider identifiers", async (claimStatus) => {

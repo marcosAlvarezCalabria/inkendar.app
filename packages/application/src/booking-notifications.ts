@@ -1,4 +1,4 @@
-import { normalizeExternalConversationId, normalizeResourceId } from "@inkendar/domain";
+import { normalizeCustomerEmail, normalizeExternalConversationId, normalizeResourceId } from "@inkendar/domain";
 
 import {
   ConversationNotFoundError,
@@ -7,6 +7,9 @@ import {
 } from "./conversations.js";
 
 export type BookingNotificationEventType = "CONFIRMED" | "EXPIRED";
+export type BookingNotificationRoute =
+  | Readonly<{ kind: "CHATWOOT"; externalAccountId: string; externalConversationId: string }>
+  | Readonly<{ kind: "EMAIL"; recipient: string }>;
 export type BookingNotificationClaim =
   | Readonly<{ kind: "EMPTY" }>
   | Readonly<{ kind: "NO_ROUTE"; jobId: string }>
@@ -18,8 +21,7 @@ export type BookingNotificationClaim =
       studioId: string;
       eventType: BookingNotificationEventType;
       attemptCount: number;
-      externalAccountId: string;
-      externalConversationId: string;
+      route: BookingNotificationRoute;
     }>;
 
 export interface BookingNotificationRepositoryPort {
@@ -28,6 +30,24 @@ export interface BookingNotificationRepositoryPort {
   markSucceeded(jobId: string, leaseId: string, externalMessageId: string, nowUtc: string): Promise<void>;
   markFailed(jobId: string, leaseId: string, nextAttemptAt: string, nowUtc: string): Promise<void>;
   markUnknown(jobId: string, leaseId: string, nowUtc: string): Promise<void>;
+  markNoRoute(jobId: string, leaseId: string, nowUtc: string): Promise<void>;
+}
+
+export interface BookingNotificationEmailPort {
+  send(
+    message: Readonly<{ to: string; subject: string; text: string }>,
+    signal?: AbortSignal,
+  ): Promise<Readonly<{ externalMessageId: string }>>;
+}
+
+export class BookingNotificationEmailRejectedError extends Error {
+  readonly code = "BOOKING_NOTIFICATION_EMAIL_REJECTED";
+  constructor() { super("Booking notification email was rejected"); this.name = "BookingNotificationEmailRejectedError"; }
+}
+
+export class BookingNotificationEmailUnavailableError extends Error {
+  readonly code = "BOOKING_NOTIFICATION_EMAIL_UNAVAILABLE";
+  constructor() { super("Booking notification email outcome is unavailable"); this.name = "BookingNotificationEmailUnavailableError"; }
 }
 
 export class InvalidBookingNotificationInputError extends Error {
@@ -48,6 +68,7 @@ type Route = Readonly<{ studioId: string; externalAccountId: string; externalCon
 type RunnerDependencies = Readonly<{
   repository: BookingNotificationRepositoryPort;
   providerFor(route: Route): ConversationProviderPort;
+  emailProviderFor(studioId: string): BookingNotificationEmailPort | null;
   clock?: () => Date;
   monotonicClock?: () => number;
 }>;
@@ -71,34 +92,58 @@ export function createBookingNotificationRunner(dependencies: RunnerDependencies
         if (claim.kind === "UNKNOWN") { summary.unknown += 1; continue; }
 
         summary.claimed += 1;
-        const route = {
-          studioId: normalizeResourceId("id", claim.studioId),
-          externalAccountId: normalizeExternalConversationId(claim.externalAccountId),
-          externalConversationId: normalizeExternalConversationId(claim.externalConversationId),
-        };
-        let provider: ConversationProviderPort;
-        try {
-          provider = dependencies.providerFor(route);
-        } catch {
-          await dependencies.repository.markFailed(claim.jobId, claim.leaseId, retryAt(current, claim.attemptCount), current.toISOString());
-          summary.failed += 1;
-          continue;
-        }
-
         let externalMessageId: string;
-        try {
-          const remaining = Math.max(1, Math.min(8_000, Math.trunc(deadline - monotonicClock())));
-          const result = await provider.sendReply(route.externalConversationId, messageFor(claim.eventType), AbortSignal.timeout(remaining));
-          externalMessageId = normalizeExternalConversationId(result.externalMessageId);
-        } catch (error) {
-          if (error instanceof ConversationProviderRejectedError || error instanceof ConversationNotFoundError) {
+        if (claim.route.kind === "CHATWOOT") {
+          const route = {
+            studioId: normalizeResourceId("id", claim.studioId),
+            externalAccountId: normalizeExternalConversationId(claim.route.externalAccountId),
+            externalConversationId: normalizeExternalConversationId(claim.route.externalConversationId),
+          };
+          let provider: ConversationProviderPort;
+          try {
+            provider = dependencies.providerFor(route);
+          } catch {
             await dependencies.repository.markFailed(claim.jobId, claim.leaseId, retryAt(current, claim.attemptCount), current.toISOString());
             summary.failed += 1;
-          } else {
-            await bestEffortUnknown(dependencies.repository, claim.jobId, claim.leaseId, current.toISOString());
-            summary.unknown += 1;
+            continue;
           }
-          continue;
+          try {
+            const remaining = Math.max(1, Math.min(8_000, Math.trunc(deadline - monotonicClock())));
+            const result = await provider.sendReply(route.externalConversationId, chatwootMessageFor(claim.eventType), AbortSignal.timeout(remaining));
+            externalMessageId = normalizeExternalConversationId(result.externalMessageId);
+          } catch (error) {
+            if (error instanceof ConversationProviderRejectedError || error instanceof ConversationNotFoundError) {
+              await dependencies.repository.markFailed(claim.jobId, claim.leaseId, retryAt(current, claim.attemptCount), current.toISOString());
+              summary.failed += 1;
+            } else {
+              await bestEffortUnknown(dependencies.repository, claim.jobId, claim.leaseId, current.toISOString());
+              summary.unknown += 1;
+            }
+            continue;
+          }
+        } else {
+          const studioId = normalizeResourceId("id", claim.studioId);
+          const recipient = normalizeCustomerEmail(claim.route.recipient);
+          const provider = dependencies.emailProviderFor(studioId);
+          if (!recipient || !provider) {
+            await dependencies.repository.markNoRoute(claim.jobId, claim.leaseId, current.toISOString());
+            summary.noRoute += 1;
+            continue;
+          }
+          try {
+            const remaining = Math.max(1, Math.min(8_000, Math.trunc(deadline - monotonicClock())));
+            const result = await provider.send(emailMessageFor(claim.eventType, recipient), AbortSignal.timeout(remaining));
+            externalMessageId = normalizeNotificationExternalMessageId(result.externalMessageId);
+          } catch (error) {
+            if (error instanceof BookingNotificationEmailRejectedError) {
+              await dependencies.repository.markFailed(claim.jobId, claim.leaseId, retryAt(current, claim.attemptCount), current.toISOString());
+              summary.failed += 1;
+            } else {
+              await bestEffortUnknown(dependencies.repository, claim.jobId, claim.leaseId, current.toISOString());
+              summary.unknown += 1;
+            }
+            continue;
+          }
         }
 
         try {
@@ -115,10 +160,22 @@ export function createBookingNotificationRunner(dependencies: RunnerDependencies
   };
 }
 
-function messageFor(eventType: BookingNotificationEventType): string {
+function chatwootMessageFor(eventType: BookingNotificationEventType): string {
   return eventType === "CONFIRMED"
     ? "Tu cita está confirmada. Si necesitas ayuda, responde a esta conversación."
     : "La propuesta de horarios ha caducado. Responde a esta conversación si quieres que revisemos nuevas opciones.";
+}
+
+function emailMessageFor(eventType: BookingNotificationEventType, recipient: string): Readonly<{ to: string; subject: string; text: string }> {
+  return eventType === "CONFIRMED"
+    ? { to: recipient, subject: "Cita confirmada", text: "Tu cita está confirmada. Si necesitas ayuda, contacta con el estudio." }
+    : { to: recipient, subject: "Propuesta de horarios caducada", text: "La propuesta de horarios ha caducado. Contacta con el estudio si quieres revisar nuevas opciones." };
+}
+
+function normalizeNotificationExternalMessageId(value: string): string {
+  const normalized = value.trim();
+  if (!/^[A-Za-z0-9_-]{1,200}$/.test(normalized)) throw new BookingNotificationEmailUnavailableError();
+  return normalized;
 }
 
 function retryAt(now: Date, attemptCount: number): string {

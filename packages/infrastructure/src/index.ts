@@ -3,6 +3,7 @@ export * from "./chatwoot-conversations.js";
 export * from "./google-booking-events.js";
 export * from "./google-calendar.js";
 export * from "./manual-onboarding-cli.js";
+export * from "./smtp-booking-notifications.js";
 export * from "./supabase-conversations.js";
 export * from "./supabase-google-calendar.js";
 export * from "./supabase-manual-onboarding.js";
