@@ -1,3 +1,4 @@
+export * from "./booking-notification-cli.js";
 export * from "./chatwoot-conversations.js";
 export * from "./google-booking-events.js";
 export * from "./google-calendar.js";
@@ -7,6 +8,7 @@ export * from "./supabase-google-calendar.js";
 export * from "./supabase-manual-onboarding.js";
 export * from "./supabase-auth.js";
 export * from "./supabase-booking-confirmation.js";
+export * from "./supabase-booking-notifications.js";
 export * from "./supabase-booking-offer-access.js";
 export * from "./supabase-booking-offers.js";
 export * from "./supabase-customer-cases.js";

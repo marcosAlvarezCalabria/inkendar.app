@@ -2,9 +2,9 @@
 
 _Estado: especificación viva y fuente de verdad para alcance, comportamiento y progreso_
 
-_Versión: 1.12.1_
+_Versión: 1.14.0_
 
-_Última actualización: 2026-09-15_
+_Última actualización: 2026-09-16_
 
 _La fase anterior al desarrollo se define en [Plan de validación y lanzamiento](validation-and-launch-plan.md)._
 
@@ -52,7 +52,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | Flujo de entrega y CI | `PASS` | `main` exige PR, los checks `validate` y `database`, conversaciones resueltas e historial lineal; ambos jobs pasaron tras integrar el [PR #10](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/10) en el [run 34895446647](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34895446647). |
 | Memoria de agentes | `PASS` | Engram 1.20.0 guarda y recupera memoria del proyecto `inkendar.app`; Codex MCP está configurado y requiere reinicio para cargarlo en nuevos chats. |
 | Supabase y aislamiento multi-tenant | `PASS` | La migración, el seed sintético y las 38 aserciones pgTAP pasaron contra Supabase/Postgres real en GitHub Actions [run 34752758528](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34752758528). |
-| Google Calendar y booking | `IN_PROGRESS` | OAuth/asignación, disponibilidad, ofertas/holds, acceso, selección pública y confirmación recuperable están técnicamente `DONE` en sus PR #10, #12, #14, #16, #18 y [#20](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/20). El [run post-merge 35032036887](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/35032036887) verificó Node 24, migraciones limpias, 442 aserciones pgTAP y Auth/RLS. El 2026-09-16 una prueba live sintética verificó FreeBusy, oferta preaprobada, enlace, selección pública, un único evento privado/opaco, persistencia `CONFIRMED` y reconciliación `RECONCILE_ONLY` sin duplicados. Notificaciones y scheduler siguen sin implementar. |
+| Google Calendar y booking | `IN_PROGRESS` | OAuth/asignación, disponibilidad, ofertas/holds, acceso, selección pública y confirmación recuperable están técnicamente `DONE`. El 2026-09-16 una prueba live sintética verificó FreeBusy, oferta, selección, evento y reconciliación sin duplicados. El primer corte de notificaciones/scheduler tiene candidato local `IN_PROGRESS`: intención durable para confirmación/caducidad, Chatwoot original, leases conservadores, `UNKNOWN` y `NO_ROUTE`; faltan revisión, PR/CI y prueba live. Correo fallback, rechazos y recordatorios siguen pendientes. |
 | Galería, portfolios y publicación web | `PLANNED` | No existe todavía el almacenamiento, feed público ni componente de integración. |
 | Piloto externo y disposición a pagar | `PLANNED` | No existe todavía evidencia de uso real autorizado ni pago. |
 
@@ -94,12 +94,14 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | 2026-09-15 | DEC-032 | `ACCEPTED` | Cada opción preaprobada usa un selector público UUID v4 separado; una elección vigente se serializa por oferta, conserva una única opción seleccionada como hold y queda `SELECTED_PENDING_CONFIRMATION` hasta el slice idempotente de Google Events. | Permitir selección pública atómica e idempotente sin exponer IDs internos ni contradecir DEC-007 con una confirmación falsa antes de revalidar y escribir Google Calendar. |
 
 | 2026-09-15 | DEC-033 | `ACCEPTED` | Una selección preaprobada exige conexión activa, token y scopes FreeBusy+Events antes de crear o renovar claim, y fija de forma tenant-safe su conexión, calendario, opción, event ID y correlación en una operación durable antes de Google. `READY` continúa sujeto a caducidad; un lock común serializa caducidad y la única transición `READY → INSERTING`. Antes de reusar un intervalo vencido, la creación de ofertas materializa su expiración bajo el advisory lock del artista y locks `offer → operation` ordenados. Tras `INSERTING` la selección y su exclusión sobreviven a `expires_at`, y toda recuperación es solo `Events.get`, nunca otro insert. FreeBusy revalida `[start,end)`, la finalización es atómica y `invalid_grant` usa CAS por generación de credencial. | Evitar duplicados, reoferta de un intervalo ambiguo y confirmaciones falsas ante grants incompletos, crash, creación/caducidad concurrentes, respuestas ambiguas, colisiones, reasignaciones o retries, sin degradar credenciales reconectadas y manteniendo Google como agenda operativa. |
+| 2026-09-16 | DEC-034 | `ACCEPTED` | Confirmar o caducar una oferta materializa una intención durable única; un runner server-only y portable caduca lotes acotados y envía confirmaciones/caducidades por la única conversación Chatwoot del mismo caso y tenant. Éxitos convergen, fallos confirmados reintentan como máximo tres veces, resultados ambiguos o leases vencidos quedan `UNKNOWN` sin reenvío, y la falta de una ruta inequívoca queda `NO_ROUTE`. | Chatwoot no documenta idempotencia outbound; separar intención, lease y efecto externo evita duplicados y falsas afirmaciones sin persistir mensajes, payloads, tokens ni PII. |
 La arquitectura técnica está en [Arquitectura de aplicación](../architecture/application-architecture.md) y el proceso de entrega en [Flujo de desarrollo, revisión e integración](../development/delivery-workflow.md).
 
 ## Historial de la especificación
 
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
+| 2026-09-16 | 1.14.0 | Se implementó localmente el primer corte server-only de notificaciones y scheduler: intención única al confirmar/caducar, expiración global acotada que preserva `INSERTING`/`CONFIRMED`, ruta Chatwoot original inequívoca, leases, reintentos acotados y terminales `UNKNOWN`/`NO_ROUTE`. Revisión, CI y prueba live siguen pendientes; correo y otros avisos no forman parte del corte. | Hacer observable y recuperable el aviso de booking sin asumir idempotencia de Chatwoot, persistir contenido ni elegir todavía hosting cron o proveedor de correo. |
 | 2026-09-16 | 1.13.0 | Una prueba live totalmente sintética verificó la conexión con los tres scopes, FreeBusy y exclusión de ocupación, candidatos exactos, oferta de una opción, enlace y selección pública, creación de un único evento privado/opaco sin asistentes, persistencia final `CONFIRMED`/`FINALIZED` y reintento `RECONCILE_ONLY` sin duplicados. | Cerrar la evidencia live del recorrido preaprobado sin atribuir notificaciones, scheduler, elección libre, aprobación posterior, edición o cancelación no verificadas. |
 | 2026-09-15 | 1.12.1 | La confirmación recuperable pasó a `DONE` técnico tras integrar el PR #20 como `676aa68088d13ada1474fb029d51d4eee1c3993f`; el run de PR 35031807319 y el run post-merge 35032036887 pasaron Node 24, migraciones limpias, 442 aserciones pgTAP y Auth/RLS. No se ejecutó ninguna prueba live. | Cerrar el gate técnico sin atribuir evidencia de Google Events live ni anticipar notificaciones, scheduler o booking extremo a extremo. |
 | 2026-09-15 | 1.12.0 | La confirmación recuperable queda como candidato local `IN_PROGRESS`: claim/lease durable con una sola autoridad de inserción y ambos scopes operativos obligatorios, binding inmutable previo al efecto, `READY` expirable, `INSERTING` recuperable después de `expires_at` y materialización serializada antes de reofertar, además de reconciliación por ID determinista, FreeBusy final, cita/relación atómica, ACL privada `writer|owner` y CAS de generación de credencial. Revisión, integración/CI y pruebas live continúan pendientes. | Corregir grants incompletos, carreras de inserción, caducidad y creación de ofertas, crash/reasignación e `invalid_grant` tardío sin atribuir evidencia live ni anticipar notificaciones, scheduler, elección libre o cancelación. |
@@ -191,7 +193,7 @@ Web / Instagram / Facebook
 - **Facebook Messenger: CONNECTED / pendiente de prueba bidireccional final.**
 - **Asignación: PARTIAL.** La atención funciona asignando manualmente la conversación; la asignación automática continúa pendiente de localizar y validar.
 - **WhatsApp: DEFERRED.** El flujo manual exige un número dedicado o migrado; conservar el número en la aplicación requiere Coexistence. Se retira del MVP.
-- **Google Calendar: IN_PROGRESS.** OAuth, listado y asignación live pasaron con owner sintético el 2026-09-15. El 2026-09-16 una prueba live sintética verificó FreeBusy, oferta preaprobada, enlace, selección pública, Google Events, confirmación persistida y reconciliación sin duplicados. Disponibilidad, ofertas/holds, acceso, selección y confirmación recuperable están técnicamente `DONE`; notificaciones y scheduler continúan sin implementar.
+- **Google Calendar: IN_PROGRESS.** OAuth, listado y asignación live pasaron con owner sintético el 2026-09-15. El 2026-09-16 una prueba live sintética verificó FreeBusy, oferta preaprobada, enlace, selección pública, Google Events, confirmación persistida y reconciliación sin duplicados. Disponibilidad, ofertas/holds, acceso, selección y confirmación recuperable están técnicamente `DONE`; el primer corte local de notificaciones/scheduler está `IN_PROGRESS` y pendiente de revisión, CI y live.
 
 Un canal no pasa a `PASS` por estar conectado: debe demostrarse recepción y respuesta de extremo a extremo con datos sintéticos.
 
@@ -209,7 +211,7 @@ Un canal no pasa a `PASS` por estar conectado: debe demostrarse recepción y res
 10. **Elección libre:** el cliente puede consultar huecos de un artista mediante un enlace seguro. El hueco elegido queda pendiente hasta la aprobación del owner.
 11. **Confirmación:** una opción preaprobada se confirma al elegirla. Una opción libre requiere visto bueno del owner. En ambos casos Inkendar vuelve a comprobar disponibilidad antes de confirmar.
 12. **Caducidad:** al vencer el plazo, se liberan los bloqueos y se avisa al cliente de que los horarios pueden ofrecerse a otra persona.
-13. **Notificaciones:** confirmaciones, rechazos y caducidades se envían por el canal original cuando sea posible, con correo como respaldo configurado.
+13. **Notificaciones:** el primer corte envía confirmaciones y caducidades por una ruta original Chatwoot inequívoca, con estado durable y sin reenvío automático tras ambigüedad. Rechazos y correo de respaldo configurado continúan pendientes.
 14. **Contexto mínimo:** canal y conversación de origen, contacto disponible, resumen, artista, duración, referencias, oferta, cita e identificadores externos.
 15. **Publicación web:** el owner administra en Inkendar la galería general y las imágenes asociadas a cada artista. Inkendar publica únicamente el contenido aprobado mediante un feed público de solo lectura. Una web creada por Incamdi o una web existente consumen el mismo contrato.
 16. **Privacidad y aislamiento:** cada estudio mantiene separados conversaciones, conexiones, credenciales, calendarios y datos.
@@ -371,7 +373,7 @@ El desarrollo técnico con datos sintéticos puede comenzar mientras se completa
 
 1. Completar en paralelo la prueba bidireccional de Facebook Messenger.
 2. Validar, con autorización explícita y cuentas sintéticas, los recorridos live de Chatwoot, Google FreeBusy, Google Events y booking; OAuth, listado y asignación live ya pasaron.
-3. Implementar notificaciones y scheduler sin confundirlos con el gate técnico ya cerrado de confirmación recuperable.
+3. Revisar, integrar y validar live el primer corte de notificaciones/scheduler; después completar correo de respaldo y avisos todavía fuera de alcance.
 4. Añadir la vista de artista, galería y portfolios administrados por el owner.
 5. Implementar el feed público y probarlo en una web nueva y otra existente.
 6. Verificar privacidad, exportación, monitorización y onboarding antes de datos reales.

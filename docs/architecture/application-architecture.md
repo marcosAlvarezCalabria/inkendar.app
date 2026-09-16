@@ -2,7 +2,7 @@
 
 _Estado: aceptada_
 
-_Última actualización: 2026-09-15_
+_Última actualización: 2026-09-16_
 
 _La fuente de verdad del comportamiento y el alcance es [Especificación de Inkendar](../product/sellable-mvp-spec.md). Este documento explica cómo construirlo y debe actualizarse cuando cambie una frontera, dependencia o decisión técnica._
 
@@ -120,7 +120,7 @@ Cada opción usa un UUID v4 público separado de su ID. El GET abierto entrega e
 
 ### Confirmación recuperable con Google Events
 
-_Estado técnico del slice: `DONE`; el PR #20 y el CI posterior al merge verificaron código, build, migraciones limpias, pgTAP y Auth/RLS con datos sintéticos. Google Events, confirmación y reconciliación live quedaron verificadas con datos sintéticos el 2026-09-16; notificaciones y scheduler permanecen pendientes._
+_Estado técnico del slice: `DONE`; el PR #20 y el CI posterior al merge verificaron código, build, migraciones limpias, pgTAP y Auth/RLS con datos sintéticos. Google Events, confirmación y reconciliación live quedaron verificadas con datos sintéticos el 2026-09-16; el corte posterior de notificaciones/scheduler está `IN_PROGRESS`._
 
 Aplicación deriva de la opción un `eventId` SHA-256/base32hex y una correlación privada separados. Una RPC de claim bloquea la oferta y, antes de crear o renovar una operación, exige la conexión fijada `ACTIVE`, token y los scopes `calendar.events.freebusy` y `calendar.events`; si falta alguno devuelve `RECONNECT_REQUIRED` sin tocar lease, estado ni binding. El claim inicial persiste antes de Google el tuple inmutable estudio/artista/oferta/opción/conexión/calendario/evento/correlación. Un lease `READY` puede recuperarse solo antes de `expires_at`; `beginInsert` bloquea primero la oferta y realiza el CAS único `READY → INSERTING`, serializado con la expiración y sin reconsultar la asignación mutable. A partir de `INSERTING`, incluso tras `expires_at`, crash o lease vencida, la selección y su exclusión permanecen recuperables y los siguientes workers reciben `RECONCILE_ONLY`: consultan `Events.get` pero nunca adquieren una segunda autoridad de insert.
 
@@ -129,6 +129,16 @@ Cada intento con claim consulta primero `Events.get`; solo un `404`, modo insert
 Supabase finaliza en una sola RPC serializada y tenant-safe: crea una `appointment` única y su relación `appointment_google_event`, y mueve oferta/opción a `CONFIRMED`. Los retries exactos devuelven el instante original; una relación distinta falla cerrada. Las tablas tienen RLS sin acceso directo y las RPCs son `SECURITY DEFINER`, `search_path=''`, exclusivas de `service_role`. La UI pública solo afirma «Cita confirmada» tras leer ese estado persistido.
 
 La evidencia live sintética del 2026-09-16 recorrió una oferta preaprobada de una opción hasta `CONFIRMED`. Google conservó exactamente un evento correlacionado `private`, `opaque`, sin asistentes y con resumen genérico; el reintento `RECONCILE_ONLY` mantuvo el mismo único evento. La persistencia terminó con oferta/opción `CONFIRMED`, una cita, una relación Google y la operación `FINALIZED`. Esta evidencia valida el recorrido ejercitado y su idempotencia observable, no notificaciones, scheduler, elección libre, aprobación posterior, edición ni cancelación.
+
+### Notificaciones de booking y scheduler portable
+
+_Estado técnico del slice: `IN_PROGRESS` local; revisión, PR/CI y prueba live permanecen pendientes._
+
+Un trigger transaccional sobre `booking_offer` materializa una sola `booking_notification_job` por oferta y evento `CONFIRMED | EXPIRED`. La tabla guarda IDs, estado, intentos, lease e ID externo confirmado; nunca texto, payloads, tokens ni datos de contacto. Una RPC global de `service_role` caduca como máximo 100 ofertas por invocación con `FOR UPDATE SKIP LOCKED`, libera solo estados provisionales y preserva `INSERTING` y `CONFIRMED`.
+
+Aplicación ejecuta lotes de 1 a 100 con lease y presupuesto temporal acotados. El claim resuelve exactamente una `conversation_link` Chatwoot ligada al mismo `tattoo_case` y tenant; cero o múltiples rutas terminan en `NO_ROUTE`. El runner verifica además estudio y account contra `INKENDAR_CHATWOOT_CONNECTIONS_JSON`, genera un texto genérico solo en memoria y reutiliza `ChatwootConversationAdapter`. Un éxito confirmado termina en `SUCCEEDED`; rechazos confirmados reintentan hasta tres veces, mientras red, timeout, fallo al guardar éxito o lease vencido terminan en `UNKNOWN` sin reenvío automático.
+
+El ejecutor se invoca con `pnpm run notifications` y no depende de un hosting cron concreto. Correo, rechazos de booking, recordatorios y UI quedan fuera.
 
 ## 2. Alternativas consideradas
 
@@ -206,7 +216,7 @@ Expone el contenido publicado mediante una API cacheable y un web component agn�
 
 ### Notificaciones
 
-Envía confirmaciones y vencimientos por el canal original cuando el proveedor lo permita. El correo actúa como respaldo configurado. Ningún estado se presenta como enviado si el proveedor no lo confirma.
+El primer corte envía confirmaciones y vencimientos por la única conversación Chatwoot original del caso. Conserva `NO_ROUTE` cuando no existe una ruta inequívoca y `UNKNOWN` ante ambigüedad; ningún estado se presenta como enviado sin confirmación del proveedor. Correo de respaldo, rechazos y recordatorios quedan para slices posteriores.
 
 ### Auditoría
 
@@ -258,13 +268,14 @@ Todas las tablas de negocio incluyen `studio_id`. Las políticas RLS deben demos
 
 ## 8. Procesos asíncronos
 
-Un ejecutor programado debe:
+El ejecutor portable implementado en el primer corte puede:
 
 - caducar ofertas y reservas provisionales;
-- liberar en Google Calendar los bloqueos vencidos;
-- enviar recordatorios y avisos de vencimiento;
-- reintentar webhooks y notificaciones recuperables;
-- marcar para intervención humana los fallos que excedan el límite de reintentos.
+- enviar confirmaciones y avisos de vencimiento por Chatwoot original;
+- reintentar únicamente fallos externos confirmados y acotados;
+- marcar `UNKNOWN` o `NO_ROUTE` para intervención sin reenvío automático.
+
+No libera eventos Google: los holds son locales y una confirmación `INSERTING`/`CONFIRMED` se conserva. Recordatorios, webhooks recuperables, correo y otros avisos siguen pendientes.
 
 El mecanismo concreto puede comenzar con funciones programadas sobre la plataforma gestionada. Una cola dedicada solo se añadirá cuando el volumen o la fiabilidad medida lo exijan.
 
@@ -317,6 +328,7 @@ La recomendación añade un backend propio delgado, pero concentra allí autoriz
 
 | Fecha | Cambio | Motivo |
 |---|---|---|
+| 2026-09-16 | Intención durable y runner portable para confirmación/caducidad por Chatwoot original | Ejecutar notificaciones sin persistir contenido ni duplicar envíos ante resultados ambiguos, preservando el hosting cron como decisión abierta. |
 | 2026-09-16 | Evidencia live sintética de FreeBusy, booking preaprobado y reconciliación Google Events sin duplicados | Registrar el gate operativo verificado sin ampliar el alcance a notificaciones, scheduler u otros flujos no probados. |
 | 2026-09-13 | Esquema inicial de identidad, helpers privados y RLS multi-tenant | Fijar una frontera de autorización comprobable antes de incorporar UI, proveedores o datos operativos. |
 | 2026-09-10 | Primera propuesta de arquitectura de aplicación | Convertir las decisiones de producto en una estructura implementable y comparar alternativas antes de escribir el panel. |
