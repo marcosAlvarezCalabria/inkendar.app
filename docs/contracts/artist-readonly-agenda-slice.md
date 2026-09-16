@@ -6,7 +6,7 @@ _Estado técnico: `IN_PROGRESS`. Implementación y evidencia local completas; re
 
 Como artista autenticado quiero consultar mis próximas citas confirmadas y el contexto mínimo del tatuaje para prepararme sin acceder a datos operativos o privados ajenos.
 
-El slice sustituye el shell de `/app/artist` por una vista SSR privada de solo lectura. Une en Supabase la cita confirmada con su `booking_option`, `tattoo_case` y `customer`; no consulta Google, no duplica eventos y no añade formularios, acciones, conversaciones, archivos, referencias, galería, respuestas, cancelación ni elección libre.
+El slice sustituye el shell de `/app/artist` por una vista SSR privada de solo lectura. Une en Supabase la cita confirmada con su `booking_option`, `tattoo_case` y `customer`; no consulta Google, no duplica eventos y no añade formularios de agenda ni acciones de agenda, conversaciones, archivos, referencias, galería, respuestas, cancelación ni elección libre. El shell conserva como única excepción el formulario global `POST /logout`, necesario para cerrar la sesión de forma explícita.
 
 ## Contrato de aplicación y UI
 
@@ -20,7 +20,7 @@ Cada elemento contiene exclusivamente:
 - `bodyArea` y `size`, ambos opcionales;
 - `timeZone` de la regla de disponibilidad del artista o `UTC` si todavía no existe esa configuración.
 
-No contiene IDs internos, email, teléfono, conversación o mensajes, correlación o IDs de Google, tokens, notas ni referencias. El loader conserva el guard `ARTIST`, cookies rotadas y `Cache-Control: private, no-store`; un error devuelve únicamente «No se pudo cargar la agenda». La página usa lista, títulos, `dl` y elementos `time` con `dateTime` UTC; el texto visible incluye la zona IANA explícita y no depende del color. El estado vacío también es privado y no ofrece mutaciones.
+No contiene IDs internos, email, teléfono, conversación o mensajes, correlación o IDs de Google, tokens, notas ni referencias. El loader conserva el guard `ARTIST`, cookies rotadas y `Cache-Control: private, no-store`; un error devuelve únicamente «No se pudo cargar la agenda». La página usa lista, títulos, `dl` y elementos `time` con `dateTime` UTC; el texto visible incluye la zona IANA explícita y no depende del color. El estado vacío también es privado y no ofrece mutaciones de agenda. En toda la ruta, el único formulario y único `POST` permitido es `/logout`; no contiene inputs ni controles de edición de citas.
 
 ## Persistencia y autorización
 
@@ -63,7 +63,8 @@ And retroceder p_now no permite recuperar la cita finalizada
 Given un ARTIST sin próximas citas confirmadas
 When abre /app/artist
 Then ve un estado vacío privado y comprensible
-And no existe formulario, acción ni capacidad de escritura
+And no existe formulario de agenda, acción de agenda ni capacidad de escritura de agenda
+And el único formulario y POST del shell es /logout para cerrar la sesión
 ```
 
 ## Plan y evidencia TDD
@@ -72,7 +73,7 @@ And no existe formulario, acción ni capacidad de escritura
 2. RED pgTAP contra la base anterior porque la RPC no existía.
 3. GREEN mínimo por capas y migración, seguido de refactor y validación acumulada.
 
-El RED Vitest falló en los cuatro límites previstos. El RED pgTAP abortó al no existir `get_artist_agenda`. Tras GREEN pasan 9 pruebas enfocadas y 27 aserciones pgTAP del slice después de `db:reset`. La suite acumulada pasa 522 aserciones pgTAP; `pnpm run check` pasa lint, tipos, 375 pruebas Vitest —más una omitida— y build cliente/SSR. `supabase db lint --local --level warning` no encuentra errores y `supabase db diff --local` no encuentra drift. El entorno local usa Node 25.2.0 y emite el warning de engine; revisión, CI con Node 24 y cualquier prueba live siguen pendientes.
+El RED Vitest falló en los cuatro límites previstos. El RED pgTAP abortó al no existir `get_artist_agenda`. Tras GREEN pasan 10 pruebas enfocadas —incluida la regresión de la ruta SSR completa que limita formularios y `POST` al logout global— y 27 aserciones pgTAP del slice después de `db:reset`. La suite acumulada pasa 522 aserciones pgTAP; `pnpm run check` pasa lint, tipos, 376 pruebas Vitest —más una omitida— y build cliente/SSR. `supabase db lint --local --level warning` no encuentra errores y `supabase db diff --local` no encuentra drift. El entorno local usa Node 25.2.0 y emite el warning de engine; revisión, CI con Node 24 y cualquier prueba live siguen pendientes.
 
 ## Fuera de alcance
 

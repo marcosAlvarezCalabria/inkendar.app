@@ -20,6 +20,13 @@ export function headers() {
 
 export default function ArtistShell() {
   const { displayName, appointments } = useLoaderData<typeof loader>();
+  return <ArtistShellView displayName={displayName} appointments={appointments} />;
+}
+
+export function ArtistShellView({ displayName, appointments }: Readonly<{
+  displayName: string;
+  appointments: readonly ArtistAgendaItem[];
+}>) {
   return (
     <main className="shell-page">
       <header className="shell-header">

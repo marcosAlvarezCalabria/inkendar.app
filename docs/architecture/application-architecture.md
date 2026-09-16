@@ -152,7 +152,7 @@ _Estado técnico del slice: `IN_PROGRESS`; implementación y evidencia local com
 
 La RPC `get_artist_agenda` es `SECURITY DEFINER`, fija `search_path=''`, se concede solo a `authenticated` y resuelve `auth.uid()`. Exige exactamente una membership y una relación coherente ARTIST con `user_profile` y `artist_profile`; OWNER, anon, `service_role` e identidades incompletas fallan cerrado. Conserva los joins compuestos de tenant entre `appointment`, `booking_option`, `tattoo_case` y `customer`, exige cita/opción `CONFIRMED`, incluye `end_at = now`, impide retroceder el reloj mediante `greatest(p_now, now())`, ordena por inicio y limita a 50. No abre acceso general ni escritura a las tablas.
 
-El DTO contiene solo intervalo, nombre visible del customer, resumen, body area y size opcionales y la zona IANA de `artist_availability_rule`; si aún no existe regla, muestra `UTC` explícito. La UI semántica no contiene formularios ni IDs, contacto, conversaciones, Google, tokens, notas, referencias o estados editables. Este lector representa la cita persistida en Supabase y no sustituye ni duplica Google Calendar.
+El DTO contiene solo intervalo, nombre visible del customer, resumen, body area y size opcionales y la zona IANA de `artist_availability_rule`; si aún no existe regla, muestra `UTC` explícito. La UI semántica no contiene formularios de agenda ni controles de edición, IDs, contacto, conversaciones, Google, tokens, notas, referencias o estados editables. El único formulario del shell es el `POST /logout` global para cerrar la sesión; no concede ninguna mutación de agenda. Este lector representa la cita persistida en Supabase y no sustituye ni duplica Google Calendar.
 
 ## 2. Alternativas consideradas
 
