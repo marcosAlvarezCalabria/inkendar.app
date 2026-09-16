@@ -33,6 +33,7 @@ export default function OwnerShell() {
           <a href="/app/owner/cases">Gestionar casos de tatuaje</a>
           <a href="/app/owner/calendars">Gestionar Google Calendar</a>
           <a href="/app/owner/offers">Gestionar ofertas de fechas</a>
+          <a href="/app/owner/gallery">Gestionar galería privada</a>
         </nav>
       </section>
     </main>

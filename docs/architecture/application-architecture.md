@@ -146,7 +146,7 @@ El ejecutor se invoca con `pnpm run notifications` y no depende de un hosting cr
 
 ### Agenda privada ARTIST
 
-_Estado técnico del slice: `IN_PROGRESS`; implementación y evidencia local completas, pendientes de revisión independiente, PR y CI._
+_Estado técnico del slice: `DONE`; el PR #25 y su CI verde integraron la implementación y las pruebas. No se ejecutó prueba live._
 
 `/app/artist` conserva el guard SSR `ARTIST`, cookies de sesión y respuestas `private, no-store`. Aplicación depende de `ArtistAgendaRepositoryPort`, recibe un reloj inyectable y fija un máximo de 50 filas. Infraestructura usa el cliente Supabase SSR de la petición; no compone `service_role` ni consulta Google.
 
@@ -222,7 +222,15 @@ Calcula opciones con jornada, duración, márgenes, zona horaria y ocupación re
 
 ### Contenido web y portfolios
 
-Gestiona únicamente la galería del estudio y las imágenes vinculadas a cada artista. El owner publica desde la PWA. Los originales permanecen privados y un modelo de lectura contiene solo variantes optimizadas y metadatos públicos.
+_Estado técnico de la ingestión privada: `IN_PROGRESS` local; revisión independiente, PR y CI pendientes. Publicación, feed público, CDN y componente permanecen fuera de este slice._
+
+`/app/owner/gallery` autoriza OWNER antes de componer persistencia o Storage, exige multipart same-origin y no acepta tenant ni identidad del navegador. Dominio normaliza alt de 1..160 y destino; aplicación coordina tres objetos privados y solo persiste después de completar uploads. Ante cualquier fallo intenta retirar todos los paths opacos; una respuesta ambigua puede dejar un huérfano privado para reconciliación, nunca una fila completa o contenido publicado.
+
+Sharp decodifica JPEG/PNG/WebP server-only con máximo 10 MiB, 12000×12000 y 40 MP, rechaza multipágina/animación y corrupción, aplica orientación y re-encode sin EXIF/ICC/XMP/GPS. Solo existen master sanitizada WebP calidad 88, display máximo 1600 calidad 82 y thumb máximo 480 calidad 78, sin upscale.
+
+`gallery_asset` y `gallery_variant` usan FKs/checks compuestos, posición estable por destino y estado único `DRAFT`; no conceden acceso directo. Las RPC solo se conceden a `authenticated`, resuelven `auth.uid()` y exigen OWNER coherente; `service_role` está revocado en metadata y queda limitado al bucket privado `gallery-private`. El listado entrega un handle público aleatorio, nunca path o URL firmada. `/app/owner/gallery/thumbnails/:handle` vuelve a autorizar OWNER, resuelve solo assets `DRAFT` del tenant y hace un fetch server-side acotado de una firma de 30 segundos: origen/prefijo Supabase fijos, redirects prohibidos, `image/webp`, tamaño persistido máximo 10 MiB y timeout 3 segundos. El HTML contiene únicamente la ruta same-origin opaca y la respuesta usa `private, no-store` y `nosniff`.
+
+La capacidad completa gestionará únicamente la galería del estudio y las imágenes vinculadas a cada artista. El owner publicará desde la PWA y un modelo de lectura futuro contendrá solo variantes optimizadas y metadatos públicos.
 
 ### Entrega de contenido público
 

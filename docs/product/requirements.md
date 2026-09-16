@@ -17,8 +17,8 @@ Los contratos y criterios completos están en la [Especificación de Inkendar](s
 7. Ofrecer hasta tres fechas preaprobadas con una retención configurable de 24 horas por defecto.
 8. Exigir aprobación del owner para un hueco elegido libremente por el cliente.
 9. Confirmar de forma idempotente, liberar opciones restantes y avisar al cliente.
-10. Permitir que el owner publique galería y portfolios por artista mediante un feed público de solo lectura.
-11. Mantener originales y referencias privadas, eliminar metadatos sensibles y generar variantes optimizadas.
+10. Permitir que el owner ingiera y asigne borradores privados a galería y portfolios; la publicación posterior alimentará un feed público de solo lectura.
+11. No conservar bytes originales inseguros: mantener una master privada sanitizada, eliminar metadatos sensibles y generar variantes optimizadas sin upscale.
 12. Registrar auditoría y mostrar fallos de integración sin comunicar éxitos falsos.
 
 ## Requisitos de ingeniería
