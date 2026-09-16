@@ -103,12 +103,12 @@ export class ChatwootConversationAdapter implements ConversationProviderPort {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ content, message_type: "outgoing", private: false, content_type: "text" }),
     }, signal);
-    const body = await json(response);
     if (!response.ok) {
       if (response.status === 404) throw new ConversationNotFoundError();
       if (response.status >= 400 && response.status < 500) throw new ConversationProviderRejectedError();
       throw new ConversationProviderUnavailableError();
     }
+    const body = await json(response);
     const row = object(body);
     if (id(row.account_id) !== this.#connection.accountId || id(row.conversation_id) !== normalizedId) throw new ConversationProviderUnavailableError();
     return { externalMessageId: id(row.id) };

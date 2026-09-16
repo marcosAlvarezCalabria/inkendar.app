@@ -1,7 +1,12 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 
-import { ConversationProviderUnavailableError, InvalidConversationWebhookError } from "@inkendar/application";
+import {
+  ConversationNotFoundError,
+  ConversationProviderRejectedError,
+  ConversationProviderUnavailableError,
+  InvalidConversationWebhookError,
+} from "@inkendar/application";
 import {
   ChatwootConversationAdapter,
   ChatwootConnections,
@@ -144,6 +149,22 @@ describe("Chatwoot conversation adapter", () => {
   it("rejects a successful-looking reply attributed to another account", async () => {
     const request = vi.fn(async () => json({ id: 84, account_id: 4, conversation_id: 42 }));
     const adapter = new ChatwootConversationAdapter(connection, request);
+
+    await expect(adapter.sendReply("42", "Hola")).rejects.toBeInstanceOf(ConversationProviderUnavailableError);
+  });
+
+  it.each([
+    { name: "empty 404", response: new Response(null, { status: 404 }), error: ConversationNotFoundError },
+    { name: "non-JSON 422", response: new Response("unprocessable", { status: 422 }), error: ConversationProviderRejectedError },
+  ])("classifies a confirmed $name reply before parsing its body", async ({ response, error }) => {
+    const request = vi.fn(async () => response);
+    const adapter = new ChatwootConversationAdapter(connection, request);
+
+    await expect(adapter.sendReply("42", "Hola")).rejects.toBeInstanceOf(error);
+  });
+
+  it("keeps a malformed successful reply ambiguous", async () => {
+    const adapter = new ChatwootConversationAdapter(connection, async () => new Response("not-json", { status: 200 }));
 
     await expect(adapter.sendReply("42", "Hola")).rejects.toBeInstanceOf(ConversationProviderUnavailableError);
   });
