@@ -4,7 +4,9 @@ import type { Route } from "./+types/owner-gallery";
 import { ownerGalleryHandlers } from "../owner-gallery.server.js";
 
 export type GalleryArtistOption = Readonly<{ id: string; displayName: string }>;
-export type OwnerGalleryData = Readonly<{ artists: readonly GalleryArtistOption[]; drafts: readonly (GalleryDraftView & Readonly<{ thumbnailSrc: string }>)[] }>;
+export type GalleryLifecycleStatus = "DRAFT" | "PUBLISHING" | "PUBLISHED" | "RETIRING";
+export type OwnerGalleryItem = GalleryDraftView & Readonly<{ status: GalleryLifecycleStatus; thumbnailSrc: string }>;
+export type OwnerGalleryData = Readonly<{ artists: readonly GalleryArtistOption[]; drafts: readonly OwnerGalleryItem[] }>;
 export function meta(): Route.MetaDescriptors { return [{ title: "Galería privada | Inkendar" }]; }
 export function headers() { return { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff" }; }
 export async function loader({ request }: Route.LoaderArgs) { return ownerGalleryHandlers.loader(request); }
@@ -26,14 +28,21 @@ export function OwnerGalleryView({ data, error }: Readonly<{ data: OwnerGalleryD
         <button type="submit">Guardar borrador privado</button>
       </form>
     </section>
-    <section className="records" aria-labelledby="gallery-drafts-title"><h2 id="gallery-drafts-title">Borradores privados</h2>{data.drafts.length ? <ul className="gallery-grid">{data.drafts.map((draft) => <li className="shell-panel gallery-draft-card" key={draft.thumbnailHandle}>
-      <img src={draft.thumbnailSrc} alt={draft.altText} width={draft.width} height={draft.height} />
-      <h3>{draft.target === "GALLERY" ? "Galería general" : draft.artistDisplayName ?? "Portfolio"}</h3><p>Posición {draft.position} · {draft.width} × {draft.height}</p>
+    <section className="records" aria-labelledby="gallery-drafts-title"><h2 id="gallery-drafts-title">Borradores privados</h2>{data.drafts.length ? <ul className="gallery-grid">{data.drafts.map((draft) => <GalleryItem key={draft.thumbnailHandle} draft={draft} artists={data.artists} />)}</ul> : <p>Todavía no hay contenido activo.</p>}</section>
+  </main>;
+}
+
+function GalleryItem({ draft, artists }: Readonly<{ draft: OwnerGalleryItem; artists: readonly GalleryArtistOption[] }>) {
+  return <li className="shell-panel gallery-draft-card">
+    <img src={draft.thumbnailSrc} alt={draft.altText} width={draft.width} height={draft.height} />
+    <h3>{draft.target === "GALLERY" ? "Galería general" : draft.artistDisplayName ?? "Portfolio"}</h3>
+    <p>Estado: {statusLabel(draft.status)} · Posición {draft.position} · {draft.width} × {draft.height}</p>
+    {draft.status === "DRAFT" ? <>
       <form method="post" className="record-form" aria-label={`Editar ${draft.altText}`}>
         <input type="hidden" name="intent" value="UPDATE" /><input type="hidden" name="handle" value={draft.thumbnailHandle} />
         <label>Texto alternativo<input name="altText" defaultValue={draft.altText} minLength={1} maxLength={160} required /></label>
         <label>Destino<select name="target" defaultValue={draft.target} required><option value="GALLERY">Galería general</option><option value="ARTIST_PORTFOLIO">Portfolio de artista</option></select></label>
-        <label>Artista<select name="artistProfileId" defaultValue={draft.artistProfileId ?? ""}><option value="">Sin artista</option>{data.artists.map((artist) => <option key={artist.id} value={artist.id}>{artist.displayName}</option>)}</select></label>
+        <label>Artista<select name="artistProfileId" defaultValue={draft.artistProfileId ?? ""}><option value="">Sin artista</option>{artists.map((artist) => <option key={artist.id} value={artist.id}>{artist.displayName}</option>)}</select></label>
         <button type="submit">Guardar cambios</button>
       </form>
       <div className="record-actions" aria-label={`Ordenar ${draft.altText}`}>
@@ -41,6 +50,13 @@ export function OwnerGalleryView({ data, error }: Readonly<{ data: OwnerGalleryD
         <form method="post"><input type="hidden" name="intent" value="MOVE_DOWN" /><input type="hidden" name="handle" value={draft.thumbnailHandle} /><button type="submit" className="secondary" aria-label={`Bajar ${draft.altText}`}>Bajar</button></form>
       </div>
       <form method="post" className="record-form"><input type="hidden" name="intent" value="DISCARD" /><input type="hidden" name="handle" value={draft.thumbnailHandle} /><p>Oculta este borrador de la lista y de sus miniaturas. Podrás recuperarlo más adelante.</p><button type="submit" className="secondary" aria-label={`Descartar borrador ${draft.altText}`}>Descartar borrador</button></form>
-    </li>)}</ul> : <p>Todavía no hay borradores.</p>}</section>
-  </main>;
+    </> : null}
+    {draft.status === "DRAFT" || draft.status === "PUBLISHING" ? <LifecycleForm intent="PUBLISH" handle={draft.thumbnailHandle} label={draft.status === "DRAFT" ? "Publicar" : "Reintentar publicación"} altText={draft.altText} /> : null}
+    {draft.status === "PUBLISHED" || draft.status === "RETIRING" ? <LifecycleForm intent="RETIRE" handle={draft.thumbnailHandle} label={draft.status === "PUBLISHED" ? "Retirar" : "Reintentar retirada"} altText={draft.altText} /> : null}
+  </li>;
 }
+
+function LifecycleForm({ intent, handle, label, altText }: Readonly<{ intent: "PUBLISH" | "RETIRE"; handle: string; label: string; altText: string }>) {
+  return <form method="post" className="record-form"><input type="hidden" name="intent" value={intent} /><input type="hidden" name="handle" value={handle} /><button type="submit" className="secondary" aria-label={`${label} ${altText}`}>{label}</button></form>;
+}
+function statusLabel(status: GalleryLifecycleStatus): string { return ({ DRAFT: "Borrador", PUBLISHING: "Publicando", PUBLISHED: "Publicada", RETIRING: "Retirando" })[status]; }

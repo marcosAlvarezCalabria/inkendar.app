@@ -5,7 +5,7 @@ export type GalleryVariantKind = "MASTER" | "DISPLAY" | "THUMB";
 export type GalleryProcessedVariant = Readonly<{ kind: GalleryVariantKind; bytes: Uint8Array; width: number; height: number; mimeType: "image/webp" }>;
 export type ProcessedGalleryImage = Readonly<{ sourceFormat: "jpeg" | "png" | "webp"; width: number; height: number; variants: readonly GalleryProcessedVariant[] }>;
 export type GalleryDraftRecord = Readonly<{ id: string; studioId: string; target: GalleryTarget; artistProfileId: string | null; altText: string; variants: readonly { kind: GalleryVariantKind; path: string; width: number; height: number; mimeType: "image/webp"; byteSize: number }[] }>;
-export type GalleryDraftRow = Readonly<{ thumbnailHandle: string; target: GalleryTarget; artistProfileId: string | null; artistDisplayName: string | null; altText: string; position: number; width: number; height: number }>;
+export type GalleryDraftRow = Readonly<{ thumbnailHandle: string; status: "DRAFT" | "PUBLISHING" | "PUBLISHED" | "RETIRING"; target: GalleryTarget; artistProfileId: string | null; artistDisplayName: string | null; altText: string; position: number; width: number; height: number }>;
 export type GalleryDraftView = GalleryDraftRow;
 export type GalleryMoveDirection = "MOVE_UP" | "MOVE_DOWN";
 

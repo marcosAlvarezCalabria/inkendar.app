@@ -39,7 +39,7 @@ describe("gallery service", () => {
   });
 
   it("lists only opaque thumbnail handles without signing URLs", async () => {
-    const repository: GalleryRepositoryPort = repositoryWith({ listDrafts: vi.fn().mockResolvedValue([{ thumbnailHandle: "90000000-0000-4000-8000-000000000001", target: "GALLERY", artistProfileId: null, artistDisplayName: null, altText: "Pieza", position: 1, width: 480, height: 320 }]) });
+    const repository: GalleryRepositoryPort = repositoryWith({ listDrafts: vi.fn().mockResolvedValue([{ thumbnailHandle: "90000000-0000-4000-8000-000000000001", status: "DRAFT", target: "GALLERY", artistProfileId: null, artistDisplayName: null, altText: "Pieza", position: 1, width: 480, height: 320 }]) });
     const storage: PrivateGalleryStoragePort = { upload: vi.fn(), remove: vi.fn(), sign: vi.fn() };
     const service = createGalleryService({ processor: { process: vi.fn() }, storage, repository, createId: () => assetId });
     const list = await service.list(studioId);

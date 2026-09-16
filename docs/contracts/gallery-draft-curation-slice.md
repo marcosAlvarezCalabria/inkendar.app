@@ -1,6 +1,6 @@
 # Curación privada de borradores de galería
 
-_Estado técnico: IN_PROGRESS local_
+_Estado técnico: DONE integrado mediante PR #27 y CI verde; sin prueba live_
 
 ## Requisito
 

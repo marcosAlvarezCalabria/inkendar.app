@@ -59,7 +59,7 @@ export function createSupabaseGalleryRepository(request: Request, environment: R
   const client = createServerClient(config.url, config.publishableKey, { cookies: { getAll: () => parseCookieHeader(request.headers.get("Cookie") ?? ""), setAll: () => undefined } });
   return new SupabaseGalleryRepository({
     createDraft: async (parameters) => { const { data, error } = await client.rpc("create_gallery_draft", parameters); return { data, error }; },
-    listDrafts: async (parameters) => { const { data, error } = await client.rpc("list_gallery_drafts_v2", parameters); return { data, error }; },
+    listDrafts: async (parameters) => { const { data, error } = await client.rpc("list_gallery_assets_v3", parameters); return { data, error }; },
     resolveThumbnail: async (parameters) => { const { data, error } = await client.rpc("resolve_gallery_thumbnail", parameters); return { data, error }; },
     updateDraft: async (parameters) => { const { data, error } = await client.rpc("update_gallery_draft", parameters); return { data, error }; },
     moveDraft: async (parameters) => { const { data, error } = await client.rpc("move_gallery_draft", parameters); return { data, error }; },
@@ -88,9 +88,11 @@ export async function listSupabaseGalleryArtists(request: Request, environment: 
 }
 
 function row(value: unknown): GalleryDraftRow {
-  const item = object(value), target = item.target;
+  const item = object(value), target = item.target, status = item.status;
   if (target !== "GALLERY" && target !== "ARTIST_PORTFOLIO") failed();
-  return { thumbnailHandle: string(item.thumbnail_handle), target, artistProfileId: nullableString(item.artist_profile_id), artistDisplayName: nullableString(item.artist_display_name), altText: string(item.alt_text), position: positive(item.position), width: positive(item.width), height: positive(item.height) };
+  if (status !== "DRAFT" && status !== "PUBLISHING" && status !== "PUBLISHED" && status !== "RETIRING") failed();
+  const result: GalleryDraftRow & Readonly<{ status: typeof status }> = { thumbnailHandle: string(item.thumbnail_handle), status, target, artistProfileId: nullableString(item.artist_profile_id), artistDisplayName: nullableString(item.artist_display_name), altText: string(item.alt_text), position: positive(item.position), width: positive(item.width), height: positive(item.height) };
+  return result;
 }
 function safePath(path: string): void { if (!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/(master|display|thumb)\.webp$/iu.test(path) || path.includes("..")) storageFailed(); }
 function object(value: unknown): Record<string, unknown> { if (!value || typeof value !== "object" || Array.isArray(value)) failed(); return value as Record<string, unknown>; }

@@ -1,16 +1,24 @@
 import { randomUUID } from "node:crypto";
-import { GalleryIngestionFailedError, GalleryMutationFailedError, InvalidGalleryInputError, createGalleryCurationService, createGalleryService } from "@inkendar/application";
-import { GALLERY_MAX_FILE_BYTES, SharpGalleryImageProcessor, createSupabaseGalleryRepository, createSupabasePrivateGalleryStorage, listSupabaseGalleryArtists } from "@inkendar/infrastructure";
+import { GalleryIngestionFailedError, GalleryMutationFailedError, GalleryPublicationFailedError, InvalidGalleryInputError, createGalleryCurationService, createGalleryPublicationService, createGalleryService } from "@inkendar/application";
+import { GALLERY_MAX_FILE_BYTES, SharpGalleryImageProcessor, createSupabaseGalleryPublicationRepository, createSupabaseGalleryPublicationStorage, createSupabaseGalleryRepository, createSupabasePrivateGalleryStorage, listSupabaseGalleryArtists } from "@inkendar/infrastructure";
 import type { AuthorizedAccess } from "@inkendar/domain";
 import { authHandlers, isTrustedMutationRequest, type AuthorizedRequestAccess } from "./auth.server.js";
 
 type Service = ReturnType<typeof createGalleryService>;
 type CurationService = ReturnType<typeof createGalleryCurationService>;
-type Dependencies = Readonly<{ authorize(request: Request): Promise<Response | AuthorizedRequestAccess>; createService(access: AuthorizedAccess, request: Request): Service; createCurationService?(access: AuthorizedAccess, request: Request): CurationService; listArtists?(request: Request): Promise<readonly { id: string; displayName: string }[]> }>;
+type PublicationService = ReturnType<typeof createGalleryPublicationService>;
+type Dependencies = Readonly<{
+  authorize(request: Request): Promise<Response | AuthorizedRequestAccess>;
+  createService(access: AuthorizedAccess, request: Request): Service;
+  createCurationService?(access: AuthorizedAccess, request: Request): CurationService;
+  createPublicationService?(access: AuthorizedAccess, request: Request): PublicationService;
+  listArtists?(request: Request): Promise<readonly { id: string; displayName: string }[]>;
+}>;
 const defaults: Required<Dependencies> = {
   authorize: (request) => authHandlers.requireRole(request, "OWNER"),
   createService: (_access, request) => createGalleryService({ processor: new SharpGalleryImageProcessor(), repository: createSupabaseGalleryRepository(request, process.env), storage: createSupabasePrivateGalleryStorage(process.env), createId: randomUUID }),
   createCurationService: (_access, request) => createGalleryCurationService(createSupabaseGalleryRepository(request, process.env)),
+  createPublicationService: (_access, request) => createGalleryPublicationService(createSupabaseGalleryPublicationRepository(request, process.env), () => createSupabaseGalleryPublicationStorage(process.env)),
   listArtists: (request) => listSupabaseGalleryArtists(request, process.env),
 };
 
@@ -53,12 +61,19 @@ export function createOwnerGalleryHandlers(dependencies: Dependencies = defaults
           if (!urlEncoded) throw new InvalidGalleryInputError();
           exactFields(form, ["intent", "handle"]);
           await curation(dependencies, authorization.access, request).discard(required(form, "handle"));
+        } else if (intent === "PUBLISH" || intent === "RETIRE") {
+          if (!urlEncoded) throw new InvalidGalleryInputError();
+          exactFields(form, ["intent", "handle"]);
+          const service = publication(dependencies, authorization.access, request);
+          if (intent === "PUBLISH") await service.publish(required(form, "handle"));
+          else await service.retire(required(form, "handle"));
         } else throw new InvalidGalleryInputError();
         return redirect(headers);
       } catch (error) {
         if (error instanceof InvalidGalleryInputError) return Response.json({ error: "Revisa los datos del formulario." }, { status: 400, headers });
         if (error instanceof GalleryIngestionFailedError) return Response.json({ error: "No se pudo guardar la imagen." }, { status: 500, headers });
         if (error instanceof GalleryMutationFailedError) return Response.json({ error: "No se pudo actualizar el borrador." }, { status: 500, headers });
+        if (error instanceof GalleryPublicationFailedError) return Response.json({ error: "No se pudo cambiar la publicación." }, { status: 500, headers });
         return Response.json({ error: "No se pudo guardar la imagen." }, { status: 500, headers });
       }
     },
@@ -66,6 +81,7 @@ export function createOwnerGalleryHandlers(dependencies: Dependencies = defaults
 }
 export const ownerGalleryHandlers = createOwnerGalleryHandlers();
 function curation(dependencies: Dependencies, access: AuthorizedAccess, request: Request): CurationService { return (dependencies.createCurationService ?? dependencies.createService)(access, request); }
+function publication(dependencies: Dependencies, access: AuthorizedAccess, request: Request): PublicationService { return (dependencies.createPublicationService ?? defaults.createPublicationService)(access, request); }
 function required(form: FormData, name: string): string { const values = form.getAll(name); if (values.length !== 1 || typeof values[0] !== "string" || values[0].length > 4096) throw new InvalidGalleryInputError(); return values[0]; }
 function optional(form: FormData, name: string): string | null { const values = form.getAll(name); if (values.length === 0) return null; if (values.length !== 1 || typeof values[0] !== "string" || values[0].length > 4096) throw new InvalidGalleryInputError(); return values[0]; }
 function singleFile(form: FormData, name: string): File { const values = form.getAll(name); if (values.length !== 1 || !(values[0] instanceof File)) throw new InvalidGalleryInputError(); return values[0]; }
