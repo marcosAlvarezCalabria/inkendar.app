@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import type { BookingNotificationClaim, BookingNotificationRepositoryPort } from "@inkendar/application";
-import { normalizeExternalConversationId, normalizeResourceId } from "@inkendar/domain";
+import { normalizeCustomerEmail, normalizeExternalConversationId, normalizeResourceId } from "@inkendar/domain";
 
 type Result = Readonly<{ data: unknown; error: unknown }>;
 export interface BookingNotificationDataGateway {
@@ -48,16 +48,31 @@ export class SupabaseBookingNotificationRepository implements BookingNotificatio
     if (eventType !== "CONFIRMED" && eventType !== "EXPIRED") failed();
     const attemptCount = row.attempt_count;
     if (typeof attemptCount !== "number" || !Number.isInteger(attemptCount) || attemptCount < 1 || attemptCount > 3) failed();
-    return {
+    const common = {
       kind: "CLAIMED",
       jobId,
       studioId: resource(row.studio_id),
       eventType,
       attemptCount,
       leaseId: resource(row.lease_id),
-      externalAccountId: external(row.external_account_id),
-      externalConversationId: external(row.external_conversation_id),
-    };
+    } as const;
+    if (row.delivery_channel === "CHATWOOT") {
+      return {
+        ...common,
+        route: {
+          kind: "CHATWOOT",
+          externalAccountId: external(row.external_account_id),
+          externalConversationId: external(row.external_conversation_id),
+        },
+      };
+    }
+    if (row.delivery_channel === "EMAIL") {
+      return {
+        ...common,
+        route: { kind: "EMAIL", recipient: email(row.customer_email) },
+      };
+    }
+    failed();
   }
 
   markSucceeded(jobId: string, leaseId: string, externalMessageId: string, nowUtc: string): Promise<void> {
@@ -69,8 +84,11 @@ export class SupabaseBookingNotificationRepository implements BookingNotificatio
   markUnknown(jobId: string, leaseId: string, nowUtc: string): Promise<void> {
     return this.transition(jobId, leaseId, "UNKNOWN", null, null, nowUtc);
   }
+  markNoRoute(jobId: string, leaseId: string, nowUtc: string): Promise<void> {
+    return this.transition(jobId, leaseId, "NO_ROUTE", null, null, nowUtc);
+  }
 
-  private async transition(jobId: string, leaseId: string, status: "SUCCEEDED" | "FAILED" | "UNKNOWN", externalMessageId: string | null, nextAttemptAt: string | null, nowUtc: string): Promise<void> {
+  private async transition(jobId: string, leaseId: string, status: "SUCCEEDED" | "FAILED" | "UNKNOWN" | "NO_ROUTE", externalMessageId: string | null, nextAttemptAt: string | null, nowUtc: string): Promise<void> {
     const result = await this.data.transition({
       p_job_id: jobId,
       p_lease_id: leaseId,
@@ -104,5 +122,12 @@ function resource(value: unknown): string {
 }
 function external(value: unknown): string {
   try { return normalizeExternalConversationId(string(value)); } catch { failed(); }
+}
+function email(value: unknown): string {
+  try {
+    const normalized = normalizeCustomerEmail(string(value));
+    if (!normalized) failed();
+    return normalized;
+  } catch { failed(); }
 }
 function failed(): never { throw new SupabaseBookingNotificationError(); }

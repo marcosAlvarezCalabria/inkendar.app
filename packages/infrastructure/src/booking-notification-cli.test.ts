@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { ConversationProviderUnavailableError } from "@inkendar/application";
-import { createChatwootNotificationProviderFactory, parseBookingNotificationSchedulerCommand } from "./booking-notification-cli.js";
+import {
+  SMTP_CONNECTIONS_ENVIRONMENT_VARIABLE,
+  createChatwootNotificationProviderFactory,
+  parseBookingNotificationSchedulerCommand,
+} from "./booking-notification-cli.js";
 
 const connection = JSON.stringify([{
   connectionId: "synthetic-connection",
@@ -13,6 +17,10 @@ const connection = JSON.stringify([{
 }]);
 
 describe("booking notification scheduler CLI", () => {
+  it("uses one explicit server-only environment variable for per-studio SMTP configuration", () => {
+    expect(SMTP_CONNECTIONS_ENVIRONMENT_VARIABLE).toBe("INKENDAR_SMTP_CONNECTIONS_JSON");
+  });
+
   it("uses portable bounded defaults and explicit numeric overrides", () => {
     expect(parseBookingNotificationSchedulerCommand([])).toEqual({ batchSize: 25, leaseSeconds: 60, timeBudgetMs: 20_000 });
     expect(parseBookingNotificationSchedulerCommand(["--batch-size", "10", "--lease-seconds", "30", "--time-budget-ms", "5000"])).toEqual({ batchSize: 10, leaseSeconds: 30, timeBudgetMs: 5_000 });

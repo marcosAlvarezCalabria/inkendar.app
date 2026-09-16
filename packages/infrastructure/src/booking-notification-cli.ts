@@ -6,6 +6,7 @@ import {
 } from "@inkendar/application";
 
 import { ChatwootConversationAdapter, ChatwootConnections } from "./chatwoot-conversations.js";
+import { createSmtpBookingNotificationProviderFactory } from "./smtp-booking-notifications.js";
 import { createSupabaseBookingNotificationRepository } from "./supabase-booking-notifications.js";
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
@@ -13,6 +14,7 @@ type Route = Readonly<{ studioId: string; externalAccountId: string; externalCon
 type Options = Readonly<{ batchSize: number; leaseSeconds: number; timeBudgetMs: number }>;
 
 const DEFAULTS: Options = { batchSize: 25, leaseSeconds: 60, timeBudgetMs: 20_000 };
+export const SMTP_CONNECTIONS_ENVIRONMENT_VARIABLE = "INKENDAR_SMTP_CONNECTIONS_JSON";
 const OPTION_NAMES = new Map<string, keyof Options>([
   ["--batch-size", "batchSize"],
   ["--lease-seconds", "leaseSeconds"],
@@ -56,7 +58,10 @@ export async function runBookingNotificationScheduler(
   const options = parseBookingNotificationSchedulerCommand(args);
   const repository = createSupabaseBookingNotificationRepository(environment);
   const providerFor = createChatwootNotificationProviderFactory(environment.INKENDAR_CHATWOOT_CONNECTIONS_JSON);
-  const summary = await createBookingNotificationRunner({ repository, providerFor }).run(options);
+  const emailProviderFor = createSmtpBookingNotificationProviderFactory(
+    environment[SMTP_CONNECTIONS_ENVIRONMENT_VARIABLE],
+  );
+  const summary = await createBookingNotificationRunner({ repository, providerFor, emailProviderFor }).run(options);
   write(JSON.stringify({ status: "completed", ...summary }));
 }
 
