@@ -48,13 +48,13 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | Operación dentro de Inkendar | `IN_PROGRESS` | Contrato técnico `DONE`: bandeja paginada, mensajes incrementales, respuesta idempotente, vínculo cliente/caso y webhook firmado; el run 34883809683 pasó 156 pruebas, build, migraciones limpias, pgTAP y smoke Auth/RLS. Falta el recorrido live de la PWA con una conexión Chatwoot sintética. |
 | PWA y autenticación | `PASS` | Login email/password, cookies SSR, guards, logout y shells OWNER/ARTIST pasaron `npm run check` con 75 pruebas y un smoke Auth/RLS real con ambos roles en el job `database` del [run 34762663413](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34762663413). El service worker continúa fuera del slice y la suspensión explícita de accesos sigue pendiente. |
 | Clientes y casos de tatuaje | `PASS` | Dominio, aplicación, adaptador Supabase y UI SSR OWNER pasaron `npm run check` con 97 pruebas; migración limpia, seed y 58 aserciones pgTAP del slice pasaron dentro de las 117 aserciones del job `database` en el [run 34774972933](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34774972933). |
-| Agenda privada ARTIST | `IN_PROGRESS` | La agenda SSR read-only, RPC mínima tenant-safe y 27 aserciones pgTAP están verificadas localmente; revisión independiente, PR y CI pendientes. No se ejecutó prueba live ni se añadieron mutaciones de agenda; el único formulario del shell es el logout global. |
+| Agenda privada ARTIST | `DONE` | El PR #25 y CI verde integraron la agenda SSR read-only, RPC mínima tenant-safe y 27 aserciones pgTAP. No se ejecutó prueba live ni se añadieron mutaciones de agenda; el único formulario del shell es el logout global. |
 | Alta manual gestionada | `PASS` | El CLI de servidor, Auth Admin, compensación y RPC idempotentes pasaron 32 pruebas enfocadas, `npm run check` con 38 pruebas y 21 aserciones pgTAP dentro del job `database` [run 34756137292](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34756137292). No incluye login, sesión ni UI de autenticación. |
 | Flujo de entrega y CI | `PASS` | `main` exige PR, los checks `validate` y `database`, conversaciones resueltas e historial lineal; ambos jobs pasaron tras integrar el [PR #10](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/10) en el [run 34895446647](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34895446647). |
 | Memoria de agentes | `PASS` | Engram 1.20.0 guarda y recupera memoria del proyecto `inkendar.app`; Codex MCP está configurado y requiere reinicio para cargarlo en nuevos chats. |
 | Supabase y aislamiento multi-tenant | `PASS` | La migración, el seed sintético y las 38 aserciones pgTAP pasaron contra Supabase/Postgres real en GitHub Actions [run 34752758528](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34752758528). |
 | Google Calendar y booking | `IN_PROGRESS` | OAuth/asignación, disponibilidad, ofertas/holds, acceso, selección pública y confirmación recuperable están técnicamente `DONE`. El 2026-09-16 una prueba live sintética verificó FreeBusy, oferta, selección, evento y reconciliación sin duplicados. Scheduler Chatwoot y fallback SMTP quedaron integrados mediante los PR #23 y #24 con CI verde; no existe prueba live de notificaciones. Rechazos y recordatorios siguen pendientes. |
-| Galería, portfolios y publicación web | `PLANNED` | No existe todavía el almacenamiento, feed público ni componente de integración. |
+| Galería, portfolios y publicación web | `IN_PROGRESS` | Existe localmente la ingestión OWNER privada: validación por decoder, master sanitizada y variantes WebP, asignación tenant-safe y listado SSR con thumbnails firmadas. Revisión, PR y CI están pendientes; publicación, feed, CDN y componente aún no existen. |
 | Piloto externo y disposición a pagar | `PLANNED` | No existe todavía evidencia de uso real autorizado ni pago. |
 
 ## Registro de decisiones
@@ -104,6 +104,7 @@ La arquitectura técnica está en [Arquitectura de aplicación](../architecture/
 
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
+| 2026-09-16 | 1.17.0 | Se implementó localmente la ingestión privada OWNER de galería y portfolios: límites 10 MiB/12000 px/40 MP, rechazo de animación, re-encode WebP sin metadata, master sanitizada, display/thumb sin upscale, Storage privado con compensación, RPC ligada a `auth.uid()` y listado SSR con firma de 60 segundos. Publicación y feed siguen fuera de alcance; revisión, PR y CI pendientes. La agenda ARTIST quedó integrada mediante PR #25 y CI verde, sin atribuir prueba live. | Preparar contenido privado tenant-safe antes de abrir cualquier superficie pública y sincronizar el gate real de agenda. |
 | 2026-09-16 | 1.16.0 | Se implementó localmente la agenda SSR privada y read-only de ARTIST con salida mínima, límite 50, frontera inclusiva de próximas citas, zona explícita y RPC tenant-safe; revisión, PR y CI siguen pendientes. La UI no ofrece mutaciones de agenda y conserva únicamente el logout global de seguridad de sesión. El fallback SMTP se sincronizó con su integración mediante PR #24 y CI verde, sin atribuirle prueba live. | Preparar al artista con el contexto estrictamente necesario sin acceso a conversaciones, PII, IDs, Google o mutaciones de agenda y eliminar estado documental obsoleto. |
 | 2026-09-16 | 1.15.0 | Se implementó localmente el fallback SMTP server-only por estudio: Chatwoot sigue siendo preferido, email se obtiene tenant-safe solo en memoria, falta de ruta/configuración termina `NO_ROUTE`, y rechazos/ambigüedades conservan `FAILED`/`UNKNOWN`. Revisión, PR/CI y prueba live siguen pendientes. | Completar el canal de respaldo con transporte estándar y seguro sin persistir destinatarios, contenido ni credenciales y sin escoger un SaaS de email. |
 | 2026-09-16 | 1.14.0 | Se implementó e integró mediante el PR #23 el primer corte server-only de notificaciones y scheduler: intención única al confirmar/caducar, expiración global acotada que preserva `INSERTING`/`CONFIRMED`, ruta Chatwoot original inequívoca, leases, reintentos acotados y terminales `UNKNOWN`/`NO_ROUTE`. PR y CI pasaron; la prueba live sigue pendiente. | Hacer observable y recuperable el aviso de booking sin asumir idempotencia de Chatwoot, persistir contenido ni elegir hosting cron. |
@@ -348,6 +349,15 @@ And una imagen retirada deja de aparecer después de invalidar la caché acordad
 #### Galería y portfolios
 
 ```gherkin
+Given un owner autenticado que sube una imagen válida como borrador
+When la asigna a la galería general o al portfolio de un artista de su estudio
+Then Inkendar verifica bytes y decoder con límites de 10 MiB, 12000 px y 40 megapíxeles
+And rechaza animación, multipágina, corrupción y formatos ajenos
+And guarda solo una master sanitizada y variantes WebP privadas sin upscale
+And la lista con miniatura firmada durante 60 segundos sin exponer paths internos
+```
+
+```gherkin
 Given un owner autenticado que sube una imagen válida
 When asigna la imagen a la galería o al portfolio de un artista y la publica
 Then Inkendar valida formato, peso y resolución
@@ -381,7 +391,7 @@ El desarrollo técnico con datos sintéticos puede comenzar mientras se completa
 1. Completar en paralelo la prueba bidireccional de Facebook Messenger.
 2. Validar, con autorización explícita y cuentas sintéticas, los recorridos live de Chatwoot, Google FreeBusy, Google Events y booking; OAuth, listado y asignación live ya pasaron.
 3. Validar live el recorrido completo de notificaciones/scheduler ya integrado y completar avisos todavía fuera de alcance.
-4. Revisar e integrar la vista de artista; después añadir galería y portfolios administrados por el owner.
+4. Revisar e integrar la ingestión privada de galería y portfolios OWNER; la vista ARTIST ya quedó integrada mediante PR #25.
 5. Implementar el feed público y probarlo en una web nueva y otra existente.
 6. Verificar privacidad, exportación, monitorización y onboarding antes de datos reales.
 7. Ejecutar el recorrido completo con un estudio piloto cualificado antes de cobrar.
