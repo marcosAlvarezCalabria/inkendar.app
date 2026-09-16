@@ -13,7 +13,7 @@ Given un OWNER autenticado y un asset DRAFT de su estudio identificado en el nav
 When edita el texto alternativo y el destino mediante una petición POST same-origin
 Then Inkendar normaliza el texto alternativo a 1..160 caracteres
 And permite GALLERY sin artista o ARTIST_PORTFOLIO con un artista del mismo estudio
-And si cambia de grupo asigna el asset al final del nuevo grupo bajo locks de ambos grupos
+And si cambia de grupo asigna el asset al final del nuevo grupo bajo el lock común del estudio
 And responde con PRG 303 sin exponer IDs internos, paths, URLs firmadas ni datos del proveedor
 ```
 

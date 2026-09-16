@@ -364,7 +364,7 @@ And ninguna URL firmada, token, bucket, path o ID interno aparece en HTML
 Given un owner autenticado y borradores DRAFT de su estudio
 When edita el alt o destino, los mueve un paso o descarta uno desde /app/owner/gallery
 Then Inkendar resuelve el asset solo por handle opaco y auth.uid()
-And serializa reasignación y reorder por grupo sin afectar otros tenants
+And create, reasignación, reorder y descarte toman primero un lock común por estudio antes de row locks, sin bloquear estudios distintos
 And el descarte conserva metadata y objetos privados como DISCARDED
 And solo los DRAFT continúan en el listado y el proxy de miniaturas
 ```
