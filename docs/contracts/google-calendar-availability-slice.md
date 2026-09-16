@@ -1,6 +1,6 @@
 # Contrato técnico: disponibilidad Google Calendar por artista
 
-_Estado técnico: `DONE`. La prueba live de FreeBusy permanece `IN_PROGRESS`._
+_Estado técnico: `DONE`. FreeBusy live quedó verificado con datos sintéticos el 2026-09-16._
 
 ## Alcance
 
@@ -26,4 +26,6 @@ Fuentes oficiales: [Freebusy.query](https://developers.google.com/workspace/cale
 
 El [PR #12](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/12) verificó dominio, aplicación, adaptadores, handlers y UI SSR: `pnpm run check` pasó con 215 pruebas, un skip de integración esperado, lint, typecheck y build. El job `database` del [run 34963263821](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34963263821) aplicó todas las migraciones desde cero y pasó las 27 aserciones pgTAP del slice dentro de 232, además del smoke Auth/RLS. Tras el squash, `main` volvió a pasar `validate` y `database` en el [run 34963531466](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34963531466).
 
-El 2026-09-15 el usuario verificó localmente con owner sintético: callback `result=connected`, listado live de calendarios y asignación de un calendario dedicado a `Local Artist` con `result=assignment-saved`. Esto acredita OAuth/listado/asignación live. FreeBusy, eventos y booking continúan `IN_PROGRESS` hasta una prueba live posterior; las pruebas de implementación usan solo datos sintéticos.
+El 2026-09-15 el usuario verificó localmente con owner sintético: callback `result=connected`, listado live de calendarios y asignación de un calendario dedicado a `Local Artist` con `result=assignment-saved`. Esto acredita OAuth/listado/asignación live.
+
+El 2026-09-16 una prueba live completamente sintética verificó una conexión `ACTIVE` con los tres scopes de Calendar y el calendario dedicado asignado a `Local Artist` con rol apto `writer` u `owner`. Con reglas `Europe/Dublin`, miércoles 13:00–17:00, incremento de 60 minutos y buffers cero, un evento manual ocupado de 14:00–15:00 hora local fue devuelto por FreeBusy como 13:00–14:00 UTC y quedó excluido. Los candidatos resultantes fueron exactamente 12:00–13:00, 14:00–15:00 y 15:00–16:00 UTC. La prueba acredita FreeBusy live y la conversión local/UTC para este escenario; no acredita notificaciones, scheduler, excepciones por fecha ni otros escenarios de zona horaria o DST.

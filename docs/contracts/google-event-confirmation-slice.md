@@ -1,6 +1,6 @@
 # Contrato técnico: confirmación recuperable con Google Calendar
 
-_Estado técnico: `DONE`. El [PR #20](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/20) y el CI posterior al merge verificaron exclusión mutua externa, binding durable, ACL privada, CAS de credencial, recuperación de `INSERTING` después de la caducidad original y serialización con la creación posterior de ofertas. La prueba live de Google Events y del booking extremo a extremo permanece `IN_PROGRESS`._
+_Estado técnico: `DONE`. El [PR #20](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/20) y el CI posterior al merge verificaron exclusión mutua externa, binding durable, ACL privada, CAS de credencial, recuperación de `INSERTING` después de la caducidad original y serialización con la creación posterior de ofertas. Google Events, la confirmación preaprobada y la reconciliación sin duplicados quedaron verificadas live con datos sintéticos el 2026-09-16; notificaciones y scheduler permanecen pendientes._
 
 ## Necesidad y alcance
 
@@ -174,4 +174,8 @@ La evidencia anterior quedó obsoleta tras los defectos encontrados en revisión
 
 El [PR #20](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/20) integró el candidato como `676aa68088d13ada1474fb029d51d4eee1c3993f`. El [run de PR 35031807319](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/35031807319) y el [run post-merge 35032036887](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/35032036887) pasaron `validate` y `database`; este último levantó Supabase desde cero, aplicó toda la cadena de migraciones, ejecutó pgTAP y verificó Auth/RLS.
 
-No se usaron credenciales ni cuenta Google y no se ejecutó una prueba live. Google Events live, el recorrido extremo a extremo, las notificaciones y el scheduler permanecen `IN_PROGRESS`.
+El CI anterior no usó credenciales ni cuenta Google y no ejecutó una prueba live. Esa limitación quedó cubierta por una prueba operativa separada el 2026-09-16, realizada únicamente con datos sintéticos y sin registrar secretos ni identificadores externos.
+
+La prueba partió de una conexión `ACTIVE` con los tres scopes, un calendario dedicado asignado a `Local Artist` con rol `writer` u `owner`, un cliente/caso sintéticos, el caso `OPEN` y una oferta preaprobada con una única opción de 14:00–15:00 UTC. Tras emitir el enlace, la selección pública devolvió `CONFIRMED`. Google contenía exactamente un evento correlacionado, con título `Cita Inkendar`, `visibility=private`, `transparency=opaque`, cero asistentes e intervalo 14:00–15:00 UTC. Un reintento ejecutado como `RECONCILE_ONLY` conservó exactamente ese único evento y no creó duplicados.
+
+La persistencia final mostró oferta y opción `CONFIRMED`, una `appointment`, una `appointment_google_event` y una operación `FINALIZED`. Esto acredita el recorrido live de oferta preaprobada, enlace, selección pública, confirmación Google y reconciliación idempotente para el escenario probado. No acredita notificaciones, scheduler, elección libre, aprobación posterior del OWNER, edición o cancelación de eventos.
