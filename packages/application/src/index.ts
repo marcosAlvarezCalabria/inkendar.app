@@ -12,3 +12,4 @@ export * from "./gallery-publication.js";
 export * from "./manual-onboarding.js";
 export * from "./public-gallery.js";
 export * from "./availability.js";
+export * from "./free-choice-availability.js";
