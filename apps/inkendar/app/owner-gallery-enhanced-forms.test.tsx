@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 import type * as ReactRouterModule from "react-router";
 import { describe, expect, it, vi } from "vitest";
-import { OwnerGalleryView } from "./routes/owner-gallery.js";
+import { headers, OwnerGalleryView } from "./routes/owner-gallery.js";
 
 vi.mock("react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof ReactRouterModule>();
@@ -14,6 +14,14 @@ vi.mock("react-router", async (importOriginal) => {
 });
 
 describe("OwnerGalleryView mutation transport", () => {
+  it("preserves same-origin context for native form posts before hydration", () => {
+    const responseHeaders = new Headers(headers());
+
+    expect(responseHeaders.get("Referrer-Policy")).toBe("same-origin");
+    expect(responseHeaders.get("Cache-Control")).toBe("private, no-store");
+    expect(responseHeaders.get("X-Content-Type-Options")).toBe("nosniff");
+  });
+
   it("uses React Router enhanced forms for every gallery mutation", () => {
     const statuses = ["DRAFT", "PUBLISHING", "PUBLISHED", "RETIRING"] as const;
     const drafts = statuses.map((status, index) => ({
