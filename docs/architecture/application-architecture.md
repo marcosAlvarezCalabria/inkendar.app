@@ -222,7 +222,7 @@ Calcula opciones con jornada, duración, márgenes, zona horaria y ocupación re
 
 ### Contenido web y portfolios
 
-_Estado técnico: ingestión, curación y publicación/retirada `DONE` mediante los PR #26, #27 y #28 con CI verde, sin evidencia live de Storage. El feed/API público está `IN_PROGRESS` local con `pnpm check` verde (462 pruebas y build); pgTAP no se ejecutó porque Docker local no estaba disponible. El web component y la invalidación CDN específica permanecen pendientes._
+_Estado técnico: ingestión, curación, publicación/retirada y feed/API público `DONE` mediante los PR #26, #27, #28 y #29 con CI verde, sin evidencia live de Storage. El web component está `IN_PROGRESS` local con pruebas y asset reproducible; revisión/CI, prueba en una web nueva y otra existente e invalidación CDN específica permanecen pendientes._
 
 `/app/owner/gallery` autoriza OWNER antes de componer persistencia o Storage, exige multipart same-origin y no acepta tenant ni identidad del navegador. Dominio normaliza alt de 1..160 y destino; aplicación coordina tres objetos privados y solo persiste después de completar uploads. Ante cualquier fallo intenta retirar todos los paths opacos; una respuesta ambigua puede dejar un huérfano privado para reconciliación, nunca una fila completa o contenido publicado.
 
@@ -242,7 +242,9 @@ La lectura pública añade UUID públicos e inmutables separados para estudio y 
 
 `GET | HEAD /api/public/studios/:studioSlug/gallery` expone únicamente assets `PUBLISHED`, separados en `gallery_images` y `portfolio_images` por artista. Cada imagen contiene `public_id`, URLs públicas DISPLAY/THUMB WebP versionadas, dimensiones, alt, posición y fecha de publicación; no contiene IDs internos, usuarios, clientes, conversaciones, calendarios, masters, paths privados ni binding como campo. El orden es estable y el adaptador descarta cualquier campo adicional de persistencia.
 
-La respuesta JSON permite CORS sin credenciales, usa ETag fuerte y conditional GET, cabeceras defensivas y `Cache-Control: public, max-age=60, s-maxage=60, must-revalidate`. `RETIRING`, `RETIRED`, `PUBLISHING`, `DRAFT` y `DISCARDED` quedan fuera en origen; los 60 segundos acotan la caché por debajo de los 300 s de objetos. Un limitador en memoria acotada permite 120 solicitudes por slug y minuto en cada proceso y devuelve métricas/429; edge/CDN podrá reforzarlo cuando se elija hosting. El web component sigue fuera de este slice.
+La respuesta JSON permite CORS sin credenciales, usa ETag fuerte y conditional GET, cabeceras defensivas y `Cache-Control: public, max-age=60, s-maxage=60, must-revalidate`. `RETIRING`, `RETIRED`, `PUBLISHING`, `DRAFT` y `DISCARDED` quedan fuera en origen; los 60 segundos acotan la caché por debajo de los 300 s de objetos. Un limitador en memoria acotada permite 120 solicitudes por slug y minuto en cada proceso y devuelve métricas/429; edge/CDN podrá reforzarlo cuando se elija hosting.
+
+`<inkendar-gallery>` vive en un paquete sin framework y se compila antes de la aplicación al asset ESM estable `/inkendar-gallery.js`. Su Shadow DOM consume únicamente el feed anterior con `credentials: omit`, deriva el origen API de `import.meta.url` o del atributo opcional validado `api-origin`, valida el DTO y las URLs públicas, y representa galería/portfolios con THUMB/DISPLAY responsivos y estados accesibles. No importa adaptadores server-only, no persiste datos ni contiene analytics. El contrato público y las variables CSS admitidas están en [Web component público de galería](../contracts/gallery-web-component-slice.md).
 
 ### Notificaciones
 

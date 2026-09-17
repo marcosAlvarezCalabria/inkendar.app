@@ -1,0 +1,13 @@
+{
+  "name": "@inkendar/gallery-web-component",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node scripts/verify-artifact.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "happy-dom": "20.14.5"
+  }
+}
