@@ -19,6 +19,7 @@ select
   (select public_slug from public.studio where id='20000000-0000-0000-0000-000000000001') studio_one,
   (select public_slug from public.studio where id='20000000-0000-0000-0000-000000000002') studio_two,
   (select public_slug from public.artist_profile where id='50000000-0000-0000-0000-000000000001') artist_one;
+grant select on feed_slugs to service_role, anon, authenticated;
 
 insert into public.gallery_asset(id,public_id,studio_id,target,artist_profile_id,alt_text,position,status,published_at,updated_at) values
 ('63000000-0000-4000-8000-000000000101','93000000-0000-4000-8000-000000000101','20000000-0000-0000-0000-000000000001','GALLERY',null,'Published gallery',101,'PUBLISHED','2026-09-17T09:00:00Z','2026-09-17T09:00:00Z'),
