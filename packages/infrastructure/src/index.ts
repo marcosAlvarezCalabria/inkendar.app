@@ -20,4 +20,5 @@ export * from "./gallery-thumbnail-reader.js";
 export * from "./gallery-publication-storage.js";
 export * from "./supabase-gallery.js";
 export * from "./supabase-gallery-publication.js";
+export * from "./supabase-public-gallery.js";
 export * from "./supabase-availability.js";

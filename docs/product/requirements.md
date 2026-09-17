@@ -2,7 +2,7 @@
 
 _Estado: índice activo subordinado a la especificación viva_
 
-_Última actualización: 2026-09-16_
+_Última actualización: 2026-09-17_
 
 Los contratos y criterios completos están en la [Especificación de Inkendar](sellable-mvp-spec.md). El backlog anterior se retiró porque mezclaba `owner`, `manager` y `artist` con permisos incompatibles y mantenía WhatsApp dentro del producto. El historial de Git conserva ese material para consulta histórica.
 
@@ -20,6 +20,7 @@ Los contratos y criterios completos están en la [Especificación de Inkendar](s
 10. Permitir que el owner ingiera, edite, reasigne, ordene y descarte de forma recuperable borradores privados de galería y portfolios; la publicación posterior alimentará un feed público de solo lectura.
 11. No conservar bytes originales inseguros: mantener una master privada sanitizada, eliminar metadatos sensibles y generar variantes optimizadas sin upscale.
 12. Registrar auditoría y mostrar fallos de integración sin comunicar éxitos falsos.
+13. Resolver cada galería por un slug público estable y entregar solo assets `PUBLISHED`, separados entre galería y portfolios, sin IDs internos, masters, rutas privadas, bindings ni datos operativos.
 
 ## Requisitos de ingeniería
 

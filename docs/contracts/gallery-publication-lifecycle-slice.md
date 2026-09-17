@@ -1,6 +1,6 @@
 # Publicación y retirada recuperable de galería
 
-_Estado técnico: IN_PROGRESS local_
+_Estado técnico: DONE integrado mediante PR #28 y CI verde; sin prueba live de Storage_
 
 ## Requisito
 
