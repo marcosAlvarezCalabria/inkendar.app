@@ -22,6 +22,8 @@ Los contratos y criterios completos están en la [Especificación de Inkendar](s
 12. Registrar auditoría y mostrar fallos de integración sin comunicar éxitos falsos.
 13. Resolver cada galería por un slug público estable y entregar solo assets `PUBLISHED`, separados entre galería y portfolios, sin IDs internos, masters, rutas privadas, bindings ni datos operativos.
 
+14. Permitir instalar la galería en HTML, WordPress o constructores compatibles mediante `<inkendar-gallery>`, sin framework ni credenciales, con origen Inkendar explícito o derivado del asset y personalización visual limitada a variables CSS documentadas.
+
 ## Requisitos de ingeniería
 
 - Monolito modular TypeScript con dependencias dirigidas hacia dominio y aplicación.

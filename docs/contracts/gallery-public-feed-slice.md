@@ -1,6 +1,6 @@
 # Feed público de galería
 
-_Estado técnico: IN_PROGRESS local; `pnpm check` verde con 462 pruebas y build; pgTAP no ejecutado por Docker local no disponible_
+_Estado técnico: `DONE`; integrado mediante PR #29 en `main` con los checks `validate` y `database` verdes, sin evidencia live de Storage_
 
 ## Requisito
 

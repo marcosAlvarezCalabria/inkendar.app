@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "declaration": false,
+    "noEmit": false,
+    "outDir": "../../apps/inkendar/public",
+    "rootDir": "src",
+    "sourceMap": false,
+    "target": "ES2020"
+  },
+  "exclude": ["src/**/*.test.ts"]
+}
