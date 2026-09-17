@@ -8,7 +8,7 @@ export type GalleryLifecycleStatus = "DRAFT" | "PUBLISHING" | "PUBLISHED" | "RET
 export type OwnerGalleryItem = GalleryDraftView & Readonly<{ status: GalleryLifecycleStatus; thumbnailSrc: string }>;
 export type OwnerGalleryData = Readonly<{ artists: readonly GalleryArtistOption[]; drafts: readonly OwnerGalleryItem[]; discarded: readonly GalleryDiscardedRow[] }>;
 export function meta(): Route.MetaDescriptors { return [{ title: "Galería privada | Inkendar" }]; }
-export function headers() { return { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff" }; }
+export function headers() { return { "Cache-Control": "private, no-store", "Referrer-Policy": "same-origin", "X-Content-Type-Options": "nosniff" }; }
 export async function loader({ request }: Route.LoaderArgs) { return ownerGalleryHandlers.loader(request); }
 export async function action({ request }: Route.ActionArgs) { return ownerGalleryHandlers.action(request); }
 
