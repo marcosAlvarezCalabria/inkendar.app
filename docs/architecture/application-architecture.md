@@ -222,7 +222,7 @@ Calcula opciones con jornada, duración, márgenes, zona horaria y ocupación re
 
 ### Contenido web y portfolios
 
-_Estado técnico: ingestión, curación, publicación/retirada, feed/API público y web component `DONE` mediante los PR #26–#30 con CI verde, sin evidencia live de Storage. Restore OWNER está `IN_PROGRESS` local; prueba en una web nueva y otra existente e invalidación CDN específica permanecen pendientes._
+_Estado técnico: ingestión, curación, publicación/retirada, feed/API público, web component y restore OWNER quedaron integrados mediante los PR #26–#31 con CI verde. La prueba live sintética de restore del 2026-09-17 detectó deriva de posición y su corrección está `IN_PROGRESS` local. Sigue sin existir evidencia live de Storage; la prueba en una web nueva y otra existente e invalidación CDN específica permanecen pendientes._
 
 `/app/owner/gallery` autoriza OWNER antes de componer persistencia o Storage, exige multipart same-origin y no acepta tenant ni identidad del navegador. Dominio normaliza alt de 1..160 y destino; aplicación coordina tres objetos privados y solo persiste después de completar uploads. Ante cualquier fallo intenta retirar todos los paths opacos; una respuesta ambigua puede dejar un huérfano privado para reconciliación, nunca una fila completa o contenido publicado.
 
@@ -232,7 +232,7 @@ Sharp decodifica JPEG/PNG/WebP server-only con máximo 10 MiB, 12000×12000 y 40
 
 La curación usa formularios SSR sin JavaScript obligatorio y exactamente una intención `UPDATE | MOVE_UP | MOVE_DOWN | DISCARD` con campos exactos; los aliases anteriores se rechazan y `CREATE_DRAFT` permanece separado para ingestión. Editar normaliza alt y valida `GALLERY` sin artista o `ARTIST_PORTFOLIO` same-tenant. Create, update/reassign, move y discard toman primero un mismo advisory xact lock derivado solo de `studio_id`, antes de row locks; esta serialización por estudio elimina ciclos causados por snapshots obsoletos y mantiene estudios distintos independientes. La reasignación anexa al máximo existente. `MOVE_UP | MOVE_DOWN` intercambia con el DRAFT vecino mediante constraint diferida; en bordes no modifica nada. `DISCARD` cambia idempotentemente a `DISCARDED` y conserva privados. Solo DRAFT admite curación; el listado y proxy OWNER abarcan los cuatro estados activos.
 
-Restore añade la intención exacta `RESTORE` con formulario handle-only. El RPC auth-bound toma primero el mismo lock común por estudio y, tras bloquear la fila, permite solo `DISCARDED → DRAFT`; un retry ya `DRAFT` es no-op. La restauración conserva grupo, artista, alt, variantes y binding, y mueve el asset a `max(position)+1` de su grupo contando todos los estados para respetar el constraint. No compone `service_role` ni toca Storage.
+Restore añade la intención exacta `RESTORE` con formulario handle-only. El RPC auth-bound toma primero el mismo lock común por estudio y, tras bloquear la fila, permite solo `DISCARDED → DRAFT`; un retry ya `DRAFT` es no-op. La restauración conserva grupo, artista, alt, variantes, binding y exactamente la posición que la propia fila mantiene reservada mediante el constraint global de unicidad. No renumera assets, no compone `service_role` ni toca Storage.
 
 GC, hard delete y borrado de objetos siguen pendientes y bloqueados hasta definir retención, grace period y reconciliación que impida restaurar después de una purga. No se anticipan estados ni columnas para esa política.
 
