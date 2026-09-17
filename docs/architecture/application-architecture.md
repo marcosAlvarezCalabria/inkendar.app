@@ -2,7 +2,7 @@
 
 _Estado: aceptada_
 
-_Última actualización: 2026-09-16_
+_Última actualización: 2026-09-17_
 
 _La fuente de verdad del comportamiento y el alcance es [Especificación de Inkendar](../product/sellable-mvp-spec.md). Este documento explica cómo construirlo y debe actualizarse cuando cambie una frontera, dependencia o decisión técnica._
 
@@ -222,7 +222,7 @@ Calcula opciones con jornada, duración, márgenes, zona horaria y ocupación re
 
 ### Contenido web y portfolios
 
-_Estado técnico: ingestión y curación privadas `DONE` mediante los PR #26 y #27 con CI verde, sin prueba live; publicación/retirada recuperable `IN_PROGRESS` local. Feed público, CDN y componente permanecen fuera de este slice._
+_Estado técnico: ingestión, curación y publicación/retirada `DONE` mediante los PR #26, #27 y #28 con CI verde, sin evidencia live de Storage. El feed/API público está `IN_PROGRESS` local con `pnpm check` verde (462 pruebas y build); pgTAP no se ejecutó porque Docker local no estaba disponible. El web component y la invalidación CDN específica permanecen pendientes._
 
 `/app/owner/gallery` autoriza OWNER antes de componer persistencia o Storage, exige multipart same-origin y no acepta tenant ni identidad del navegador. Dominio normaliza alt de 1..160 y destino; aplicación coordina tres objetos privados y solo persiste después de completar uploads. Ante cualquier fallo intenta retirar todos los paths opacos; una respuesta ambigua puede dejar un huérfano privado para reconciliación, nunca una fila completa o contenido publicado.
 
@@ -236,11 +236,13 @@ La curación usa formularios SSR sin JavaScript obligatorio y exactamente una in
 
 Storage service-role se compone lazy únicamente tras auth OWNER, formulario exacto y begin con trabajo. Publicación descarga solo DISPLAY/THUMB privados WebP con tamaño persistido 1..10 MiB, timeout 3 s y sin redirects; nunca MASTER. Sube a `gallery-public` con paths `<publication-key>/<display|thumb>.webp`, `upsert:true` y cache 300 s. Retirada elimina esos dos objetos idempotentemente sin tocar privados. Un objeto aleatorio puede existir sin indexar durante PUBLISHING; el sistema no declara publicado antes de PUBLISHED ni promete invalidación CDN.
 
-El siguiente slice de lectura pública expondrá solo PUBLISHED mediante feed/API y componente, sin compartir tablas privadas ni aceptar escrituras públicas.
+La lectura pública añade UUID públicos e inmutables separados para estudio y artista. `get_public_studio_gallery` es una RPC `STABLE`, `SECURITY DEFINER`, con `search_path=''`, límite total 100 y ejecución exclusiva de `service_role`; `anon` y `authenticated` no leen tablas ni ejecutan la función. El resource route server-only resuelve solo el slug, valida y proyecta la respuesta, y nunca entrega la key de servicio al navegador.
 
 ### Entrega de contenido público
 
-Expone el contenido publicado mediante una API cacheable y un web component agnóstico del framework. Las webs creadas por Incamdi y las webs existentes consumen el mismo contrato. Este módulo no recibe escrituras públicas ni comparte tablas privadas.
+`GET | HEAD /api/public/studios/:studioSlug/gallery` expone únicamente assets `PUBLISHED`, separados en `gallery_images` y `portfolio_images` por artista. Cada imagen contiene `public_id`, URLs públicas DISPLAY/THUMB WebP versionadas, dimensiones, alt, posición y fecha de publicación; no contiene IDs internos, usuarios, clientes, conversaciones, calendarios, masters, paths privados ni binding como campo. El orden es estable y el adaptador descarta cualquier campo adicional de persistencia.
+
+La respuesta JSON permite CORS sin credenciales, usa ETag fuerte y conditional GET, cabeceras defensivas y `Cache-Control: public, max-age=60, s-maxage=60, must-revalidate`. `RETIRING`, `RETIRED`, `PUBLISHING`, `DRAFT` y `DISCARDED` quedan fuera en origen; los 60 segundos acotan la caché por debajo de los 300 s de objetos. Un limitador en memoria acotada permite 120 solicitudes por slug y minuto en cada proceso y devuelve métricas/429; edge/CDN podrá reforzarlo cuando se elija hosting. El web component sigue fuera de este slice.
 
 ### Notificaciones
 
