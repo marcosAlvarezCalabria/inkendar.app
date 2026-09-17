@@ -28,14 +28,21 @@ describe("OwnerGalleryView mutation transport", () => {
       width: 480,
       height: 320,
     }));
+    const discarded = [{
+      handle: "90000000-0000-4000-8000-000000000099",
+      target: "GALLERY" as const,
+      artistDisplayName: null,
+      altText: "Pieza recuperable",
+      discardedAt: "2026-09-17T10:00:00.000Z",
+    }];
     const html = renderToStaticMarkup(
-      <MemoryRouter><OwnerGalleryView data={{ artists: [], drafts }} /></MemoryRouter>,
+      <MemoryRouter><OwnerGalleryView data={{ artists: [], drafts, discarded }} /></MemoryRouter>,
     );
     const intents = [...html.matchAll(/name="intent" value="([A-Z_]+)"/gu)].map((match) => match[1]);
-    const expectedIntents = ["CREATE_DRAFT", "UPDATE", "MOVE_UP", "MOVE_DOWN", "DISCARD", "PUBLISH", "RETIRE"];
+    const expectedIntents = ["CREATE_DRAFT", "UPDATE", "MOVE_UP", "MOVE_DOWN", "DISCARD", "PUBLISH", "RETIRE", "RESTORE"];
 
     expect(new Set(intents)).toEqual(new Set(expectedIntents));
-    expect(html.match(/<form\b/gu)).toHaveLength(9);
-    expect(html.match(/data-router-form=""/gu)).toHaveLength(9);
+    expect(html.match(/<form\b/gu)).toHaveLength(10);
+    expect(html.match(/data-router-form=""/gu)).toHaveLength(10);
   });
 });

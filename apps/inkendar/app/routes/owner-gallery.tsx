@@ -38,7 +38,7 @@ function DiscardedGalleryItem({ item }: Readonly<{ item: GalleryDiscardedRow }>)
   return <li className="shell-panel gallery-draft-card">
     <h3>{item.altText}</h3>
     <p>Destino: {destination} · Descartado el <time dateTime={item.discardedAt}>{item.discardedAt.slice(0, 10)}</time></p>
-    <form method="post" className="record-form"><input type="hidden" name="intent" value="RESTORE" /><input type="hidden" name="handle" value={item.handle} /><button type="submit" className="secondary" aria-label={`Restaurar ${item.altText}`}>Restaurar borrador</button></form>
+    <Form method="post" className="record-form"><input type="hidden" name="intent" value="RESTORE" /><input type="hidden" name="handle" value={item.handle} /><button type="submit" className="secondary" aria-label={`Restaurar ${item.altText}`}>Restaurar borrador</button></Form>
   </li>;
 }
 
