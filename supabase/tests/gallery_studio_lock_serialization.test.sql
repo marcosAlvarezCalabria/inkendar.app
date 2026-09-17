@@ -1,5 +1,5 @@
 begin;
-select plan(12);
+select plan(13);
 
 select has_function('private','lock_gallery_studio',array['uuid'],'shared gallery studio lock helper exists');
 select is((
@@ -29,12 +29,17 @@ select ok(position('private.lock_gallery_studio' in pg_get_functiondef('public.d
   and position('private.lock_gallery_studio' in pg_get_functiondef('public.discard_gallery_draft(uuid)'::regprocedure))
     < position('for update' in lower(pg_get_functiondef('public.discard_gallery_draft(uuid)'::regprocedure))),
   'discard takes the studio lock before its row lock');
+select ok(position('private.lock_gallery_studio' in pg_get_functiondef('public.restore_gallery_draft(uuid)'::regprocedure))>0
+  and position('private.lock_gallery_studio' in pg_get_functiondef('public.restore_gallery_draft(uuid)'::regprocedure))
+    < position('for update' in lower(pg_get_functiondef('public.restore_gallery_draft(uuid)'::regprocedure))),
+  'restore takes the studio lock before its row lock');
 select ok(pg_get_functiondef('public.update_gallery_draft(uuid,text,text,uuid)'::regprocedure) !~* '[[:space:]]loop[[:space:]]','update cannot retain obsolete locks across a retry loop');
 select ok((
   pg_get_functiondef('public.create_gallery_draft(uuid,uuid,text,uuid,text,jsonb)'::regprocedure)
   ||pg_get_functiondef('public.update_gallery_draft(uuid,text,text,uuid)'::regprocedure)
   ||pg_get_functiondef('public.move_gallery_draft(uuid,text)'::regprocedure)
   ||pg_get_functiondef('public.discard_gallery_draft(uuid)'::regprocedure)
+  ||pg_get_functiondef('public.restore_gallery_draft(uuid)'::regprocedure)
 ) !~ 'pg_advisory_xact_lock','position mutations use only the common studio lock helper');
 
 select * from finish();

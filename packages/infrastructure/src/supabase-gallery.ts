@@ -1,6 +1,6 @@
 import { createServerClient, parseCookieHeader } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
-import type { GalleryDraftRecord, GalleryDraftRow, GalleryMoveDirection, GalleryRepositoryPort, PrivateGalleryStoragePort } from "@inkendar/application";
+import type { GalleryDiscardedRow, GalleryDraftRecord, GalleryDraftRow, GalleryMoveDirection, GalleryRepositoryPort, PrivateGalleryStoragePort } from "@inkendar/application";
 import { loadSupabasePublicConfig } from "./supabase-auth.js";
 import { GalleryThumbnailReader } from "./gallery-thumbnail-reader.js";
 
@@ -9,10 +9,12 @@ type Result = Readonly<{ data: unknown; error: unknown }>;
 export interface GalleryDataGateway {
   createDraft(parameters: Record<string, unknown>): Promise<Result>;
   listDrafts(parameters: Record<string, unknown>): Promise<Result>;
+  listDiscarded(parameters: Record<string, unknown>): Promise<Result>;
   resolveThumbnail(parameters: Record<string, unknown>): Promise<Result>;
   updateDraft(parameters: Record<string, unknown>): Promise<Result>;
   moveDraft(parameters: Record<string, unknown>): Promise<Result>;
   discardDraft(parameters: Record<string, unknown>): Promise<Result>;
+  restoreDraft(parameters: Record<string, unknown>): Promise<Result>;
 }
 export interface GalleryStorageGateway { upload(path: string, bytes: Uint8Array, options: { contentType: string; upsert: false }): Promise<{ error: unknown }>; remove(paths: readonly string[]): Promise<{ error: unknown }>; sign(path: string, expiresIn: number): Promise<{ data: unknown; error: unknown }>; }
 
@@ -27,6 +29,11 @@ export class SupabaseGalleryRepository implements GalleryRepositoryPort {
     const { data, error } = await this.data.listDrafts({ p_studio_id: studioId, p_limit: limit });
     if (error || !Array.isArray(data)) failed();
     return (data as unknown[]).map(row);
+  }
+  async listDiscarded(studioId: string, limit: number): Promise<readonly GalleryDiscardedRow[]> {
+    const { data, error } = await this.data.listDiscarded({ p_studio_id: studioId, p_limit: limit });
+    if (error || !Array.isArray(data)) failed();
+    return (data as unknown[]).map(discardedRow);
   }
   async resolveThumbnail(handle: string): Promise<{ path: string; byteSize: number }> {
     const { data, error } = await this.data.resolveThumbnail({ p_handle: handle });
@@ -45,6 +52,10 @@ export class SupabaseGalleryRepository implements GalleryRepositoryPort {
     const { error } = await this.data.discardDraft({ p_handle: handle });
     if (error) failed();
   }
+  async restoreDraft(handle: string): Promise<void> {
+    const { error } = await this.data.restoreDraft({ p_handle: handle });
+    if (error) failed();
+  }
 }
 
 export class SupabasePrivateGalleryStorage implements PrivateGalleryStoragePort {
@@ -60,10 +71,12 @@ export function createSupabaseGalleryRepository(request: Request, environment: R
   return new SupabaseGalleryRepository({
     createDraft: async (parameters) => { const { data, error } = await client.rpc("create_gallery_draft", parameters); return { data, error }; },
     listDrafts: async (parameters) => { const { data, error } = await client.rpc("list_gallery_assets_v3", parameters); return { data, error }; },
+    listDiscarded: async (parameters) => { const { data, error } = await client.rpc("list_gallery_discarded_assets", parameters); return { data, error }; },
     resolveThumbnail: async (parameters) => { const { data, error } = await client.rpc("resolve_gallery_thumbnail", parameters); return { data, error }; },
     updateDraft: async (parameters) => { const { data, error } = await client.rpc("update_gallery_draft", parameters); return { data, error }; },
     moveDraft: async (parameters) => { const { data, error } = await client.rpc("move_gallery_draft", parameters); return { data, error }; },
     discardDraft: async (parameters) => { const { data, error } = await client.rpc("discard_gallery_draft", parameters); return { data, error }; },
+    restoreDraft: async (parameters) => { const { data, error } = await client.rpc("restore_gallery_draft", parameters); return { data, error }; },
   });
 }
 
@@ -94,6 +107,12 @@ function row(value: unknown): GalleryDraftRow {
   const result: GalleryDraftRow & Readonly<{ status: typeof status }> = { thumbnailHandle: string(item.thumbnail_handle), status, target, artistProfileId: nullableString(item.artist_profile_id), artistDisplayName: nullableString(item.artist_display_name), altText: string(item.alt_text), position: positive(item.position), width: positive(item.width), height: positive(item.height) };
   return result;
 }
+function discardedRow(value: unknown): GalleryDiscardedRow {
+  const item = object(value), target = item.target;
+  if (target !== "GALLERY" && target !== "ARTIST_PORTFOLIO") failed();
+  return { handle: string(item.handle), target, artistDisplayName: nullableString(item.artist_display_name), altText: string(item.alt_text), discardedAt: timestamp(item.discarded_at) };
+}
+function timestamp(value: unknown): string { const result = string(value); if (!Number.isFinite(Date.parse(result))) failed(); return result; }
 function safePath(path: string): void { if (!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/(master|display|thumb)\.webp$/iu.test(path) || path.includes("..")) storageFailed(); }
 function object(value: unknown): Record<string, unknown> { if (!value || typeof value !== "object" || Array.isArray(value)) failed(); return value as Record<string, unknown>; }
 function string(value: unknown): string { if (typeof value !== "string" || !value) failed(); return value; }

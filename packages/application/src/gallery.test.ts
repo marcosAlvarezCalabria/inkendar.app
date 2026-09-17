@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { GalleryIngestionFailedError, GalleryMutationFailedError, InvalidGalleryInputError, createGalleryService, type GalleryImageProcessorPort, type GalleryRepositoryPort, type PrivateGalleryStoragePort } from "./gallery.js";
+import { GalleryIngestionFailedError, GalleryMutationFailedError, InvalidGalleryInputError, createGalleryCurationService, createGalleryService, type GalleryImageProcessorPort, type GalleryRepositoryPort, type PrivateGalleryStoragePort } from "./gallery.js";
 
 const studioId = "20000000-0000-4000-8000-000000000001";
 const assetId = "60000000-0000-4000-8000-000000000001";
@@ -77,6 +77,28 @@ describe("gallery service", () => {
     expect(storage.upload).not.toHaveBeenCalled();
   });
 
+  it("lists at most 100 discarded assets and restores one by opaque handle without storage", async () => {
+    const handle = "90000000-0000-4000-8000-000000000001";
+    const discarded = [{ handle, target: "GALLERY" as const, artistDisplayName: null, altText: "Pieza recuperable", discardedAt: "2026-09-17T10:00:00.000Z" }];
+    const repository = repositoryWith({ listDiscarded: vi.fn().mockResolvedValue(discarded) });
+    const storage = storageWith();
+    const service = createGalleryService({ processor: { process: vi.fn() }, storage, repository, createId: () => assetId });
+    await expect(service.listDiscarded(studioId)).resolves.toEqual(discarded);
+    await service.restore(handle);
+    expect(repository.listDiscarded).toHaveBeenCalledWith(studioId, 100);
+    expect(repository.restoreDraft).toHaveBeenCalledWith(handle);
+    expect(storage.upload).not.toHaveBeenCalled();
+    expect(storage.remove).not.toHaveBeenCalled();
+  });
+
+  it("validates restore handles and maps persistence detail to the generic mutation error", async () => {
+    const repository = repositoryWith({ restoreDraft: vi.fn().mockRejectedValue(new Error("foreign tenant/private/path")) });
+    const service = createGalleryCurationService(repository);
+    await expect(service.restore("not-a-handle")).rejects.toBeInstanceOf(InvalidGalleryInputError);
+    expect(repository.restoreDraft).not.toHaveBeenCalled();
+    await expect(service.restore("90000000-0000-4000-8000-000000000001")).rejects.toEqual(new GalleryMutationFailedError());
+  });
+
   it("rejects invalid handles before persistence and maps repository detail to a generic mutation failure", async () => {
     const repository = repositoryWith({ updateDraft: vi.fn().mockRejectedValue(new Error("foreign tenant/private/path")) });
     const service = createGalleryService({ processor: { process: vi.fn() }, storage: storageWith(), repository, createId: () => assetId });
@@ -87,7 +109,7 @@ describe("gallery service", () => {
 });
 
 function repositoryWith(overrides: Partial<GalleryRepositoryPort> = {}): GalleryRepositoryPort {
-  return { createDraft: vi.fn(), listDrafts: vi.fn(), resolveThumbnail: vi.fn(), updateDraft: vi.fn(), moveDraft: vi.fn(), discardDraft: vi.fn(), ...overrides };
+  return { createDraft: vi.fn(), listDrafts: vi.fn(), listDiscarded: vi.fn(), resolveThumbnail: vi.fn(), updateDraft: vi.fn(), moveDraft: vi.fn(), discardDraft: vi.fn(), restoreDraft: vi.fn(), ...overrides };
 }
 
 function storageWith(): PrivateGalleryStoragePort {

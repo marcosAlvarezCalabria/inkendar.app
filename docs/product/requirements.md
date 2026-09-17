@@ -17,7 +17,7 @@ Los contratos y criterios completos están en la [Especificación de Inkendar](s
 7. Ofrecer hasta tres fechas preaprobadas con una retención configurable de 24 horas por defecto.
 8. Exigir aprobación del owner para un hueco elegido libremente por el cliente.
 9. Confirmar de forma idempotente, liberar opciones restantes y avisar al cliente.
-10. Permitir que el owner ingiera, edite, reasigne, ordene y descarte de forma recuperable borradores privados de galería y portfolios; la publicación posterior alimentará un feed público de solo lectura.
+10. Permitir que el owner ingiera, edite, reasigne, ordene, descarte y restaure de forma recuperable borradores privados de galería y portfolios; la publicación posterior alimentará un feed público de solo lectura.
 11. No conservar bytes originales inseguros: mantener una master privada sanitizada, eliminar metadatos sensibles y generar variantes optimizadas sin upscale.
 12. Registrar auditoría y mostrar fallos de integración sin comunicar éxitos falsos.
 13. Resolver cada galería por un slug público estable y entregar solo assets `PUBLISHED`, separados entre galería y portfolios, sin IDs internos, masters, rutas privadas, bindings ni datos operativos.

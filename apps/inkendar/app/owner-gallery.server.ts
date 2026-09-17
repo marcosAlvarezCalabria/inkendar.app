@@ -26,7 +26,15 @@ export function createOwnerGalleryHandlers(dependencies: Dependencies = defaults
   return {
     async loader(request: Request): Promise<Response> {
       const authorization = await dependencies.authorize(request); if (authorization instanceof Response) return authorization;
-      try { const [drafts, artists] = await Promise.all([curation(dependencies, authorization.access, request).list(authorization.access.studioId), (dependencies.listArtists ?? defaults.listArtists)(request)]); return Response.json({ drafts: drafts.map((draft) => ({ ...draft, thumbnailSrc: `/app/owner/gallery/thumbnails/${encodeURIComponent(draft.thumbnailHandle)}` })), artists }, { headers: privateHeaders(authorization.headers) }); }
+      try {
+        const service = curation(dependencies, authorization.access, request);
+        const [drafts, discarded, artists] = await Promise.all([
+          service.list(authorization.access.studioId),
+          service.listDiscarded(authorization.access.studioId),
+          (dependencies.listArtists ?? defaults.listArtists)(request),
+        ]);
+        return Response.json({ drafts: drafts.map((draft) => ({ ...draft, thumbnailSrc: `/app/owner/gallery/thumbnails/${encodeURIComponent(draft.thumbnailHandle)}` })), discarded, artists }, { headers: privateHeaders(authorization.headers) });
+      }
       catch { return Response.json({ error: "No se pudo cargar la galería." }, { status: 500, headers: privateHeaders(authorization.headers) }); }
     },
     async action(request: Request): Promise<Response> {
@@ -61,6 +69,10 @@ export function createOwnerGalleryHandlers(dependencies: Dependencies = defaults
           if (!urlEncoded) throw new InvalidGalleryInputError();
           exactFields(form, ["intent", "handle"]);
           await curation(dependencies, authorization.access, request).discard(required(form, "handle"));
+        } else if (intent === "RESTORE") {
+          if (!urlEncoded) throw new InvalidGalleryInputError();
+          exactFields(form, ["intent", "handle"]);
+          await curation(dependencies, authorization.access, request).restore(required(form, "handle"));
         } else if (intent === "PUBLISH" || intent === "RETIRE") {
           if (!urlEncoded) throw new InvalidGalleryInputError();
           exactFields(form, ["intent", "handle"]);

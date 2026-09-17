@@ -7,7 +7,8 @@ describe("OwnerGalleryView", () => {
   it("renders an accessible multipart form and private draft summary without internal paths", () => {
     const leakedSignedUrl = "http://127.0.0.1:54321/storage/v1/object/sign/gallery-private/20000000-0000-0000-0000-000000000001/60000000-0000-4000-8000-000000000001/thumb.webp?token=signed-secret-token";
     const handle = "90000000-0000-4000-8000-000000000001";
-    const router = createMemoryRouter([{ path: "/", element: <OwnerGalleryView data={{ artists: [{ id: "50000000-0000-0000-0000-000000000001", displayName: "North Artist" }], drafts: [{ thumbnailHandle: handle, thumbnailSrc: `/app/owner/gallery/thumbnails/${handle}`, status: "DRAFT", target: "ARTIST_PORTFOLIO", artistProfileId: "50000000-0000-0000-0000-000000000001", artistDisplayName: "North Artist", altText: "Pieza floral", position: 1, width: 480, height: 320 }] }} /> }]);
+    const discardedHandle = "90000000-0000-4000-8000-000000000099";
+    const router = createMemoryRouter([{ path: "/", element: <OwnerGalleryView data={{ artists: [{ id: "50000000-0000-0000-0000-000000000001", displayName: "North Artist" }], drafts: [{ thumbnailHandle: handle, thumbnailSrc: `/app/owner/gallery/thumbnails/${handle}`, status: "DRAFT", target: "ARTIST_PORTFOLIO", artistProfileId: "50000000-0000-0000-0000-000000000001", artistDisplayName: "North Artist", altText: "Pieza floral", position: 1, width: 480, height: 320 }], discarded: [{ handle: discardedHandle, target: "GALLERY", artistDisplayName: null, altText: "Pieza recuperable", discardedAt: "2026-09-17T10:00:00.000Z" }] }} /> }]);
     const html = renderToStaticMarkup(<RouterProvider router={router} />);
     expect(html).toMatch(/encType="multipart\/form-data"/i);
     expect(html).toContain('accept="image/jpeg,image/png,image/webp"');
@@ -15,12 +16,16 @@ describe("OwnerGalleryView", () => {
     expect(html).toContain("Borradores privados");
     expect(html).toContain("North Artist");
     expect(html).toContain(`/app/owner/gallery/thumbnails/${handle}`);
-    for (const intent of ["CREATE_DRAFT", "UPDATE", "MOVE_UP", "MOVE_DOWN", "DISCARD", "PUBLISH"]) expect(html).toContain(`value="${intent}"`);
+    for (const intent of ["CREATE_DRAFT", "UPDATE", "MOVE_UP", "MOVE_DOWN", "DISCARD", "PUBLISH", "RESTORE"]) expect(html).toContain(`value="${intent}"`);
     expect(html).not.toMatch(/value="(?:UPDATE_DRAFT|DISCARD_DRAFT)"/);
     expect(html).toContain("Descartar borrador");
     expect(html).toContain("Podrás recuperarlo más adelante");
     expect(html).not.toMatch(/eliminar permanentemente|borrar objeto/i);
     expect((html.match(new RegExp(`name="handle" value="${handle}"`, "g")) ?? []).length).toBe(5);
+    expect(html).toContain("Descartados recuperables");
+    expect(html).toContain("Pieza recuperable");
+    expect(html).not.toContain(`/app/owner/gallery/thumbnails/${discardedHandle}`);
+    expect((html.match(new RegExp(`name="handle" value="${discardedHandle}"`, "g")) ?? []).length).toBe(1);
     for (const secret of ["gallery-private", "thumb.webp", "20000000-0000-0000-0000-000000000001", "60000000-0000-4000-8000-000000000001", new URL(leakedSignedUrl).searchParams.get("token")!]) expect(html).not.toContain(secret);
     expect(html).not.toMatch(/studioId|userId|assetId|objectPath|name="path"|name="status"/);
   });

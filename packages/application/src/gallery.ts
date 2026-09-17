@@ -6,6 +6,7 @@ export type GalleryProcessedVariant = Readonly<{ kind: GalleryVariantKind; bytes
 export type ProcessedGalleryImage = Readonly<{ sourceFormat: "jpeg" | "png" | "webp"; width: number; height: number; variants: readonly GalleryProcessedVariant[] }>;
 export type GalleryDraftRecord = Readonly<{ id: string; studioId: string; target: GalleryTarget; artistProfileId: string | null; altText: string; variants: readonly { kind: GalleryVariantKind; path: string; width: number; height: number; mimeType: "image/webp"; byteSize: number }[] }>;
 export type GalleryDraftRow = Readonly<{ thumbnailHandle: string; status: "DRAFT" | "PUBLISHING" | "PUBLISHED" | "RETIRING"; target: GalleryTarget; artistProfileId: string | null; artistDisplayName: string | null; altText: string; position: number; width: number; height: number }>;
+export type GalleryDiscardedRow = Readonly<{ handle: string; target: GalleryTarget; artistDisplayName: string | null; altText: string; discardedAt: string }>;
 export type GalleryDraftView = GalleryDraftRow;
 export type GalleryMoveDirection = "MOVE_UP" | "MOVE_DOWN";
 
@@ -14,10 +15,12 @@ export interface PrivateGalleryStoragePort { upload(path: string, object: Readon
 export interface GalleryRepositoryPort {
   createDraft(record: GalleryDraftRecord): Promise<{ id: string }>;
   listDrafts(studioId: string, limit: number): Promise<readonly GalleryDraftRow[]>;
+  listDiscarded(studioId: string, limit: number): Promise<readonly GalleryDiscardedRow[]>;
   resolveThumbnail(handle: string): Promise<{ path: string; byteSize: number }>;
   updateDraft(handle: string, input: Readonly<{ altText: string; target: GalleryTarget; artistProfileId: string | null }>): Promise<void>;
   moveDraft(handle: string, direction: GalleryMoveDirection): Promise<void>;
   discardDraft(handle: string): Promise<void>;
+  restoreDraft(handle: string): Promise<void>;
 }
 
 export class GalleryIngestionFailedError extends Error { readonly code = "GALLERY_INGESTION_FAILED"; constructor() { super("Gallery ingestion failed"); } }
@@ -28,6 +31,10 @@ export function createGalleryCurationService(repository: GalleryRepositoryPort) 
     async list(studioIdInput: string): Promise<readonly GalleryDraftView[]> {
       const studioId = resourceId(studioIdInput);
       return repository.listDrafts(studioId, 100);
+    },
+    async listDiscarded(studioIdInput: string): Promise<readonly GalleryDiscardedRow[]> {
+      const studioId = resourceId(studioIdInput);
+      return repository.listDiscarded(studioId, 100);
     },
     async update(input: Readonly<{ handle: string; altText: string; target: unknown; artistProfileId: string | null }>): Promise<void> {
       const handle = resourceId(input.handle);
@@ -44,6 +51,11 @@ export function createGalleryCurationService(repository: GalleryRepositoryPort) 
     async discard(handleInput: string): Promise<void> {
       const handle = resourceId(handleInput);
       try { await repository.discardDraft(handle); }
+      catch { throw new GalleryMutationFailedError(); }
+    },
+    async restore(handleInput: string): Promise<void> {
+      const handle = resourceId(handleInput);
+      try { await repository.restoreDraft(handle); }
       catch { throw new GalleryMutationFailedError(); }
     },
   };
