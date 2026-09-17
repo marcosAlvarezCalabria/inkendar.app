@@ -1,5 +1,5 @@
 begin;
-select plan(43);
+select plan(49);
 
 select has_function('public','list_gallery_discarded_assets',array['uuid','integer'],'discarded list RPC exists');
 select has_function('public','restore_gallery_draft',array['uuid'],'restore RPC exists');
@@ -57,7 +57,7 @@ reset role; set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
 select lives_ok($$select public.restore_gallery_draft('93000000-0000-4000-8000-000000000101')$$,'owner restores a discarded asset');
 reset role;
-select is((select status::text||':'||position::text from public.gallery_asset where public_id='93000000-0000-4000-8000-000000000101'),'DRAFT:15','restore appends after the maximum position of every row in the same group');
+select is((select status::text||':'||position::text from public.gallery_asset where public_id='93000000-0000-4000-8000-000000000101'),'DRAFT:2','restore preserves the position reserved by the discarded row');
 select is((select target::text||':'||coalesce(artist_profile_id::text,'none')||':'||alt_text from public.gallery_asset where public_id='93000000-0000-4000-8000-000000000101'),'GALLERY:none:Recover me','restore preserves target, artist and alt');
 select is((select string_agg(kind::text||':'||object_path||':'||byte_size::text,',' order by kind) from public.gallery_variant where asset_id='63000000-0000-4000-8000-000000000101'),'MASTER:20000000-0000-0000-0000-000000000001/63000000-0000-4000-8000-000000000101/master.webp:101,DISPLAY:20000000-0000-0000-0000-000000000001/63000000-0000-4000-8000-000000000101/display.webp:102,THUMB:20000000-0000-0000-0000-000000000001/63000000-0000-4000-8000-000000000101/thumb.webp:103','restore preserves all private variant metadata');
 select is((select position from public.gallery_asset where public_id='93000000-0000-4000-8000-000000000104'),20,'restore does not alter another group');
@@ -68,6 +68,16 @@ select lives_ok($$select public.restore_gallery_draft('93000000-0000-4000-8000-0
 reset role;
 select is((select position from public.gallery_asset where public_id='93000000-0000-4000-8000-000000000101'),(select position from restored_snapshot),'DRAFT retry does not move the asset again');
 select is((select updated_at from public.gallery_asset where public_id='93000000-0000-4000-8000-000000000101'),(select updated_at from restored_snapshot),'DRAFT retry is a metadata no-op');
+set local role authenticated; select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
+select lives_ok($$select public.discard_gallery_draft('93000000-0000-4000-8000-000000000101')$$,'owner discards the restored asset again');
+select lives_ok($$select public.restore_gallery_draft('93000000-0000-4000-8000-000000000101')$$,'owner restores the asset for a second cycle');
+reset role;
+select is((select position from public.gallery_asset where public_id='93000000-0000-4000-8000-000000000101'),2,'second discard and restore cycle preserves the original position');
+set local role authenticated; select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
+select lives_ok($$select public.discard_gallery_draft('93000000-0000-4000-8000-000000000101')$$,'owner discards the restored asset a third time');
+select lives_ok($$select public.restore_gallery_draft('93000000-0000-4000-8000-000000000101')$$,'owner restores the asset for a third cycle');
+reset role;
+select is((select position from public.gallery_asset where public_id='93000000-0000-4000-8000-000000000101'),2,'third discard and restore cycle preserves the original position');
 set local role authenticated; select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000003',true);
 select throws_ok($$select public.restore_gallery_draft('93000000-0000-4000-8000-000000000102')$$,'42501',null,'cross-tenant owner cannot restore');
 reset role; set local role authenticated; select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000002',true);

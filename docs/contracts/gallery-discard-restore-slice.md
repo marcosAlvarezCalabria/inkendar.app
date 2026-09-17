@@ -1,6 +1,6 @@
 # Restauración recuperable de descartes de galería
 
-_Estado técnico: IN_PROGRESS local; pendiente de revisión, PR y CI; sin prueba live_
+_Estado técnico: el PR #31 está integrado con CI verde y la prueba live sintética se ejecutó el 2026-09-17; esa prueba detectó la deriva de posición y su corrección está IN_PROGRESS local, pendiente de revisión, PR y CI_
 
 ## Requisito
 
@@ -22,7 +22,7 @@ Given un OWNER autenticado y un asset DISCARDED de su estudio identificado solo 
 When envía POST same-origin con exactamente intent=RESTORE y handle
 Then Inkendar conserva target, artista, alt, variantes privadas y cualquier binding de publicación
 And cambia DISCARDED a DRAFT bajo el lock común del estudio
-And asigna la posición posterior al máximo existente del mismo grupo
+And conserva exactamente la posición que la fila ya tenía antes del descarte
 And responde mediante PRG 303 a /app/owner/gallery
 ```
 
@@ -52,7 +52,7 @@ And responde con el error privado 400 o 403 correspondiente
 - `list_gallery_discarded_assets` y `restore_gallery_draft` son `SECURITY DEFINER`, usan `search_path=''`, se conceden solo a `authenticated` y resuelven tenant y rol OWNER mediante `auth.uid()`. `anon`, `service_role`, ARTIST, otro tenant y handles desconocidos fallan cerrados.
 - El listado recibe el `studio_id` ya autorizado por el guard SSR, repite la autorización auth-bound en Postgres, limita `p_limit` a `1..100` y devuelve únicamente handle, destino, artista visible opcional, alt y `updated_at` como fecha del descarte. No resuelve miniaturas de `DISCARDED`.
 - Restore resuelve primero handle y estudio, autoriza OWNER, toma `private.lock_gallery_studio(studio_id)` antes de cualquier row lock y después bloquea el asset. `DISCARDED` pasa a `DRAFT`; `DRAFT` converge sin cambios; cualquier otro estado falla.
-- Al restaurar se conserva el grupo original y se calcula `max(position)+1` dentro del mismo estudio, target y artista, incluyendo todas las filas del grupo porque el constraint de posición también las incluye. No se reutiliza la posición histórica ni se toca ningún otro grupo o tenant.
+- Al restaurar se conservan exactamente el grupo y la posición que ya tenía la fila. El constraint global `gallery_asset_position_unique` incluye estados inactivos y reserva esa posición mientras el asset está `DISCARDED`; restore no calcula máximos, no renumera históricos y no toca ningún otro asset, grupo o tenant.
 - No se actualizan target, artista, alt, variantes, paths privados, timestamps de publicación ni `gallery_publication_binding`. No se compone `service_role`, no se llama Storage y no se crean ni eliminan objetos.
 - La UI separa activos y descartados. Los descartados no muestran miniatura ni formularios de edición, movimiento, descarte, publicación o retirada; ofrecen únicamente `RESTORE`.
 - Listados y respuestas conservan `private, no-store`, `no-referrer` y `nosniff`. Validación devuelve 400, origen/método 403, autenticación conserva su flujo y persistencia usa un 500 genérico.
