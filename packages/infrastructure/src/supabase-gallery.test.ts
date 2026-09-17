@@ -45,6 +45,20 @@ describe("Supabase gallery adapters", () => {
     expect(JSON.stringify([data.updateDraft.mock.calls, data.moveDraft.mock.calls, data.discardDraft.mock.calls])).not.toMatch(/studio|user|asset|path|status/i);
   });
 
+  it("lists discarded metadata without paths and restores through a handle-only RPC", async () => {
+    const handle = "90000000-0000-4000-8000-000000000001";
+    const data = gatewayWith({
+      listDiscarded: vi.fn().mockResolvedValue({ data: [{ handle, target: "GALLERY", artist_display_name: null, alt_text: "Pieza", discarded_at: "2026-09-17T10:00:00.000Z" }], error: null }),
+      restoreDraft: vi.fn().mockResolvedValue({ data: null, error: null }),
+    });
+    const repository = new SupabaseGalleryRepository(data);
+    await expect(repository.listDiscarded(studioId, 100)).resolves.toEqual([{ handle, target: "GALLERY", artistDisplayName: null, altText: "Pieza", discardedAt: "2026-09-17T10:00:00.000Z" }]);
+    await repository.restoreDraft(handle);
+    expect(data.listDiscarded).toHaveBeenCalledWith({ p_studio_id: studioId, p_limit: 100 });
+    expect(data.restoreDraft).toHaveBeenCalledWith({ p_handle: handle });
+    expect(JSON.stringify([data.listDiscarded.mock.calls, data.restoreDraft.mock.calls])).not.toMatch(/user|asset_id|path|bucket|binding|status/i);
+  });
+
   it("keeps the bucket private boundary and bounds signed URL expiry", async () => {
     const gateway = { upload: vi.fn().mockResolvedValue({ error: null }), remove: vi.fn().mockResolvedValue({ error: null }), sign: vi.fn().mockResolvedValue({ data: { signedUrl: "https://storage.example/signed" }, error: null }) };
     const storage = new SupabasePrivateGalleryStorage(gateway);
@@ -55,5 +69,5 @@ describe("Supabase gallery adapters", () => {
 });
 
 function gatewayWith(overrides: Record<string, ReturnType<typeof vi.fn>> = {}) {
-  return { createDraft: vi.fn(), listDrafts: vi.fn(), resolveThumbnail: vi.fn(), updateDraft: vi.fn(), moveDraft: vi.fn(), discardDraft: vi.fn(), ...overrides };
+  return { createDraft: vi.fn(), listDrafts: vi.fn(), listDiscarded: vi.fn(), resolveThumbnail: vi.fn(), updateDraft: vi.fn(), moveDraft: vi.fn(), discardDraft: vi.fn(), restoreDraft: vi.fn(), ...overrides };
 }

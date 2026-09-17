@@ -1,12 +1,12 @@
 import { Form, Link, useActionData, useLoaderData } from "react-router";
-import type { GalleryDraftView } from "@inkendar/application";
+import type { GalleryDiscardedRow, GalleryDraftView } from "@inkendar/application";
 import type { Route } from "./+types/owner-gallery";
 import { ownerGalleryHandlers } from "../owner-gallery.server.js";
 
 export type GalleryArtistOption = Readonly<{ id: string; displayName: string }>;
 export type GalleryLifecycleStatus = "DRAFT" | "PUBLISHING" | "PUBLISHED" | "RETIRING";
 export type OwnerGalleryItem = GalleryDraftView & Readonly<{ status: GalleryLifecycleStatus; thumbnailSrc: string }>;
-export type OwnerGalleryData = Readonly<{ artists: readonly GalleryArtistOption[]; drafts: readonly OwnerGalleryItem[] }>;
+export type OwnerGalleryData = Readonly<{ artists: readonly GalleryArtistOption[]; drafts: readonly OwnerGalleryItem[]; discarded: readonly GalleryDiscardedRow[] }>;
 export function meta(): Route.MetaDescriptors { return [{ title: "Galería privada | Inkendar" }]; }
 export function headers() { return { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff" }; }
 export async function loader({ request }: Route.LoaderArgs) { return ownerGalleryHandlers.loader(request); }
@@ -29,7 +29,17 @@ export function OwnerGalleryView({ data, error }: Readonly<{ data: OwnerGalleryD
       </Form>
     </section>
     <section className="records" aria-labelledby="gallery-drafts-title"><h2 id="gallery-drafts-title">Borradores privados</h2>{data.drafts.length ? <ul className="gallery-grid">{data.drafts.map((draft) => <GalleryItem key={draft.thumbnailHandle} draft={draft} artists={data.artists} />)}</ul> : <p>Todavía no hay contenido activo.</p>}</section>
+    <section className="records" aria-labelledby="gallery-discarded-title"><h2 id="gallery-discarded-title">Descartados recuperables</h2>{data.discarded.length ? <ul className="gallery-grid">{data.discarded.map((item) => <DiscardedGalleryItem key={item.handle} item={item} />)}</ul> : <p>No hay contenido descartado.</p>}</section>
   </main>;
+}
+
+function DiscardedGalleryItem({ item }: Readonly<{ item: GalleryDiscardedRow }>) {
+  const destination = item.target === "GALLERY" ? "Galería general" : item.artistDisplayName ?? "Portfolio de artista";
+  return <li className="shell-panel gallery-draft-card">
+    <h3>{item.altText}</h3>
+    <p>Destino: {destination} · Descartado el <time dateTime={item.discardedAt}>{item.discardedAt.slice(0, 10)}</time></p>
+    <form method="post" className="record-form"><input type="hidden" name="intent" value="RESTORE" /><input type="hidden" name="handle" value={item.handle} /><button type="submit" className="secondary" aria-label={`Restaurar ${item.altText}`}>Restaurar borrador</button></form>
+  </li>;
 }
 
 function GalleryItem({ draft, artists }: Readonly<{ draft: OwnerGalleryItem; artists: readonly GalleryArtistOption[] }>) {

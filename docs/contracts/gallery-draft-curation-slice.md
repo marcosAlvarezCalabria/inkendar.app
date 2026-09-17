@@ -57,10 +57,10 @@ And responde con un error privado 400 o 403 sin PII, paths ni detalle del provee
 - Toda mutación que puede interactuar con posiciones —create, update/reassign, move y discard— toma primero el mismo advisory xact lock derivado únicamente de `studio_id`, antes de cualquier row lock. La serialización deliberadamente gruesa por estudio evita ciclos entre snapshots de grupos obsoletos; estudios distintos conservan concurrencia independiente.
 - La reasignación asigna `max(position)+1` en el nuevo grupo bajo ese lock de estudio. Al abandonar o descartar un grupo se conservan huecos; creación y reasignación calculan el máximo sobre todas las filas para mantener la unicidad incluso con descartados.
 - El reorder selecciona solo el vecino `DRAFT` inmediato por posición y realiza un swap con constraint de posición diferible. En bordes no modifica datos.
-- `DISCARDED` conserva asset, variantes, paths privados, grupo, posición y timestamps mínimos para una futura restauración o GC. La intención `DISCARD` es idempotente. Este slice no implementa restore, GC, hard delete ni llamadas Storage con service role.
+- `DISCARDED` conserva asset, variantes, paths privados, grupo, posición y timestamps mínimos. La intención `DISCARD` es idempotente. La recuperación posterior se define en [Restauración recuperable de descartes de galería](gallery-discard-restore-slice.md); este slice no implementa restore, GC, hard delete ni llamadas Storage con service role.
 - Listado y resolver de miniatura continúan filtrando exclusivamente `DRAFT`, con máximo 100 y headers `private, no-store`. Todos los POST exitosos vuelven a `/app/owner/gallery` mediante 303.
 - Los errores de validación son 400; origen/método/rol no autorizado conserva 403 o la respuesta de autenticación; fallos de persistencia son 500. Los cuerpos son mensajes genéricos sin handles ajenos, PII, paths, buckets o proveedor.
 
 ## Fuera de alcance
 
-Publicación o retirada, bucket público, feed/CDN, componente web, escritura ARTIST, restore, GC, borrado físico de filas u objetos Storage y cualquier operación live.
+Publicación o retirada, bucket público, feed/CDN, componente web, escritura ARTIST, la restauración definida en su contrato separado, GC, borrado físico de filas u objetos Storage y cualquier operación live.

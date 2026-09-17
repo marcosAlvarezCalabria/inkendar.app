@@ -11,6 +11,22 @@ describe("owner gallery handlers", () => {
     expect((await handlers.loader(new Request("https://app.inkendar.es/app/owner/gallery"))).status).toBe(302);
     expect(createService).not.toHaveBeenCalled();
   });
+  it("returns bounded discarded metadata separately without thumbnail URLs or internal identifiers", async () => {
+    const handle = "90000000-0000-4000-8000-000000000099";
+    const curation = { list: vi.fn().mockResolvedValue([]), listDiscarded: vi.fn().mockResolvedValue([{ handle, target: "GALLERY", artistDisplayName: null, altText: "Recuperable", discardedAt: "2026-09-17T10:00:00.000Z" }]) };
+    const handlers = createOwnerGalleryHandlers({
+      authorize: vi.fn().mockResolvedValue({ access, headers: new Headers() }),
+      createService: vi.fn(),
+      createCurationService: vi.fn().mockReturnValue(curation),
+      listArtists: vi.fn().mockResolvedValue([]),
+    });
+    const response = await handlers.loader(new Request("https://app.inkendar.es/app/owner/gallery"));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+    expect(await response.json()).toEqual({ drafts: [], discarded: [{ handle, target: "GALLERY", artistDisplayName: null, altText: "Recuperable", discardedAt: "2026-09-17T10:00:00.000Z" }], artists: [] });
+    expect(JSON.stringify(await curation.listDiscarded.mock.results[0]!.value)).not.toMatch(/thumbnail|path|bucket|binding|assetId|studioId|userId/i);
+  });
+
 
   it("rejects cross-origin and non-multipart writes without composing", async () => {
     const createService = vi.fn(); const authorize = vi.fn();
@@ -42,8 +58,9 @@ describe("owner gallery handlers", () => {
     ["MOVE_UP", {}, "move"],
     ["MOVE_DOWN", {}, "move"],
     ["DISCARD", {}, "discard"],
+    ["RESTORE", {}, "restore"],
   ] as const)("handles %s through one exact intent and redirects with PRG", async (intent, fields, expectedMethod) => {
-    const service = { ingest: vi.fn(), list: vi.fn(), update: vi.fn(), move: vi.fn(), discard: vi.fn() };
+    const service = { ingest: vi.fn(), list: vi.fn(), update: vi.fn(), move: vi.fn(), discard: vi.fn(), restore: vi.fn() };
     const handlers = createOwnerGalleryHandlers({ authorize: vi.fn().mockResolvedValue({ access, headers: new Headers() }), createService: vi.fn().mockReturnValue(service) });
     const form = new URLSearchParams({ intent, handle: "90000000-0000-4000-8000-000000000001", ...fields });
     const response = await handlers.action(new Request("https://app.inkendar.es/app/owner/gallery", { method: "POST", headers: { Origin: "https://app.inkendar.es", "Sec-Fetch-Site": "same-origin", "Content-Type": "application/x-www-form-urlencoded" }, body: form }));
@@ -53,15 +70,15 @@ describe("owner gallery handlers", () => {
   });
 
   it("rejects duplicate intent and unexpected internal fields without invoking a mutation", async () => {
-    const service = { ingest: vi.fn(), list: vi.fn(), update: vi.fn(), move: vi.fn(), discard: vi.fn() };
+    const service = { ingest: vi.fn(), list: vi.fn(), update: vi.fn(), move: vi.fn(), discard: vi.fn(), restore: vi.fn() };
     const handlers = createOwnerGalleryHandlers({ authorize: vi.fn().mockResolvedValue({ access, headers: new Headers() }), createService: vi.fn().mockReturnValue(service) });
-    const duplicate = new URLSearchParams([["intent", "MOVE_UP"], ["intent", "DISCARD"], ["handle", "90000000-0000-4000-8000-000000000001"]]);
-    const unexpected = new URLSearchParams({ intent: "MOVE_UP", handle: "90000000-0000-4000-8000-000000000001", studioId: access.studioId });
+    const duplicate = new URLSearchParams([["intent", "RESTORE"], ["intent", "RESTORE"], ["handle", "90000000-0000-4000-8000-000000000001"]]);
+    const unexpected = new URLSearchParams({ intent: "RESTORE", handle: "90000000-0000-4000-8000-000000000001", studioId: access.studioId });
     for (const body of [duplicate, unexpected]) {
       const response = await handlers.action(new Request("https://app.inkendar.es/app/owner/gallery", { method: "POST", headers: { Origin: "https://app.inkendar.es", "Content-Type": "application/x-www-form-urlencoded" }, body }));
       expect(response.status).toBe(400);
     }
-    expect(service.move).not.toHaveBeenCalled(); expect(service.discard).not.toHaveBeenCalled();
+    expect(service.restore).not.toHaveBeenCalled();
   });
 
   it("rejects browser tenant identity on create before composing a service", async () => {
