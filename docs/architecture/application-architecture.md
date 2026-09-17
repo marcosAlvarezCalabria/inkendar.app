@@ -102,13 +102,21 @@ _Estado técnico del slice: `DONE`; el PR #12 y el CI posterior al merge verific
 
 El dominio enumera los días civiles IANA que intersectan el rango UTC y resuelve folds con inicio temprano/final tardío y gaps avanzando al primer minuto válido; genera slots desde reglas y busy UTC sin depender de Google ni Supabase. Aplicación coordina ArtistAvailabilityRepositoryPort y GoogleFreeBusyPort; infraestructura implementa FreeBusy y RPC owner-bound. Las asignaciones, reglas y conexión deben pertenecer al mismo estudio; títulos y descripciones de eventos no cruzan la frontera.
 
+### Consulta pública de elección libre
+
+_Estado técnico: implementado y verificado localmente; pendiente de revisión, PR y CI. No existe prueba live ni selección/aprobación en este corte._
+
+`FreeChoiceAvailabilityAccessRepositoryPort` rota una credencial base64url de 32 bytes por artista desde un POST OWNER same-origin; Supabase conserva solo SHA-256 junto a rango UTC, duración y caducidad acotados. La RPC de emisión exige OWNER/tenant, reglas, asignación `writer|owner`, conexión `ACTIVE`, refresh token y scope `calendar.events.freebusy`. La tabla y las tres RPC quedan sin acceso directo de `anon` o `authenticated`, con `SECURITY DEFINER`, `search_path=''` y ejecución exclusiva de `service_role`.
+
+`GET /availability/:token` valida forma antes de componer privilegios, resuelve un contexto server-only por hash y vuelve a comprobar configuración y vigencia. Aplicación descifra solo en servidor, ejecuta una consulta FreeBusy para el rango fijado, combina la ocupación con la misma semántica vigente de holds y usa el dominio existente para producir como máximo 500 slots. El DTO público contiene únicamente caducidad, nombre del artista, zona, rango, duración e intervalos UTC/locales; tokens, hashes, tenant, IDs, eventos y detalles privados no cruzan al navegador. Token/configuración/scope/reconnect incompatibles convergen en 404 genérico, fallo transitorio de Google en 503 genérico e `invalid_grant` usa CAS por hash y generación. No hay POST público, selector, hold, oferta, cita ni notificación.
+
 ### Ofertas preaprobadas y holds
 
 _Estado técnico del slice: `DONE`; el PR #14 y el CI posterior al merge verificaron código, build, migraciones limpias, pgTAP y Auth/RLS con datos sintéticos. Una oferta preaprobada de una opción quedó verificada dentro del recorrido live sintético del 2026-09-16._
 
 El módulo de booking introduce `BookingOfferRepositoryPort` y un reloj inyectable en aplicación. Supabase conserva el plazo positivo por estudio —24 horas por defecto—, ofertas `OPEN | SELECTED_PENDING_CONFIRMATION | CONFIRMED | EXPIRED` y opciones `HELD | SELECTED | CONFIRMED | RELEASED`. RPCs `SECURITY DEFINER` exclusivas de `service_role` validan OWNER, tenant, caso `OPEN` y artista, y crean de una a tres opciones en una transacción serializada por estudio/artista para rechazar intervalos solapados, incluida una selección pendiente o cita confirmada.
 
-La disponibilidad carga mediante RPC los holds `HELD` de ofertas `OPEN`, el único `SELECTED` pendiente mientras esté vigente o su operación permanezca `INSERTING`, y la opción histórica de una cita `CONFIRMED`, y los combina con `freeBusy`. La exclusión confirmada es conservadora e inmutable, no una agenda editable duplicada; `appointment` referencia la opción y no copia el intervalo. La expiración materializa de forma atómica e idempotente los estados provisionales `OPEN` o `READY`, pero nunca libera `INSERTING` ni altera confirmadas. Antes de decidir que un intervalo vencido está libre, `create_booking_offer` conserva su advisory lock por estudio/artista y materializa esas expiraciones bajo locks `offer → operation` ordenados por oferta; así serializa una creación posterior con `beginInsert` incluso si este esperaba con un `p_now` anterior. El panel SSR OWNER usa mutaciones same-origin; elección libre, notificaciones y scheduler permanecen fuera.
+La disponibilidad carga mediante RPC los holds `HELD` de ofertas `OPEN`, el único `SELECTED` pendiente mientras esté vigente o su operación permanezca `INSERTING`, y la opción histórica de una cita `CONFIRMED`, y los combina con `freeBusy`. La exclusión confirmada es conservadora e inmutable, no una agenda editable duplicada; `appointment` referencia la opción y no copia el intervalo. La expiración materializa de forma atómica e idempotente los estados provisionales `OPEN` o `READY`, pero nunca libera `INSERTING` ni altera confirmadas. Antes de decidir que un intervalo vencido está libre, `create_booking_offer` conserva su advisory lock por estudio/artista y materializa esas expiraciones bajo locks `offer → operation` ordenados por oferta; así serializa una creación posterior con `beginInsert` incluso si este esperaba con un `p_now` anterior. El panel SSR OWNER usa mutaciones same-origin; la selección y aprobación de elección libre, notificaciones y scheduler permanecen fuera.
 
 ### Acceso y selección pública de ofertas
 
@@ -218,7 +226,7 @@ Conserva cliente, resumen, zona corporal, tamaño, referencias, artista asignado
 
 ### Disponibilidad y booking
 
-Calcula opciones con jornada, duración, márgenes, zona horaria y ocupación real de Google Calendar. Gestiona ofertas, opciones, reservas provisionales, caducidad, confirmación y liberación idempotente.
+Calcula opciones con jornada, duración, márgenes, zona horaria y ocupación real de Google Calendar. Expone candidatos de elección libre mediante un enlace hash-only acotado sin mutación pública. Gestiona ofertas preaprobadas, opciones, reservas provisionales, caducidad, confirmación y liberación idempotente; selección y aprobación libres permanecen fuera.
 
 ### Contenido web y portfolios
 

@@ -18,6 +18,13 @@ export function validateAvailabilityPreview(input: Readonly<{ rules: Availabilit
   if (last <= first || last.getTime() - first.getTime() > AVAILABILITY_LIMITS.maxRangeDays * 86_400_000) invalid();
 }
 
+export function validateFreeChoiceAvailabilityAccess(input: Readonly<{ rangeStart:string; rangeEnd:string; durationMinutes:number; expiresAt:string; nowUtc:string; allowStartedRange?:boolean }>): void {
+  if (!Number.isInteger(input.durationMinutes) || input.durationMinutes < AVAILABILITY_LIMITS.minDurationMinutes || input.durationMinutes > AVAILABILITY_LIMITS.maxDurationMinutes) invalid();
+  const now=parseUtc(input.nowUtc), first=parseUtc(input.rangeStart), last=parseUtc(input.rangeEnd), expiry=parseUtc(input.expiresAt);
+  if ((!input.allowStartedRange && first < now) || last <= first || last.getTime()-first.getTime()>AVAILABILITY_LIMITS.maxRangeDays*86_400_000) invalid();
+  if (expiry <= now || expiry > last) invalid();
+}
+
 export function candidateSlots(input: Readonly<{ rules: AvailabilityRules; rangeStart: string; rangeEnd: string; durationMinutes: number; busy: readonly BusyInterval[] }>): readonly AvailabilitySlot[] {
   validateAvailabilityPreview(input);
   const first = parseUtc(input.rangeStart); const last = parseUtc(input.rangeEnd);

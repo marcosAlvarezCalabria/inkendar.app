@@ -1,0 +1,10 @@
+import { useLoaderData } from "react-router";
+import type { PublicFreeChoiceAvailabilityView } from "@inkendar/application";
+import type { Route } from "./+types/public-availability";
+import { publicFreeChoiceAvailabilityHandlers,publicFreeChoiceAvailabilityHeaders } from "../free-choice-availability.server.js";
+
+export function meta():Route.MetaDescriptors{return [{title:"Huecos disponibles | Inkendar"},{name:"robots",content:"noindex,nofollow"},{name:"referrer",content:"no-referrer"}];}
+export function headers(){return Object.fromEntries(publicFreeChoiceAvailabilityHeaders());}
+export async function loader({request,params}:Route.LoaderArgs){const response=await publicFreeChoiceAvailabilityHandlers.loader(request,params.token);if(!response.ok)throw new Response(response.status===503?"La disponibilidad no está disponible temporalmente.":"Este enlace no está disponible.",{status:response.status,headers:publicFreeChoiceAvailabilityHeaders()});return response;}
+export default function PublicFreeChoiceAvailability(){const data=useLoaderData() as PublicFreeChoiceAvailabilityView;return <main className="public-offer-page"><section className="shell-panel public-offer-card"><p className="eyebrow">Inkendar</p><h1>Huecos disponibles</h1><p>Estos huecos para {data.artistDisplayName} son orientativos. Elegir uno requiere aprobación del estudio y aquí no se crea ninguna reserva.</p><p>Zona horaria: {data.timeZone}</p><p>Consulta válida hasta <time dateTime={data.expiresAt}>{data.expiresAt}</time>.</p>{data.slots.length===0?<p>No hay huecos candidatos en este rango.</p>:<ol>{data.slots.map(slot=><li key={slot.startUtc}><time dateTime={slot.startUtc}>{slot.startLocal}</time> – <time dateTime={slot.endUtc}>{slot.endLocal}</time></li>)}</ol>}</section></main>;}
+export function ErrorBoundary(){return <main className="public-offer-page"><section className="shell-panel public-offer-card"><p className="eyebrow">Inkendar</p><h1>Este enlace no está disponible</h1><p>Pide al estudio un enlace vigente o inténtalo de nuevo más tarde.</p></section></main>;}
