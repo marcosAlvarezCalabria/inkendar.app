@@ -1,5 +1,16 @@
+import type { ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import type * as ReactRouterModule from "react-router";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("react-router", async (importOriginal) => {
+  const actual = await importOriginal<typeof ReactRouterModule>();
+  return {
+    ...actual,
+    Form: ({ children, ...props }: ComponentProps<"form">) => <form {...props}>{children}</form>,
+  };
+});
+
 import { AvailabilityManagement, CalendarManagement } from "./routes/owner-calendars.js";
 
 describe("owner Calendar management view", () => {
