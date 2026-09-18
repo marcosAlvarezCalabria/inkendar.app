@@ -49,7 +49,7 @@ end $$;
 create function public.claim_free_choice_owner_approval(p_studio_id uuid,p_owner_user_id uuid,p_request_id uuid,p_event_id text,p_correlation text,p_now timestamptz) returns jsonb language plpgsql security definer set search_path='' as $$
 declare r public.free_choice_pending_request;o public.free_choice_approval_operation;a public.artist_calendar_assignment;c public.google_calendar_connection;l uuid;fin jsonb;
 begin
- if p_event_id !~ '^[a-v0-9]{5,1024}$' or p_correlation !~ '^[A-Za-z0-9_-]{43}$' then raise exception 'invalid approval' using errcode='22023';end if;perform private.assert_studio_owner(p_studio_id,p_owner_user_id);
+ if char_length(p_event_id) not between 5 and 1024 or p_event_id !~ '^[a-v0-9]+$' or p_correlation !~ '^[A-Za-z0-9_-]{43}$' then raise exception 'invalid approval' using errcode='22023';end if;perform private.assert_studio_owner(p_studio_id,p_owner_user_id);
  select * into r from public.free_choice_pending_request where id=p_request_id and studio_id=p_studio_id for update;if not found then return jsonb_build_object('kind','UNAVAILABLE');end if;perform pg_advisory_xact_lock(hashtextextended(r.studio_id::text||':'||r.artist_profile_id::text,0));select * into o from public.free_choice_approval_operation where request_id=r.id for update;
  if r.status='PENDING_OWNER_APPROVAL' and r.expires_at<=p_now and o.request_id is null then update public.free_choice_pending_request set status='EXPIRED' where id=r.id;return jsonb_build_object('kind','UNAVAILABLE');end if;
  if r.status not in('PENDING_OWNER_APPROVAL','APPROVING','CONFIRMED') then return jsonb_build_object('kind','UNAVAILABLE');end if;
@@ -79,5 +79,37 @@ begin perform private.assert_studio_owner(p_studio_id,p_owner_user_id);select * 
  else select * into strict ap from public.appointment where free_choice_request_id=r.id and studio_id=r.studio_id;select * into strict e from public.appointment_google_event where appointment_id=ap.id and studio_id=ap.studio_id;if e.connection_id<>p_connection_id or e.calendar_id<>p_calendar_id or e.event_id<>p_event_id or e.correlation<>p_correlation then raise exception 'approval mismatch' using errcode='P0003';end if;end if;return jsonb_build_object('confirmed_at',ap.confirmed_at);
 end $$;
 
-revoke all on function public.reject_free_choice_owner_request(uuid,uuid,uuid,timestamptz),public.claim_free_choice_owner_approval(uuid,uuid,uuid,text,text,timestamptz),public.begin_free_choice_owner_approval_insert(uuid,uuid,uuid,uuid,timestamptz),public.release_free_choice_owner_approval_claim(uuid,uuid,uuid,uuid,timestamptz),public.finalize_free_choice_owner_approval(uuid,uuid,uuid,uuid,uuid,text,text,text,timestamptz) from public,anon,authenticated;
-grant execute on function public.reject_free_choice_owner_request(uuid,uuid,uuid,timestamptz),public.claim_free_choice_owner_approval(uuid,uuid,uuid,text,text,timestamptz),public.begin_free_choice_owner_approval_insert(uuid,uuid,uuid,uuid,timestamptz),public.release_free_choice_owner_approval_claim(uuid,uuid,uuid,uuid,timestamptz),public.finalize_free_choice_owner_approval(uuid,uuid,uuid,uuid,uuid,text,text,text,timestamptz) to service_role;
+create or replace function private.reject_booking_option_free_choice_conflict() returns trigger language plpgsql security definer set search_path='' as $$
+begin
+ if exists(select 1 from public.free_choice_pending_request r where r.studio_id=new.studio_id and r.artist_profile_id=new.artist_profile_id and ((r.status='PENDING_OWNER_APPROVAL' and r.expires_at>new.created_at) or r.status='APPROVING') and r.start_at<new.end_at and r.end_at>new.start_at) then raise exception 'booking hold conflict' using errcode='23P01';end if;
+ return new;
+end $$;
+create function private.reject_free_choice_approving_conflict() returns trigger language plpgsql security definer set search_path='' as $$
+begin
+ if exists(select 1 from public.free_choice_pending_request r where r.studio_id=new.studio_id and r.artist_profile_id=new.artist_profile_id and r.status='APPROVING' and r.start_at<new.end_at and r.end_at>new.start_at) then raise exception 'free-choice hold conflict' using errcode='23P01';end if;
+ return new;
+end $$;
+create trigger free_choice_approving_conflict before insert on public.free_choice_pending_request for each row execute function private.reject_free_choice_approving_conflict();
+create function public.get_public_free_choice_request_status(p_token_hash text,p_now timestamptz) returns jsonb language plpgsql stable security definer set search_path='' as $$
+declare result jsonb;
+begin
+ if p_token_hash !~ '^[0-9a-f]{64}$' or p_now is null then return null;end if;
+ select jsonb_build_object(
+  'status',case when r.status='PENDING_OWNER_APPROVAL' and r.expires_at<=p_now then 'EXPIRED' else r.status::text end,
+  'start_at',case when (r.status='PENDING_OWNER_APPROVAL' and r.expires_at>p_now) or r.status='CONFIRMED' then r.start_at else null end,
+  'end_at',case when (r.status='PENDING_OWNER_APPROVAL' and r.expires_at>p_now) or r.status='CONFIRMED' then r.end_at else null end
+ ) into result
+ from public.free_choice_availability_access a
+ join public.free_choice_pending_request r on r.access_id=a.id
+ where a.token_hash=decode(p_token_hash,'hex');
+ return result;
+end $$;
+
+create function private.preserve_consumed_free_choice_token() returns trigger language plpgsql security definer set search_path='' as $$
+begin
+ if new.token_hash<>old.token_hash and exists(select 1 from public.free_choice_pending_request r where r.access_id=old.id) then raise exception 'consumed free-choice access cannot rotate' using errcode='23514';end if;
+ return new;
+end $$;
+create trigger preserve_consumed_free_choice_token before update of token_hash on public.free_choice_availability_access for each row execute function private.preserve_consumed_free_choice_token();
+revoke all on function public.reject_free_choice_owner_request(uuid,uuid,uuid,timestamptz),public.claim_free_choice_owner_approval(uuid,uuid,uuid,text,text,timestamptz),public.begin_free_choice_owner_approval_insert(uuid,uuid,uuid,uuid,timestamptz),public.release_free_choice_owner_approval_claim(uuid,uuid,uuid,uuid,timestamptz),public.finalize_free_choice_owner_approval(uuid,uuid,uuid,uuid,uuid,text,text,text,timestamptz),public.get_public_free_choice_request_status(text,timestamptz) from public,anon,authenticated;
+grant execute on function public.reject_free_choice_owner_request(uuid,uuid,uuid,timestamptz),public.claim_free_choice_owner_approval(uuid,uuid,uuid,text,text,timestamptz),public.begin_free_choice_owner_approval_insert(uuid,uuid,uuid,uuid,timestamptz),public.release_free_choice_owner_approval_claim(uuid,uuid,uuid,uuid,timestamptz),public.finalize_free_choice_owner_approval(uuid,uuid,uuid,uuid,uuid,text,text,text,timestamptz),public.get_public_free_choice_request_status(text,timestamptz) to service_role;

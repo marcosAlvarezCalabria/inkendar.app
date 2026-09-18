@@ -28,13 +28,18 @@ export type PublicFreeChoiceAvailabilityContext = FreeChoiceAvailabilityAccess &
   holds:readonly BusyInterval[];
   pendingRequest:FreeChoicePendingRequest|null;
 }>;
+export type PublicFreeChoiceRequestStatus =
+  | Readonly<{state:"PENDING_OWNER_APPROVAL"|"CONFIRMED";startUtc:string;endUtc:string}>
+  | Readonly<{state:"APPROVING"|"REJECTED"|"EXPIRED"}>;
 export type PublicFreeChoiceAvailabilityView =
   | (FreeChoiceAvailabilityAccess & Readonly<{state:"OPEN";artistDisplayName:string;timeZone:string;slots:readonly (AvailabilitySlot & {selector:string})[]}>)
-  | Readonly<{state:"PENDING_OWNER_APPROVAL";artistDisplayName:string;timeZone:string;expiresAt:string;selectedSlot:AvailabilitySlot}>;
+  | Readonly<{state:"PENDING_OWNER_APPROVAL"|"CONFIRMED";selectedSlot:Pick<AvailabilitySlot,"startUtc"|"endUtc">}>
+  | Readonly<{state:"APPROVING"|"REJECTED"|"EXPIRED"}>;
 export type FreeChoiceOwnerManagement=Readonly<{cases:readonly {id:string;summary:string;artistProfileId:string}[];pendingRequests:readonly {id:string;status:"PENDING_OWNER_APPROVAL"|"APPROVING";customerName:string;caseSummary:string;artistDisplayName:string;startUtc:string;endUtc:string;expiresAt:string}[]}>;
 
 export interface FreeChoiceAvailabilityAccessRepositoryPort { rotateAccess(input:RotateFreeChoiceAvailabilityAccessRecord):Promise<Readonly<{expiresAt:string}>>;getManagement(studioId:string):Promise<FreeChoiceOwnerManagement>; }
 export interface PublicFreeChoiceAvailabilityRepositoryPort {
+  getRequestStatusByTokenHash(input:Readonly<{tokenHash:string;nowUtc:string}>):Promise<PublicFreeChoiceRequestStatus|null>;
   getContextByTokenHash(input:Readonly<{tokenHash:string;nowUtc:string}>):Promise<PublicFreeChoiceAvailabilityContext|null>;
   markReauthRequired(input:Readonly<{tokenHash:string;credentialGeneration:number;nowUtc:string}>):Promise<void>;
   selectPending(input:Readonly<{tokenHash:string;selector:string;startUtc:string;endUtc:string;nowUtc:string}>):Promise<FreeChoicePendingRequest>;
@@ -62,6 +67,8 @@ export function createFreeChoiceAvailabilityService(dependencies:Dependencies){
       try{token=normalizePublicBookingOfferToken(rawToken);}catch(error){if(error instanceof InvalidPublicBookingOfferTokenError)throw new FreeChoiceAvailabilityUnavailableError();throw error;}
       const tokenHash=normalizePublicBookingOfferHash(dependencies.hashToken(token));
       const nowUtc=now();
+      const status=await dependencies.publicRepository.getRequestStatusByTokenHash({tokenHash,nowUtc});
+      if(status)return terminalView(status);
       const context=await dependencies.publicRepository.getContextByTokenHash({tokenHash,nowUtc});
       if(!context||context.connection.status!=="ACTIVE"||!context.connection.encryptedRefreshToken||!context.connection.grantedScopes.includes(GOOGLE_FREE_BUSY_SCOPE))throw new FreeChoiceAvailabilityUnavailableError();
       try{validateRules(context.rules);validateFreeChoiceAvailabilityAccess({rangeStart:context.rangeStart,rangeEnd:context.rangeEnd,durationMinutes:context.durationMinutes,expiresAt:context.expiresAt,nowUtc,allowStartedRange:true});}catch{throw new FreeChoiceAvailabilityUnavailableError();}
@@ -85,5 +92,5 @@ export function createFreeChoiceAvailabilityService(dependencies:Dependencies){
 
 function slotSelector(token:string,slot:Pick<AvailabilitySlot,"startUtc"|"endUtc">&Partial<Pick<AvailabilitySlot,"startLocal"|"endLocal">>,hash:(value:string)=>string){return normalizePublicBookingOfferHash(hash(`free-choice-slot:v1:${token}:${slot.startUtc}:${slot.endUtc}`));}
 function same(left:string,right:string){if(left.length!==right.length)return false;let difference=0;for(let i=0;i<left.length;i+=1)difference|=left.charCodeAt(i)^right.charCodeAt(i);return difference===0;}
-function pendingView(context:PublicFreeChoiceAvailabilityContext,pending:FreeChoicePendingRequest):PublicFreeChoiceAvailabilityView{return {state:"PENDING_OWNER_APPROVAL",artistDisplayName:context.artistDisplayName,timeZone:context.rules.timeZone,expiresAt:pending.expiresAt,selectedSlot:{startUtc:pending.startUtc,endUtc:pending.endUtc,startLocal:local(pending.startUtc,context.rules.timeZone),endLocal:local(pending.endUtc,context.rules.timeZone)}};}
-function local(value:string,timeZone:string){const parts=new Intl.DateTimeFormat("en-CA",{timeZone,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(new Date(value));const get=(type:Intl.DateTimeFormatPartTypes)=>parts.find(part=>part.type===type)?.value??"";return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;}
+function pendingView(_context:PublicFreeChoiceAvailabilityContext,pending:FreeChoicePendingRequest):PublicFreeChoiceAvailabilityView{return {state:"PENDING_OWNER_APPROVAL",selectedSlot:{startUtc:pending.startUtc,endUtc:pending.endUtc}};}
+function terminalView(status:PublicFreeChoiceRequestStatus):PublicFreeChoiceAvailabilityView{return status.state==="PENDING_OWNER_APPROVAL"||status.state==="CONFIRMED"?{state:status.state,selectedSlot:{startUtc:status.startUtc,endUtc:status.endUtc}}:{state:status.state};}

@@ -1,5 +1,7 @@
 # Contrato: decisión OWNER de elección libre
 
+_Estado técnico: candidato local verificado; revisión independiente, PR, CI y prueba live con Google permanecen pendientes._
+
 ## Necesidad
 
 Como OWNER quiero aprobar o rechazar una solicitud durable `PENDING_OWNER_APPROVAL`, para cerrar la elección del cliente sin convertirla en cita antes de confirmar exactamente un evento privado en Google.
@@ -10,7 +12,7 @@ La mutación privada same-origin acepta solo `requestId` e `intent=approve|rejec
 
 Desde `INSERTING` la solicitud permanece `APPROVING` aunque venza. Toda recuperación usa `Events.get` contra el binding original; nunca hace un segundo insert. Un evento exacto `private`, `opaque`, sin asistentes y sin PII finaliza atómicamente una cita y su relación externa; mismatch o ambigüedad conservan el estado seguro. `invalid_grant` usa CAS por generación.
 
-El GET público por token expone solo `PENDING_OWNER_APPROVAL`, `APPROVING`, `CONFIRMED`, `REJECTED` o `EXPIRED` con el intervalo únicamente mientras sigue pendiente o confirmada. Nunca expone IDs, cliente, caso, tenant, calendario ni estado interno de Google.
+El GET público por el mismo token expone solo `PENDING_OWNER_APPROVAL`, `APPROVING`, `CONFIRMED`, `REJECTED` o `EXPIRED`, con intervalo únicamente mientras sigue pendiente o confirmada. La caducidad termina la autoridad de seleccionar, no la consulta del resultado: el token consumido no puede rotarse y sigue resolviendo mientras se conserven la solicitud y su acceso; un proceso de retención futuro podrá eliminar ambos y convertir después la respuesta en el 404 genérico. `APPROVING` nunca expone intervalo ni afirma cita. Ningún estado expone IDs, cliente, caso, tenant, calendario ni estado interno de Google.
 
 ## Aceptación
 
@@ -45,3 +47,7 @@ Scenario: configuración o evento incompatibles
   When se intenta aprobar o recuperar
   Then Inkendar falla cerrado sin crear reemplazo ni afirmar confirmación
 ```
+
+## Evidencia local
+
+El reset forward-only local aplica la migración candidata. La suite pgTAP conductual cubre autorización OWNER/ARTIST/cross-tenant, rechazo idempotente y liberación, binding, scopes, leases `READY/INSERTING/FINALIZED`, fencing, preservación tras caducidad, conflictos locales, finalización única, retry y XOR de citas. Un harness con dos conexiones PostgreSQL reales fuerza ambos órdenes `APPROVE ↔ REJECT` y converge sin deadlock. Las pruebas de aplicación/adaptadores/rutas cubren DTO terminal, ausencia de filtraciones, payload Google exacto, reconciliación y ausencia de segundo insert. Esta evidencia es local y sintética: no equivale a CI ni a una operación live contra Google.
