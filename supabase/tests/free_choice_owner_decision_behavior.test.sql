@@ -1,5 +1,5 @@
 begin;
-select plan(42);
+select plan(54);
 select lives_ok($setup$
  select public.activate_google_calendar_connection('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','v1.owner-decision-cipher.tag',array['https://www.googleapis.com/auth/calendar.calendarlist.readonly','https://www.googleapis.com/auth/calendar.events.freebusy','https://www.googleapis.com/auth/calendar.events']);
  select public.assign_artist_calendar('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','artist@example.test','writer');
@@ -7,11 +7,13 @@ select lives_ok($setup$
  insert into public.customer(id,studio_id,name,status) values
  ('60000000-0000-0000-0000-000000000081','20000000-0000-0000-0000-000000000001','Decision client one','ACTIVE'),
  ('60000000-0000-0000-0000-000000000082','20000000-0000-0000-0000-000000000001','Decision client two','ACTIVE'),
- ('60000000-0000-0000-0000-000000000083','20000000-0000-0000-0000-000000000001','Decision client three','ACTIVE');
+ ('60000000-0000-0000-0000-000000000083','20000000-0000-0000-0000-000000000001','Decision client three','ACTIVE'),
+ ('60000000-0000-0000-0000-000000000084','20000000-0000-0000-0000-000000000001','Decision client ready expiry','ACTIVE');
  insert into public.tattoo_case(id,studio_id,customer_id,summary,artist_profile_id,status) values
  ('70000000-0000-0000-0000-000000000081','20000000-0000-0000-0000-000000000001','60000000-0000-0000-0000-000000000081','Reject decision','50000000-0000-0000-0000-000000000001','OPEN'),
  ('70000000-0000-0000-0000-000000000082','20000000-0000-0000-0000-000000000001','60000000-0000-0000-0000-000000000082','Approve decision','50000000-0000-0000-0000-000000000001','OPEN'),
- ('70000000-0000-0000-0000-000000000083','20000000-0000-0000-0000-000000000001','60000000-0000-0000-0000-000000000083','Conflict decision','50000000-0000-0000-0000-000000000001','OPEN');
+ ('70000000-0000-0000-0000-000000000083','20000000-0000-0000-0000-000000000001','60000000-0000-0000-0000-000000000083','Conflict decision','50000000-0000-0000-0000-000000000001','OPEN'),
+ ('70000000-0000-0000-0000-000000000084','20000000-0000-0000-0000-000000000001','60000000-0000-0000-0000-000000000084','Ready expiry decision','50000000-0000-0000-0000-000000000001','OPEN');
  select public.save_booking_offer_expiry_hours('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001',24);
 $setup$,'OWNER fixture is ready');
 
@@ -26,6 +28,20 @@ select is((select public.reject_free_choice_owner_request('20000000-0000-0000-00
 select is((select count(*) from public.list_active_booking_holds('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','2026-09-21T00:00:00Z','2026-09-22T00:00:00Z','2026-09-20T09:04:00Z')),0::bigint,'reject releases the hold');
 select is(public.get_public_free_choice_request_status(repeat('81',32),'2026-09-20T09:04:00Z'),jsonb_build_object('status','REJECTED','start_at',null,'end_at',null),'public rejected status is minimal');
 select throws_ok($$select public.rotate_free_choice_availability_access('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','70000000-0000-0000-0000-000000000081','50000000-0000-0000-0000-000000000001',repeat('82',32),'2026-09-21T00:00:00Z','2026-09-23T00:00:00Z',60,'2026-09-21T18:00:00Z','2026-09-20T09:05:00Z')$$,'23514',null,'consumed token cannot rotate before retention cleanup');
+select lives_ok($$select public.rotate_free_choice_availability_access('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','70000000-0000-0000-0000-000000000084','50000000-0000-0000-0000-000000000001',repeat('84',32),'2026-09-20T09:00:00Z','2026-09-21T00:00:00Z',60,'2026-09-20T10:00:00Z','2026-09-20T08:00:00Z')$$,'READY-expiry access issued');
+select lives_ok($$select public.select_public_free_choice_availability(repeat('84',32),repeat('94',32),'2026-09-20T12:00:00Z','2026-09-20T13:00:00Z','2026-09-20T09:00:00Z')$$,'READY-expiry request selected');
+create temporary table ready_expiry_request as select id from public.free_choice_pending_request where tattoo_case_id='70000000-0000-0000-0000-000000000084';
+create temporary table ready_expiry_claim as select public.claim_free_choice_owner_approval('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001',(select id from ready_expiry_request),'inkendarreadievent','CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC','2026-09-20T09:01:00Z') value;
+select is((select value->>'mode' from ready_expiry_claim),'INSERT_OR_RECONCILE','initial READY claim may insert before expiry');
+select is((select public.claim_free_choice_owner_approval('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001',id,'inkendarreadievent','CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC','2026-09-20T10:01:00Z')->>'kind' from ready_expiry_request),'UNAVAILABLE','expired READY retry cannot regain insert authority');
+select is((select r.status::text||':'||o.state::text||':'||(o.lease_id is null)::text from public.free_choice_pending_request r join public.free_choice_approval_operation o on o.request_id=r.id where r.id=(select id from ready_expiry_request)),'EXPIRED:READY:true','expired READY remains durable but clears authority and hold');
+select is((select public.begin_free_choice_owner_approval_insert('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001',r.id,(c.value->>'lease_id')::uuid,'2026-09-20T10:01:01Z') from ready_expiry_request r cross join ready_expiry_claim c),false,'expired READY old lease cannot begin insert');
+select is((select count(*) from public.list_active_booking_holds('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','2026-09-20T11:00:00Z','2026-09-20T14:00:00Z','2026-09-20T10:01:02Z')),0::bigint,'expired READY no longer blocks availability');
+select is(public.get_public_free_choice_request_status(repeat('84',32),'2026-09-20T10:01:02Z'),jsonb_build_object('status','EXPIRED','start_at',null,'end_at',null),'expired READY public terminal is minimal');
+select lives_ok($$update public.free_choice_pending_request set status='APPROVING',created_at=now()-interval '2 hours',expires_at=now()-interval '1 hour' where id=(select id from ready_expiry_request);update public.free_choice_approval_operation set lease_id='94000000-0000-4000-8000-000000000084',lease_expires_at=now()+interval '1 hour' where request_id=(select id from ready_expiry_request)$$,'management READY-expiry fixture restored');
+select lives_ok($$select public.get_free_choice_availability_management('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001')$$,'management materializes expired APPROVING READY');
+select is((select r.status::text||':'||o.state::text||':'||(o.lease_id is null)::text from public.free_choice_pending_request r join public.free_choice_approval_operation o on o.request_id=r.id where r.id=(select id from ready_expiry_request)),'EXPIRED:READY:true','management expires READY and clears lease without deleting operation');
+select is((select public.claim_free_choice_owner_approval('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001',id,'inkendarreadievent','CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC',now())->>'kind' from ready_expiry_request),'UNAVAILABLE','management-expired READY cannot be reclaimed');
 
 select lives_ok($$select public.rotate_free_choice_availability_access('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','70000000-0000-0000-0000-000000000082','50000000-0000-0000-0000-000000000001',repeat('82',32),'2026-09-22T00:00:00Z','2026-09-24T00:00:00Z',60,'2026-09-21T12:00:00Z','2026-09-20T08:00:00Z')$$,'approve access issued');
 select lives_ok($$select public.select_public_free_choice_availability(repeat('82',32),repeat('92',32),'2026-09-22T09:00:00Z','2026-09-22T10:00:00Z','2026-09-20T09:00:00Z')$$,'approve request selected');

@@ -26,5 +26,26 @@ try{
  Assert ($rejected.Output-match 'REJECTED') 'reject-first did not reject'
  Assert ($claim.Output-match 'UNAVAILABLE') 'reject-first claim did not fail closed'
  Assert ((Invoke-Db "select status::text from public.free_choice_pending_request where id='$requestId'").Output-eq 'REJECTED') 'reject-first state mismatch'
- Write-Output 'PASS: approve/reject races converged in both lock orders without deadlock'
+ $requestId=Fixture ('93'*32) ('a3'*32)
+ $null=Invoke-Db "update public.free_choice_pending_request set expires_at='2026-09-24T12:00:00Z' where id='$requestId'"
+ $null=Invoke-Db "select public.claim_free_choice_owner_approval('$studioId','$ownerId','$requestId','inkendarreadirace','DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD','2026-09-24T11:58:00Z')"
+ $leaseId=(Invoke-Db "select lease_id from public.free_choice_approval_operation where request_id='$requestId'").Output
+ $beginJob=Start-Db "begin;set local lock_timeout='8s';set local statement_timeout='9s';select public.begin_free_choice_owner_approval_insert('$studioId','$ownerId','$requestId','$leaseId','2026-09-24T11:59:00Z');select pg_sleep(2);commit;"
+ Start-Sleep -Milliseconds 1500
+ $expiredRetry=Invoke-Db "begin;set local lock_timeout='8s';set local statement_timeout='9s';select public.claim_free_choice_owner_approval('$studioId','$ownerId','$requestId','inkendarreadirace','DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD','2026-09-24T12:01:00Z');commit;"
+ $begun=Complete-Db $beginJob
+ Assert ($begun.Output-match 't') 'begin-first READY race did not acquire INSERTING'
+ Assert ($expiredRetry.Output-match 'RECONCILE_ONLY') 'begin-first READY race did not preserve INSERTING as reconcile-only'
+ $requestId=Fixture ('94'*32) ('a4'*32)
+ $null=Invoke-Db "update public.free_choice_pending_request set expires_at='2026-09-24T12:00:00Z' where id='$requestId'"
+ $null=Invoke-Db "select public.claim_free_choice_owner_approval('$studioId','$ownerId','$requestId','inkendarreadirace','EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE','2026-09-24T11:58:00Z')"
+ $leaseId=(Invoke-Db "select lease_id from public.free_choice_approval_operation where request_id='$requestId'").Output
+ $expiryJob=Start-Db "begin;set local lock_timeout='8s';set local statement_timeout='9s';select public.claim_free_choice_owner_approval('$studioId','$ownerId','$requestId','inkendarreadirace','EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE','2026-09-24T12:01:00Z');select pg_sleep(2);commit;"
+ Start-Sleep -Milliseconds 1500
+ $staleBegin=Invoke-Db "begin;set local lock_timeout='8s';set local statement_timeout='9s';select public.begin_free_choice_owner_approval_insert('$studioId','$ownerId','$requestId','$leaseId','2026-09-24T11:59:00Z');commit;"
+ $expired=Complete-Db $expiryJob
+ Assert ($expired.Output-match 'UNAVAILABLE') 'expiry-first READY race did not reject retry'
+ Assert ($staleBegin.Output-match 'f') 'expiry-first READY race did not fence stale begin'
+ Assert ((Invoke-Db "select r.status::text||'|'||o.state::text||'|'||(o.lease_id is null)::text from public.free_choice_pending_request r join public.free_choice_approval_operation o on o.request_id=r.id where r.id='$requestId'").Output-eq 'EXPIRED|READY|true') 'expiry-first READY race state mismatch'
+ Write-Output 'PASS: approve/reject and READY/expiry races converged in both lock orders without deadlock'
 }finally{Cleanup}
