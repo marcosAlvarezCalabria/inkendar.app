@@ -13,3 +13,4 @@ export * from "./manual-onboarding.js";
 export * from "./public-gallery.js";
 export * from "./availability.js";
 export * from "./free-choice-availability.js";
+export * from "./free-choice-owner-decision.js";
