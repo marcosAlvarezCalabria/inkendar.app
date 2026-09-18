@@ -2,7 +2,7 @@
 
 _Estado: especificación viva y fuente de verdad para alcance, comportamiento y progreso_
 
-_Versión: 1.23.0_
+_Versión: 1.24.0_
 
 _Última actualización: 2026-09-17_
 
@@ -104,6 +104,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | 2026-09-17 | DEC-040 | `ACCEPTED` | La instalación rápida usa el custom element `<inkendar-gallery>` y el asset ESM estable `/inkendar-gallery.js`; `studio-slug` es obligatorio, `api-origin` es el único override opcional y el origen se deriva por defecto de `import.meta.url`. El Shadow DOM valida el feed y URLs, usa fetch CORS sin credenciales y expone solo variables CSS documentadas. | Integrar HTML, WordPress y constructores sin depender del framework anfitrión, consultar siempre Inkendar aunque la web viva en otro origen y evitar credenciales, HTML remoto, APIs públicas innecesarias o acoplamiento al proveedor. |
 | 2026-09-17 | DEC-041 | `ACCEPTED` | Un OWNER puede listar hasta 100 assets `DISCARDED` de su estudio mediante metadata editorial segura y restaurarlos por handle opaco con `RESTORE`. La transición `DISCARDED → DRAFT` conserva grupo, alt, variantes, binding y la posición ya reservada por la propia fila, toma primero el lock común del estudio y converge sin cambios si el asset ya está `DRAFT`. | Recuperar trabajo privado ante descartes accidentales sin deriva de orden, renumeración histórica, miniaturas de descartados, IDs internos, service role, Storage, hard delete ni reapertura de estados publicados. GC permanece bloqueado hasta acordar retención, grace period y reconciliación tras purga. |
 | 2026-09-17 | DEC-042 | `ACCEPTED` | La consulta pública para elección libre usa una credencial rotatoria de 32 bytes por artista, almacenada solo como SHA-256 y ligada a rango, duración y caducidad acotados. Un GET server-only calcula candidatos con reglas, FreeBusy y holds, expone un DTO mínimo y no permite seleccionar, bloquear ni reservar. | Abrir el primer tramo seguro de elección libre reutilizando disponibilidad real sin aceptar tenant/rango del visitante, filtrar eventos o anticipar aprobación y confirmación. |
+| 2026-09-18 | DEC-043 | `ACCEPTED` | Los enlaces nuevos de elección libre se rotan por caso OPEN con artista explícito coherente; los legacy sin caso son GET-only. Un selector derivado opaco identifica cada candidato sin persistir el catálogo, POST revalida FreeBusy y una RPC serializada crea una solicitud durable `PENDING_OWNER_APPROVAL` que bloquea disponibilidad hasta su caducidad. | Personalizar el enlace para un cliente/caso sin PII pública, evitar timestamps confiados y carreras internas, y no confundir una solicitud con cita o aprobación. |
 La arquitectura técnica está en [Arquitectura de aplicación](../architecture/application-architecture.md) y el proceso de entrega en [Flujo de desarrollo, revisión e integración](../development/delivery-workflow.md).
 
 ## Historial de la especificación
@@ -475,3 +476,4 @@ No se consideran éxito el número de pantallas, campos o automatizaciones const
 ## Política de detalle
 
 Esta spec conserva decisiones de producto y criterios transversales. Cada slice sustantivo añade o enlaza su contrato técnico y sus pruebas antes de implementar. El material retirado continúa disponible en Git y solo se consulta cuando se necesita evidencia histórica.
+| 2026-09-18 | 1.24.0 | Implementación local en rama de la solicitud pendiente de elección libre por caso; pruebas enfocadas y validación final permanecen como gate del slice y no existe evidencia live. | Registrar el nuevo contrato sin afirmar despliegue, aprobación ni confirmación. |

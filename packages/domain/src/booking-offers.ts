@@ -82,6 +82,11 @@ export function normalizePublicBookingOfferHash(value: string): string {
   return value;
 }
 
+export function normalizeFreeChoiceSlotSelector(value: string): string {
+  if (!SHA_256_HEX_PATTERN.test(value)) throw new InvalidPublicBookingOptionSelectorError();
+  return value;
+}
+
 export function normalizePublicBookingOptionSelector(value: string): string {
   if (!PUBLIC_OPTION_SELECTOR_PATTERN.test(value)) throw new InvalidPublicBookingOptionSelectorError();
   return value;

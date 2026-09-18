@@ -1,0 +1,16 @@
+begin;
+select plan(12);
+select has_table('public','free_choice_pending_request','pending request table exists');
+select ok((select relrowsecurity from pg_class where oid='public.free_choice_pending_request'::regclass),'pending request RLS enabled');
+select ok(not has_table_privilege('anon','public.free_choice_pending_request','select'),'anon cannot read pending requests');
+select ok(not has_table_privilege('authenticated','public.free_choice_pending_request','select'),'authenticated cannot read pending requests');
+select ok(not has_table_privilege('service_role','public.free_choice_pending_request','select'),'service role uses RPC only');
+select ok(has_function_privilege('service_role','public.select_public_free_choice_availability(text,text,timestamptz,timestamptz,timestamptz)','execute'),'service role may select');
+select ok(not has_function_privilege('anon','public.select_public_free_choice_availability(text,text,timestamptz,timestamptz,timestamptz)','execute'),'anon cannot call selection RPC');
+select ok(has_function_privilege('service_role','public.rotate_free_choice_availability_access(uuid,uuid,uuid,uuid,text,timestamptz,timestamptz,integer,timestamptz,timestamptz)','execute'),'service role may rotate case-bound access');
+select ok(not has_function_privilege('authenticated','public.rotate_free_choice_availability_access(uuid,uuid,uuid,uuid,text,timestamptz,timestamptz,integer,timestamptz,timestamptz)','execute'),'authenticated cannot rotate directly');
+select col_is_null('public','free_choice_availability_access','tattoo_case_id','legacy access remains nullable/query-only');
+select has_index('public','free_choice_availability_access','free_choice_access_case_unique','one access per case');
+select has_index('public','free_choice_pending_request','free_choice_request_active_hold_idx','active pending holds indexed');
+select * from finish();
+rollback;

@@ -104,6 +104,8 @@ El dominio enumera los días civiles IANA que intersectan el rango UTC y resuelv
 
 ### Consulta pública de elección libre
 
+Los enlaces nuevos quedan ligados a un `tattoo_case` OPEN con artista ya asignado; la fila histórica nullable conserva enlaces anteriores solo para consulta. El navegador recibe selectores SHA-256 derivados de token e intervalo, nunca IDs ni timestamps de entrada confiados. POST reconsulta FreeBusy y materializa después una `free_choice_pending_request` bajo el mismo advisory lock estudio/artista. La solicitud `PENDING_OWNER_APPROVAL` es un hold durable e idempotente con caducidad acotada por configuración, enlace e inicio del slot. El lock evita carreras internas, pero no elimina la ventana entre FreeBusy y un evento externo; la aprobación futura debe revalidar. Casos sin artista fallan cerrado y el panel OWNER muestra solo cliente, caso, artista, intervalo y caducidad.
+
 _Estado técnico: implementado y verificado localmente; pendiente de revisión, PR y CI. No existe prueba live ni selección/aprobación en este corte._
 
 `FreeChoiceAvailabilityAccessRepositoryPort` rota una credencial base64url de 32 bytes por artista desde un POST OWNER same-origin; Supabase conserva solo SHA-256 junto a rango UTC, duración y caducidad acotados. La RPC de emisión exige OWNER/tenant, reglas, asignación `writer|owner`, conexión `ACTIVE`, refresh token y scope `calendar.events.freebusy`. La tabla y las tres RPC quedan sin acceso directo de `anon` o `authenticated`, con `SECURITY DEFINER`, `search_path=''` y ejecución exclusiva de `service_role`.
