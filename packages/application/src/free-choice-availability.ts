@@ -31,7 +31,7 @@ export type PublicFreeChoiceAvailabilityContext = FreeChoiceAvailabilityAccess &
 export type PublicFreeChoiceAvailabilityView =
   | (FreeChoiceAvailabilityAccess & Readonly<{state:"OPEN";artistDisplayName:string;timeZone:string;slots:readonly (AvailabilitySlot & {selector:string})[]}>)
   | Readonly<{state:"PENDING_OWNER_APPROVAL";artistDisplayName:string;timeZone:string;expiresAt:string;selectedSlot:AvailabilitySlot}>;
-export type FreeChoiceOwnerManagement=Readonly<{cases:readonly {id:string;summary:string;artistProfileId:string}[];pendingRequests:readonly {customerName:string;caseSummary:string;artistDisplayName:string;startUtc:string;endUtc:string;expiresAt:string}[]}>;
+export type FreeChoiceOwnerManagement=Readonly<{cases:readonly {id:string;summary:string;artistProfileId:string}[];pendingRequests:readonly {id:string;status:"PENDING_OWNER_APPROVAL"|"APPROVING";customerName:string;caseSummary:string;artistDisplayName:string;startUtc:string;endUtc:string;expiresAt:string}[]}>;
 
 export interface FreeChoiceAvailabilityAccessRepositoryPort { rotateAccess(input:RotateFreeChoiceAvailabilityAccessRecord):Promise<Readonly<{expiresAt:string}>>;getManagement(studioId:string):Promise<FreeChoiceOwnerManagement>; }
 export interface PublicFreeChoiceAvailabilityRepositoryPort {

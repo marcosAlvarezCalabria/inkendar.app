@@ -23,3 +23,4 @@ export * from "./supabase-gallery-publication.js";
 export * from "./supabase-public-gallery.js";
 export * from "./supabase-availability.js";
 export * from "./supabase-free-choice-availability.js";
+export * from "./supabase-free-choice-owner-decision.js";
