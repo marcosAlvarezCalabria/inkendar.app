@@ -1,4 +1,4 @@
-import { isRouteErrorResponse, Link, useActionData, useLoaderData, useRouteError, useSearchParams } from "react-router";
+import { Form, isRouteErrorResponse, Link, useActionData, useLoaderData, useRouteError, useSearchParams } from "react-router";
 import type { ArtistCalendarAssignment, GoogleCalendar, GoogleConnectionStatus } from "@inkendar/application";
 import type { AvailabilityRules } from "@inkendar/domain";
 import type { Route } from "./+types/owner-calendars";
@@ -68,7 +68,7 @@ export function CalendarManagement({ data, result }: Readonly<{ data: Omit<View,
       <h2 id="artist-calendar-title">Calendario por artista</h2>
       {data.connectionStatus !== "ACTIVE" ? <p>Conecta o reconecta Google Calendar para gestionar asignaciones.</p> : null}
       {data.connectionStatus === "ACTIVE" && data.artists.length === 0 ? <p>Todavía no hay artistas.</p> : null}
-      {data.connectionStatus === "ACTIVE" ? data.artists.map((artist) => <form method="post" className="shell-panel record-form" key={artist.id}>
+      {data.connectionStatus === "ACTIVE" ? data.artists.map((artist) => <Form method="post" className="shell-panel record-form" key={artist.id}>
         <input type="hidden" name="intent" value="assign" />
         <input type="hidden" name="artistProfileId" value={artist.id} />
         <label>{artist.displayName}<select name="calendarId" defaultValue={artist.calendarId ?? ""}>
@@ -77,7 +77,7 @@ export function CalendarManagement({ data, result }: Readonly<{ data: Omit<View,
           {writable.map((calendar) => <option key={calendar.id} value={calendar.id}>{calendar.summary}{calendar.primary ? " · principal" : ""}{calendar.timeZone ? ` · ${calendar.timeZone}` : ""}</option>)}
         </select></label>
         <button type="submit">Guardar asignación</button>
-      </form>) : null}
+      </Form>) : null}
     </section>
   </>;
 }

@@ -88,8 +88,15 @@ describe("owner Google Calendar handlers", () => {
   it("assigns or clears one artist calendar from same-origin forms", async () => {
     const current = service();
     const handlers = createOwnerGoogleCalendarHandlers({ authorize, createService: () => current, now: () => new Date() });
-    const form = new FormData(); form.set("intent", "assign"); form.set("artistProfileId", "50000000-0000-4000-8000-000000000001"); form.set("calendarId", "");
-    const response = await handlers.action(mutation(form));
+    const assignment = new FormData(); assignment.set("intent", "assign"); assignment.set("artistProfileId", "50000000-0000-4000-8000-000000000001"); assignment.set("calendarId", "inkendar-local-artist@example.test");
+    const response = await handlers.action(mutation(assignment));
+    expect(current.assignCalendar).toHaveBeenCalledWith(
+      studioId,
+      "50000000-0000-4000-8000-000000000001",
+      "inkendar-local-artist@example.test",
+    );
+    const clearing = new FormData(); clearing.set("intent", "assign"); clearing.set("artistProfileId", "50000000-0000-4000-8000-000000000001"); clearing.set("calendarId", "");
+    await handlers.action(mutation(clearing));
     expect(current.assignCalendar).toHaveBeenCalledWith(studioId, "50000000-0000-4000-8000-000000000001", null);
     expect(response.status).toBe(303);
   });
