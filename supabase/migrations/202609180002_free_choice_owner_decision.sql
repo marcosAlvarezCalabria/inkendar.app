@@ -1,0 +1,116 @@
+create type public.free_choice_request_status_v2 as enum('PENDING_OWNER_APPROVAL','APPROVING','CONFIRMED','REJECTED','EXPIRED');
+drop index public.free_choice_request_active_hold_idx;
+alter table public.free_choice_pending_request alter column status drop default;
+alter table public.free_choice_pending_request alter column status type public.free_choice_request_status_v2 using status::text::public.free_choice_request_status_v2;
+drop type public.free_choice_request_status;
+alter type public.free_choice_request_status_v2 rename to free_choice_request_status;
+alter table public.free_choice_pending_request alter column status set default 'PENDING_OWNER_APPROVAL';
+create index free_choice_request_active_hold_idx on public.free_choice_pending_request(studio_id,artist_profile_id,start_at,end_at) where status='PENDING_OWNER_APPROVAL';
+alter table public.free_choice_pending_request add constraint free_choice_request_confirmation_identity_unique unique(id,studio_id,artist_profile_id,tattoo_case_id);
+
+create type public.free_choice_approval_operation_state as enum('READY','INSERTING','FINALIZED');
+create table public.free_choice_approval_operation(
+ request_id uuid primary key,studio_id uuid not null,tattoo_case_id uuid not null,artist_profile_id uuid not null,
+ connection_id uuid not null,calendar_id text not null check(char_length(calendar_id) between 1 and 1024 and calendar_id !~ '[[:cntrl:]]'),
+ event_id text not null check(char_length(event_id) between 5 and 1024 and event_id ~ '^[a-v0-9]+$'),correlation text not null check(correlation ~ '^[A-Za-z0-9_-]{43}$'),
+ state public.free_choice_approval_operation_state not null default 'READY',lease_id uuid,lease_expires_at timestamptz,created_at timestamptz not null,updated_at timestamptz not null,
+ constraint free_choice_approval_lease_pair check((lease_id is null)=(lease_expires_at is null)),
+ foreign key(request_id,studio_id,artist_profile_id,tattoo_case_id) references public.free_choice_pending_request(id,studio_id,artist_profile_id,tattoo_case_id) on delete restrict,
+ foreign key(connection_id,studio_id) references public.google_calendar_connection(id,studio_id) on delete restrict,
+ unique(calendar_id,event_id)
+);
+alter table public.free_choice_approval_operation enable row level security;
+revoke all on table public.free_choice_approval_operation from public,anon,authenticated,service_role;
+
+create type public.appointment_source as enum('BOOKING_OFFER','FREE_CHOICE');
+alter table public.appointment add column source public.appointment_source not null default 'BOOKING_OFFER',add column free_choice_request_id uuid unique;
+alter table public.appointment alter column booking_offer_id drop not null,alter column booking_option_id drop not null;
+alter table public.appointment add constraint appointment_source_xor check(
+ (source='BOOKING_OFFER' and booking_offer_id is not null and booking_option_id is not null and free_choice_request_id is null)
+ or(source='FREE_CHOICE' and booking_offer_id is null and booking_option_id is null and free_choice_request_id is not null));
+alter table public.appointment add constraint appointment_free_choice_fk foreign key(free_choice_request_id,studio_id,artist_profile_id,tattoo_case_id) references public.free_choice_pending_request(id,studio_id,artist_profile_id,tattoo_case_id) on delete restrict;
+
+create or replace function public.get_free_choice_availability_management(p_studio_id uuid,p_owner_user_id uuid) returns jsonb language plpgsql security definer set search_path='' as $$
+begin
+ perform private.assert_studio_owner(p_studio_id,p_owner_user_id);
+ update public.free_choice_pending_request r set status='EXPIRED' where r.studio_id=p_studio_id and r.status in('PENDING_OWNER_APPROVAL','APPROVING') and r.expires_at<=now() and not exists(select 1 from public.free_choice_approval_operation o where o.request_id=r.id and o.state in('INSERTING','FINALIZED'));
+ update public.free_choice_approval_operation o set lease_id=null,lease_expires_at=null,updated_at=now() from public.free_choice_pending_request r where r.id=o.request_id and r.studio_id=p_studio_id and r.status='EXPIRED' and o.state='READY' and o.lease_id is not null;
+ return jsonb_build_object('cases',coalesce((select jsonb_agg(jsonb_build_object('id',t.id,'summary',t.summary,'artist_profile_id',t.artist_profile_id) order by t.created_at) from public.tattoo_case t where t.studio_id=p_studio_id and t.status='OPEN' and t.artist_profile_id is not null),'[]'::jsonb),'pending_requests',coalesce((select jsonb_agg(jsonb_build_object('id',r.id,'status',r.status,'customer_name',c.name,'case_summary',t.summary,'artist_display_name',a.display_name,'start_at',r.start_at,'end_at',r.end_at,'expires_at',r.expires_at) order by r.created_at desc) from public.free_choice_pending_request r join public.tattoo_case t on t.id=r.tattoo_case_id and t.studio_id=r.studio_id join public.customer c on c.id=t.customer_id and c.studio_id=t.studio_id join public.artist_profile a on a.id=r.artist_profile_id and a.studio_id=r.studio_id where r.studio_id=p_studio_id and r.status in('PENDING_OWNER_APPROVAL','APPROVING')),'[]'::jsonb));
+end $$;
+
+create function public.reject_free_choice_owner_request(p_studio_id uuid,p_owner_user_id uuid,p_request_id uuid,p_now timestamptz) returns jsonb language plpgsql security definer set search_path='' as $$
+declare r public.free_choice_pending_request;o public.free_choice_approval_operation;
+begin
+ perform private.assert_studio_owner(p_studio_id,p_owner_user_id);select * into r from public.free_choice_pending_request where id=p_request_id and studio_id=p_studio_id for update;if not found then raise exception 'request unavailable' using errcode='P0002';end if;
+ perform pg_advisory_xact_lock(hashtextextended(r.studio_id::text||':'||r.artist_profile_id::text,0));select * into o from public.free_choice_approval_operation where request_id=r.id for update;
+ if r.status='REJECTED' then return jsonb_build_object('state','REJECTED');end if;if r.status<>'PENDING_OWNER_APPROVAL' or r.expires_at<=p_now or o.request_id is not null then raise exception 'request unavailable' using errcode='P0002';end if;
+ update public.free_choice_pending_request set status='REJECTED' where id=r.id;return jsonb_build_object('state','REJECTED');
+end $$;
+
+create function public.claim_free_choice_owner_approval(p_studio_id uuid,p_owner_user_id uuid,p_request_id uuid,p_event_id text,p_correlation text,p_now timestamptz) returns jsonb language plpgsql security definer set search_path='' as $$
+declare r public.free_choice_pending_request;o public.free_choice_approval_operation;a public.artist_calendar_assignment;c public.google_calendar_connection;l uuid;fin jsonb;
+begin
+ if char_length(p_event_id) not between 5 and 1024 or p_event_id !~ '^[a-v0-9]+$' or p_correlation !~ '^[A-Za-z0-9_-]{43}$' then raise exception 'invalid approval' using errcode='22023';end if;perform private.assert_studio_owner(p_studio_id,p_owner_user_id);
+ select * into r from public.free_choice_pending_request where id=p_request_id and studio_id=p_studio_id for update;if not found then return jsonb_build_object('kind','UNAVAILABLE');end if;perform pg_advisory_xact_lock(hashtextextended(r.studio_id::text||':'||r.artist_profile_id::text,0));select * into o from public.free_choice_approval_operation where request_id=r.id for update;
+ if r.status in('PENDING_OWNER_APPROVAL','APPROVING') and r.expires_at<=p_now and(o.request_id is null or o.state='READY') then update public.free_choice_pending_request set status='EXPIRED' where id=r.id;update public.free_choice_approval_operation set lease_id=null,lease_expires_at=null,updated_at=p_now where request_id=r.id and state='READY';return jsonb_build_object('kind','UNAVAILABLE');end if;
+ if r.status not in('PENDING_OWNER_APPROVAL','APPROVING','CONFIRMED') then return jsonb_build_object('kind','UNAVAILABLE');end if;
+ if o.request_id is null then
+  if r.status<>'PENDING_OWNER_APPROVAL' or not exists(select 1 from public.tattoo_case t where t.id=r.tattoo_case_id and t.studio_id=r.studio_id and t.status='OPEN' and t.artist_profile_id=r.artist_profile_id) then return jsonb_build_object('kind','UNAVAILABLE');end if;
+  select * into a from public.artist_calendar_assignment x where x.artist_profile_id=r.artist_profile_id and x.studio_id=r.studio_id and x.access_role in('writer','owner');if not found then return jsonb_build_object('kind','RECONNECT_REQUIRED');end if;
+  select * into c from public.google_calendar_connection x where x.id=a.connection_id and x.studio_id=r.studio_id and x.status='ACTIVE' and x.refresh_token_ciphertext is not null and x.granted_scopes @> array['https://www.googleapis.com/auth/calendar.events.freebusy','https://www.googleapis.com/auth/calendar.events']::text[];if not found then return jsonb_build_object('kind','RECONNECT_REQUIRED');end if;
+  if exists(select 1 from public.booking_option bo join public.booking_offer b on b.id=bo.offer_id and b.studio_id=bo.studio_id where bo.studio_id=r.studio_id and bo.artist_profile_id=r.artist_profile_id and bo.start_at<r.end_at and bo.end_at>r.start_at and ((bo.status='HELD' and b.status='OPEN' and b.expires_at>p_now)or(bo.status='SELECTED' and b.status='SELECTED_PENDING_CONFIRMATION' and(b.expires_at>p_now or exists(select 1 from public.booking_confirmation_operation z where z.booking_offer_id=b.id and z.state='INSERTING')))or(bo.status='CONFIRMED' and b.status='CONFIRMED'))) or exists(select 1 from public.free_choice_pending_request q where q.id<>r.id and q.studio_id=r.studio_id and q.artist_profile_id=r.artist_profile_id and q.start_at<r.end_at and q.end_at>r.start_at and(q.status='APPROVING'or(q.status='PENDING_OWNER_APPROVAL'and q.expires_at>p_now))) then return jsonb_build_object('kind','CONFLICT');end if;
+  l=gen_random_uuid();insert into public.free_choice_approval_operation(request_id,studio_id,tattoo_case_id,artist_profile_id,connection_id,calendar_id,event_id,correlation,state,lease_id,lease_expires_at,created_at,updated_at) values(r.id,r.studio_id,r.tattoo_case_id,r.artist_profile_id,c.id,a.calendar_id,p_event_id,p_correlation,'READY',l,p_now+interval '2 minutes',p_now,p_now) returning * into o;update public.free_choice_pending_request set status='APPROVING' where id=r.id;
+ else
+  if o.event_id<>p_event_id or o.correlation<>p_correlation then raise exception 'approval mismatch' using errcode='P0003';end if;
+  if not exists(select 1 from public.artist_calendar_assignment x where x.artist_profile_id=r.artist_profile_id and x.studio_id=r.studio_id and x.connection_id=o.connection_id and x.calendar_id=o.calendar_id and x.access_role in('writer','owner')) then return jsonb_build_object('kind','UNAVAILABLE');end if;
+  select * into c from public.google_calendar_connection x where x.id=o.connection_id and x.studio_id=o.studio_id and x.status='ACTIVE' and x.refresh_token_ciphertext is not null and x.granted_scopes @> array['https://www.googleapis.com/auth/calendar.events.freebusy','https://www.googleapis.com/auth/calendar.events']::text[];if not found then return jsonb_build_object('kind','RECONNECT_REQUIRED');end if;
+  if o.lease_id is not null and o.lease_expires_at>p_now then return jsonb_build_object('kind','BUSY');end if;l=gen_random_uuid();update public.free_choice_approval_operation set lease_id=l,lease_expires_at=p_now+interval '2 minutes',updated_at=p_now where request_id=r.id returning * into o;
+ end if;
+ select case when e.appointment_id is null then null else jsonb_build_object('event_id',e.event_id,'correlation',e.correlation,'confirmed_at',ap.confirmed_at) end into fin from(select 1)s left join public.appointment ap on ap.free_choice_request_id=r.id and ap.studio_id=r.studio_id left join public.appointment_google_event e on e.appointment_id=ap.id and e.studio_id=ap.studio_id;
+ return jsonb_build_object('kind','CLAIMED','mode',case when o.state='READY' then 'INSERT_OR_RECONCILE' else 'RECONCILE_ONLY' end,'lease_id',o.lease_id,'studio_id',o.studio_id,'request_id',o.request_id,'start_at',r.start_at,'end_at',r.end_at,'calendar_id',o.calendar_id,'event_id',o.event_id,'correlation',o.correlation,'connection',jsonb_build_object('id',c.id,'status',c.status,'refresh_token_ciphertext',c.refresh_token_ciphertext,'granted_scopes',c.granted_scopes,'credential_generation',c.credential_generation),'finalized',fin);
+end $$;
+
+create function public.begin_free_choice_owner_approval_insert(p_studio_id uuid,p_owner_user_id uuid,p_request_id uuid,p_lease_id uuid,p_now timestamptz) returns boolean language plpgsql security definer set search_path='' as $$declare r public.free_choice_pending_request;begin perform private.assert_studio_owner(p_studio_id,p_owner_user_id);select * into r from public.free_choice_pending_request where id=p_request_id and studio_id=p_studio_id for update;if not found then return false;end if;perform pg_advisory_xact_lock(hashtextextended(r.studio_id::text||':'||r.artist_profile_id::text,0));update public.free_choice_approval_operation set state='INSERTING',updated_at=p_now where request_id=r.id and r.status='APPROVING' and r.expires_at>p_now and state='READY' and lease_id=p_lease_id and lease_expires_at>p_now;return found;end $$;
+create function public.release_free_choice_owner_approval_claim(p_studio_id uuid,p_owner_user_id uuid,p_request_id uuid,p_lease_id uuid,p_now timestamptz) returns void language plpgsql security definer set search_path='' as $$declare r public.free_choice_pending_request;begin perform private.assert_studio_owner(p_studio_id,p_owner_user_id);select * into r from public.free_choice_pending_request where id=p_request_id and studio_id=p_studio_id for update;if not found then return;end if;update public.free_choice_approval_operation set lease_id=null,lease_expires_at=null,updated_at=p_now where request_id=r.id and state='READY' and lease_id=p_lease_id;if found and r.expires_at<=p_now then update public.free_choice_pending_request set status='EXPIRED' where id=r.id and status='APPROVING';end if;end $$;
+
+create function public.finalize_free_choice_owner_approval(p_studio_id uuid,p_owner_user_id uuid,p_request_id uuid,p_lease_id uuid,p_connection_id uuid,p_calendar_id text,p_event_id text,p_correlation text,p_now timestamptz) returns jsonb language plpgsql security definer set search_path='' as $$
+declare r public.free_choice_pending_request;o public.free_choice_approval_operation;ap public.appointment;e public.appointment_google_event;
+begin perform private.assert_studio_owner(p_studio_id,p_owner_user_id);select * into r from public.free_choice_pending_request where id=p_request_id and studio_id=p_studio_id for update;if not found then raise exception 'approval unavailable' using errcode='P0002';end if;select * into o from public.free_choice_approval_operation where request_id=r.id for update;if o.request_id is null or o.connection_id<>p_connection_id or o.calendar_id<>p_calendar_id or o.event_id<>p_event_id or o.correlation<>p_correlation or o.state not in('INSERTING','FINALIZED') or(o.state='INSERTING'and o.lease_id<>p_lease_id) then raise exception 'approval mismatch' using errcode='P0003';end if;
+ if o.state='INSERTING' then insert into public.appointment(studio_id,tattoo_case_id,artist_profile_id,source,free_choice_request_id,status,confirmed_at,created_at) values(r.studio_id,r.tattoo_case_id,r.artist_profile_id,'FREE_CHOICE',r.id,'CONFIRMED',p_now,p_now) returning * into ap;insert into public.appointment_google_event(appointment_id,studio_id,connection_id,calendar_id,event_id,correlation,synchronized_at) values(ap.id,r.studio_id,p_connection_id,p_calendar_id,p_event_id,p_correlation,p_now);update public.free_choice_pending_request set status='CONFIRMED' where id=r.id;update public.free_choice_approval_operation set state='FINALIZED',lease_id=null,lease_expires_at=null,updated_at=p_now where request_id=r.id;
+ else select * into strict ap from public.appointment where free_choice_request_id=r.id and studio_id=r.studio_id;select * into strict e from public.appointment_google_event where appointment_id=ap.id and studio_id=ap.studio_id;if e.connection_id<>p_connection_id or e.calendar_id<>p_calendar_id or e.event_id<>p_event_id or e.correlation<>p_correlation then raise exception 'approval mismatch' using errcode='P0003';end if;end if;return jsonb_build_object('confirmed_at',ap.confirmed_at);
+end $$;
+
+create or replace function private.reject_booking_option_free_choice_conflict() returns trigger language plpgsql security definer set search_path='' as $$
+begin
+ if exists(select 1 from public.free_choice_pending_request r where r.studio_id=new.studio_id and r.artist_profile_id=new.artist_profile_id and ((r.status='PENDING_OWNER_APPROVAL' and r.expires_at>new.created_at) or r.status='APPROVING') and r.start_at<new.end_at and r.end_at>new.start_at) then raise exception 'booking hold conflict' using errcode='23P01';end if;
+ return new;
+end $$;
+create function private.reject_free_choice_approving_conflict() returns trigger language plpgsql security definer set search_path='' as $$
+begin
+ if exists(select 1 from public.free_choice_pending_request r where r.studio_id=new.studio_id and r.artist_profile_id=new.artist_profile_id and r.status='APPROVING' and r.start_at<new.end_at and r.end_at>new.start_at) then raise exception 'free-choice hold conflict' using errcode='23P01';end if;
+ return new;
+end $$;
+create trigger free_choice_approving_conflict before insert on public.free_choice_pending_request for each row execute function private.reject_free_choice_approving_conflict();
+create function public.get_public_free_choice_request_status(p_token_hash text,p_now timestamptz) returns jsonb language plpgsql stable security definer set search_path='' as $$
+declare result jsonb;
+begin
+ if p_token_hash !~ '^[0-9a-f]{64}$' or p_now is null then return null;end if;
+ select jsonb_build_object(
+  'status',case when r.status='PENDING_OWNER_APPROVAL' and r.expires_at<=p_now then 'EXPIRED' else r.status::text end,
+  'start_at',case when (r.status='PENDING_OWNER_APPROVAL' and r.expires_at>p_now) or r.status='CONFIRMED' then r.start_at else null end,
+  'end_at',case when (r.status='PENDING_OWNER_APPROVAL' and r.expires_at>p_now) or r.status='CONFIRMED' then r.end_at else null end
+ ) into result
+ from public.free_choice_availability_access a
+ join public.free_choice_pending_request r on r.access_id=a.id
+ where a.token_hash=decode(p_token_hash,'hex');
+ return result;
+end $$;
+
+create function private.preserve_consumed_free_choice_token() returns trigger language plpgsql security definer set search_path='' as $$
+begin
+ if new.token_hash<>old.token_hash and exists(select 1 from public.free_choice_pending_request r where r.access_id=old.id) then raise exception 'consumed free-choice access cannot rotate' using errcode='23514';end if;
+ return new;
+end $$;
+create trigger preserve_consumed_free_choice_token before update of token_hash on public.free_choice_availability_access for each row execute function private.preserve_consumed_free_choice_token();
+revoke all on function public.reject_free_choice_owner_request(uuid,uuid,uuid,timestamptz),public.claim_free_choice_owner_approval(uuid,uuid,uuid,text,text,timestamptz),public.begin_free_choice_owner_approval_insert(uuid,uuid,uuid,uuid,timestamptz),public.release_free_choice_owner_approval_claim(uuid,uuid,uuid,uuid,timestamptz),public.finalize_free_choice_owner_approval(uuid,uuid,uuid,uuid,uuid,text,text,text,timestamptz),public.get_public_free_choice_request_status(text,timestamptz) from public,anon,authenticated;
+grant execute on function public.reject_free_choice_owner_request(uuid,uuid,uuid,timestamptz),public.claim_free_choice_owner_approval(uuid,uuid,uuid,text,text,timestamptz),public.begin_free_choice_owner_approval_insert(uuid,uuid,uuid,uuid,timestamptz),public.release_free_choice_owner_approval_claim(uuid,uuid,uuid,uuid,timestamptz),public.finalize_free_choice_owner_approval(uuid,uuid,uuid,uuid,uuid,text,text,text,timestamptz),public.get_public_free_choice_request_status(text,timestamptz) to service_role;
