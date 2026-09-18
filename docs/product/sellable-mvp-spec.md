@@ -476,4 +476,4 @@ No se consideran éxito el número de pantallas, campos o automatizaciones const
 ## Política de detalle
 
 Esta spec conserva decisiones de producto y criterios transversales. Cada slice sustantivo añade o enlaza su contrato técnico y sus pruebas antes de implementar. El material retirado continúa disponible en Git y solo se consulta cuando se necesita evidencia histórica.
-| 2026-09-18 | 1.24.0 | Implementación local en rama de la solicitud pendiente de elección libre por caso; pruebas enfocadas y validación final permanecen como gate del slice y no existe evidencia live. | Registrar el nuevo contrato sin afirmar despliegue, aprobación ni confirmación. |
+| 2026-09-18 | 1.24.0 | Implementación local verificada de la solicitud pendiente de elección libre por caso: reset limpio, pgTAP completo y gate de aplicación pasan; revisión, PR, CI y evidencia live permanecen pendientes. | Registrar el nuevo contrato sin afirmar despliegue, aprobación ni confirmación. |

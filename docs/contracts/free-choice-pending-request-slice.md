@@ -1,6 +1,6 @@
 # Contrato técnico: solicitud pendiente desde elección libre
 
-_Estado técnico: diseño fijado; implementación local en curso. No acredita prueba live, aprobación ni cita._
+_Estado técnico: implementado y verificado localmente; pendiente de revisión, PR y CI. No acredita prueba live, aprobación ni cita._
 
 ## Alcance y decisión
 
@@ -10,7 +10,7 @@ Los enlaces nuevos se identifican por caso, no por artista. El caso debe pertene
 
 GET calcula candidatos con reglas, FreeBusy y holds y entrega por slot `{ selector, startUtc, endUtc, startLocal, endLocal }`. `selector` es un SHA-256 opaco ligado al token y al intervalo canónico; no es un ID y no se persisten 500 candidatos. POST same-origin acepta exactamente un único `selector`, vuelve a resolver el token y recalcular candidatos tras una nueva consulta FreeBusy, encuentra el intervalo por comparación constante y solo entonces solicita la operación atómica de base de datos. No acepta tenant, artista, caso, rango ni timestamps.
 
-La RPC bloquea por estudio/artista, vuelve a comprobar token vigente, caso `OPEN` y artista coherente, excluye holds de ofertas, selecciones, citas y otras solicitudes libres, y crea como máximo una solicitud por acceso. Repetir el mismo selector/intervalo devuelve éxito idempotente; una elección distinta no reemplaza a la ganadora. La caducidad es `min(now + booking_offer_expiry_hours, access.expires_at, slot.start_at)` y la solicitud deja de bloquear cuando vence. FreeBusy precede necesariamente a la transacción: el lock elimina carreras internas, pero no puede impedir que un evento externo aparezca entre la lectura de Google y el commit; por eso el estado sigue pendiente y la aprobación futura deberá revalidar.
+La RPC bloquea por estudio/artista, vuelve a comprobar token vigente, caso `OPEN` y artista coherente, excluye holds de ofertas, selecciones, citas y otras solicitudes libres, y crea como máximo una solicitud por acceso. Repetir el mismo selector/intervalo devuelve éxito idempotente; una elección distinta no reemplaza a la ganadora. La caducidad es `min(now + booking_offer_expiry_hours, access.expires_at, slot.start_at)` y la solicitud deja de bloquear cuando vence; el acceso ya consumido no vuelve a anunciar candidatos. FreeBusy precede necesariamente a la transacción: el lock elimina carreras internas, pero no puede impedir que un evento externo aparezca entre la lectura de Google y el commit; por eso el estado sigue pendiente y la aprobación futura deberá revalidar.
 
 ## Contrato público y privado
 

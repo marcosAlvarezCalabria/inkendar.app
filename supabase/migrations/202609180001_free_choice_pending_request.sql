@@ -65,6 +65,37 @@ returns table(start_utc timestamptz,end_utc timestamptz) language plpgsql stable
  )x where x.start_at<p_range_end and x.end_at>p_range_start order by x.start_at;
 end $$;
 
+create or replace function public.get_public_free_choice_availability_context(p_token_hash text,p_now timestamptz) returns jsonb language plpgsql stable security definer set search_path='' as $$
+declare v_result jsonb;
+begin
+ if p_token_hash !~ '^[0-9a-f]{64}$' or p_now is null then raise exception 'invalid access' using errcode='22023';end if;
+ select jsonb_build_object(
+  'range_start',access.range_start,'range_end',access.range_end,'duration_minutes',access.duration_minutes,'expires_at',access.expires_at,
+  'case_bound',access.tattoo_case_id is not null,'artist_display_name',artist.display_name,'time_zone',rule.time_zone,
+  'slot_increment_minutes',rule.slot_increment_minutes,'buffer_before_minutes',rule.buffer_before_minutes,'buffer_after_minutes',rule.buffer_after_minutes,
+  'windows',coalesce((select jsonb_agg(jsonb_build_object('weekday',availability_window.weekday,'start_time',to_char(availability_window.start_time,'HH24:MI'),'end_time',to_char(availability_window.end_time,'HH24:MI')) order by availability_window.weekday,availability_window.start_time) from public.artist_availability_window availability_window where availability_window.artist_profile_id=access.artist_profile_id and availability_window.studio_id=access.studio_id),'[]'::jsonb),
+  'calendar_id',assignment.calendar_id,
+  'connection',jsonb_build_object('status',connection.status,'refresh_token_ciphertext',connection.refresh_token_ciphertext,'granted_scopes',connection.granted_scopes,'credential_generation',connection.credential_generation),
+  'pending_request',(select jsonb_build_object('start_at',request.start_at,'end_at',request.end_at,'expires_at',request.expires_at) from public.free_choice_pending_request request where request.access_id=access.id and request.status='PENDING_OWNER_APPROVAL' and request.expires_at>p_now),
+  'holds',coalesce((select jsonb_agg(jsonb_build_object('start_at',hold.start_at,'end_at',hold.end_at)) from (
+    select option.start_at,option.end_at from public.booking_option option join public.booking_offer offer on offer.id=option.offer_id and offer.studio_id=option.studio_id
+    where option.studio_id=access.studio_id and option.artist_profile_id=access.artist_profile_id and ((option.status='HELD' and offer.status='OPEN' and offer.expires_at>p_now) or(option.status='SELECTED' and offer.status='SELECTED_PENDING_CONFIRMATION' and offer.expires_at>p_now)or(option.status='CONFIRMED' and offer.status='CONFIRMED'))
+    union all select request.start_at,request.end_at from public.free_choice_pending_request request where request.studio_id=access.studio_id and request.artist_profile_id=access.artist_profile_id and request.status='PENDING_OWNER_APPROVAL' and request.expires_at>p_now
+   ) hold where hold.start_at<access.range_end and hold.end_at>access.range_start),'[]'::jsonb)
+ ) into v_result
+ from public.free_choice_availability_access access
+ join public.artist_profile artist on artist.id=access.artist_profile_id and artist.studio_id=access.studio_id
+ join public.artist_availability_rule rule on rule.artist_profile_id=access.artist_profile_id and rule.studio_id=access.studio_id
+ join public.artist_calendar_assignment assignment on assignment.artist_profile_id=access.artist_profile_id and assignment.studio_id=access.studio_id and assignment.access_role in('writer','owner')
+ join public.google_calendar_connection connection on connection.id=assignment.connection_id and connection.studio_id=access.studio_id and connection.status='ACTIVE' and connection.refresh_token_ciphertext is not null and connection.granted_scopes @> array['https://www.googleapis.com/auth/calendar.events.freebusy']::text[]
+ where access.token_hash=decode(p_token_hash,'hex') and access.expires_at>p_now
+ and not exists(
+  select 1 from public.free_choice_pending_request consumed
+  where consumed.access_id=access.id and (consumed.status<>'PENDING_OWNER_APPROVAL' or consumed.expires_at<=p_now)
+ );
+ return v_result;
+end $$;
+
 revoke all on function public.rotate_free_choice_availability_access(uuid,uuid,uuid,uuid,text,timestamptz,timestamptz,integer,timestamptz,timestamptz),public.get_free_choice_availability_management(uuid,uuid),public.select_public_free_choice_availability(text,text,timestamptz,timestamptz,timestamptz),private.reject_booking_option_free_choice_conflict() from public,anon,authenticated;
 grant execute on function public.rotate_free_choice_availability_access(uuid,uuid,uuid,uuid,text,timestamptz,timestamptz,integer,timestamptz,timestamptz),public.get_free_choice_availability_management(uuid,uuid),public.select_public_free_choice_availability(text,text,timestamptz,timestamptz,timestamptz) to service_role;
 grant execute on function public.list_active_booking_holds(uuid,uuid,uuid,timestamptz,timestamptz,timestamptz) to service_role;
