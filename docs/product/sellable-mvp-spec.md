@@ -4,7 +4,7 @@ _Estado: especificación viva y fuente de verdad para alcance, comportamiento y 
 
 _Versión: 1.24.0_
 
-_Última actualización: 2026-09-17_
+_Última actualización: 2026-09-18_
 
 _La fase anterior al desarrollo se define en [Plan de validación y lanzamiento](validation-and-launch-plan.md)._
 
@@ -53,7 +53,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | Flujo de entrega y CI | `PASS` | `main` exige PR, los checks `validate` y `database`, conversaciones resueltas e historial lineal; ambos jobs pasaron tras integrar el [PR #10](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/10) en el [run 34895446647](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34895446647). |
 | Memoria de agentes | `PASS` | Engram 1.20.0 guarda y recupera memoria del proyecto `inkendar.app`; Codex MCP está configurado y requiere reinicio para cargarlo en nuevos chats. |
 | Supabase y aislamiento multi-tenant | `PASS` | La migración, el seed sintético y las 38 aserciones pgTAP pasaron contra Supabase/Postgres real en GitHub Actions [run 34752758528](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34752758528). |
-| Google Calendar y booking | `IN_PROGRESS` | OAuth/asignación, disponibilidad, ofertas/holds, acceso, selección pública y confirmación recuperable están técnicamente `DONE`. El primer corte de consulta pública para elección libre está implementado localmente y verificado con tests y pgTAP, pendiente de revisión, PR y CI; no incluye selección ni aprobación. El 2026-09-16 una prueba live sintética verificó solo el recorrido preaprobado. Scheduler Chatwoot y fallback SMTP quedaron integrados mediante los PR #23 y #24 con CI verde; no existe prueba live de notificaciones. |
+| Google Calendar y booking | `IN_PROGRESS` | OAuth/asignación, disponibilidad, ofertas/holds, acceso, selección pública y confirmación recuperable están técnicamente `DONE`. La elección libre por caso y su solicitud durable `PENDING_OWNER_APPROVAL` están implementadas y verificadas localmente, pendientes de revisión, PR y CI; aprobación/rechazo, Google Event, notificación y evidencia live siguen fuera. El 2026-09-16 una prueba live sintética verificó solo el recorrido preaprobado. Scheduler Chatwoot y fallback SMTP quedaron integrados mediante los PR #23 y #24 con CI verde; no existe prueba live de notificaciones. |
 | Galería, portfolios y publicación web | `IN_PROGRESS` | Los PR #26–#31 integraron con CI verde ingestión/sanitización/proxy, curación OWNER, publicación/retirada durable, feed/API público read-only, web component framework-agnostic y restauración OWNER de `DISCARDED`. La prueba live sintética de restore del 2026-09-17 detectó deriva de posición; su corrección está `IN_PROGRESS` local. No existe evidencia live de Storage; faltan prueba en una web nueva y otra existente e invalidación CDN específica. GC sigue bloqueado hasta definir retención, grace period y reconciliación segura. |
 | Piloto externo y disposición a pagar | `PLANNED` | No existe todavía evidencia de uso real autorizado ni pago. |
 
@@ -111,6 +111,7 @@ La arquitectura técnica está en [Arquitectura de aplicación](../architecture/
 
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
+| 2026-09-18 | 1.24.0 | Implementación local verificada de la solicitud pendiente de elección libre por caso: reset limpio, pgTAP completo y gate de aplicación pasan; revisión, PR, CI y evidencia live permanecen pendientes. | Registrar el nuevo contrato sin afirmar despliegue, aprobación ni confirmación. |
 | 2026-09-17 | 1.23.0 | Se implementó localmente el primer corte de elección libre: emisión/rotación OWNER same-origin por artista, token hash-only, configuración acotada, consulta pública de candidatos con FreeBusy y holds, respuesta mínima y cabeceras defensivas. Pasaron 17 tests enfocados, `pnpm run check` con 491 tests y 24 asserts pgTAP transaccionales; revisión, PR, CI y prueba live quedan pendientes, y no existe selección, hold ni aprobación libre. | Permitir consulta segura de huecos sin afirmar ni crear una reserva y mantener explícito el gate posterior de selección/aprobación. |
 | 2026-09-17 | 1.22.1 | El PR #31 integró la restauración OWNER y una prueba live sintética confirmó el recorrido, pero reveló que cada ciclo `DISCARD → RESTORE` incrementaba la posición. Se corrige localmente restore para conservar exactamente la posición reservada por la fila, sin normalizar históricos ni alterar otros assets; revisión, PR y CI quedan pendientes. | Evitar deriva de orden aprovechando que el constraint global de unicidad impide reutilizar la posición incluso mientras el asset está `DISCARDED`. |
 | 2026-09-17 | 1.22.0 | El PR #30 integró el web component con `validate` y `database` verdes; las pruebas en webs externas y toda evidencia live de Storage siguen pendientes. Se implementó localmente la restauración OWNER de `DISCARDED` a `DRAFT` con listado privado acotado, formulario exacto handle-only, RPC auth-bound tenant-safe, lock común por estudio e idempotencia ante respuesta perdida. GC continúa pendiente de una política explícita. | Cerrar la recuperación editorial sin tocar Storage ni anticipar una purga que todavía no dispone de retención, grace period o reconciliación segura. |
@@ -228,7 +229,7 @@ Un canal no pasa a `PASS` por estar conectado: debe demostrarse recepción y res
 7. **Google OAuth centralizado:** el owner conecta una cuenta Google del estudio con acceso a un calendario separado por artista y permisos mínimos.
 8. **Disponibilidad:** Inkendar combina jornada, zona horaria, duración, márgenes, bloqueos provisionales y `freeBusy`; no muestra títulos ni descripciones de eventos existentes.
 9. **Opciones preaprobadas:** el owner puede enviar hasta tres fechas. Se reservan provisionalmente durante 24 horas por defecto; el plazo es configurable por estudio.
-10. **Elección libre:** el cliente puede consultar huecos de un artista mediante un enlace seguro; esta consulta está implementada localmente. La selección del hueco y su estado pendiente hasta aprobación del owner continúan para un slice posterior.
+10. **Elección libre:** el cliente consulta candidatos mediante un enlace seguro ligado a su caso y puede seleccionar uno; Inkendar revalida FreeBusy y holds y crea una solicitud durable `PENDING_OWNER_APPROVAL`. Aprobación/rechazo, Google Event, confirmación y notificación continúan para slices posteriores.
 11. **Confirmación:** una opción preaprobada se confirma al elegirla. Una opción libre requiere visto bueno del owner. En ambos casos Inkendar vuelve a comprobar disponibilidad antes de confirmar.
 12. **Caducidad:** al vencer el plazo, se liberan los bloqueos y se avisa al cliente de que los horarios pueden ofrecerse a otra persona.
 13. **Notificaciones:** confirmaciones y caducidades usan una ruta original Chatwoot inequívoca como primera opción y SMTP configurado por estudio como fallback cuando existe email válido. El estado es durable y no existe reenvío automático tras ambigüedad. Rechazos de booking y recordatorios continúan pendientes.
@@ -476,4 +477,3 @@ No se consideran éxito el número de pantallas, campos o automatizaciones const
 ## Política de detalle
 
 Esta spec conserva decisiones de producto y criterios transversales. Cada slice sustantivo añade o enlaza su contrato técnico y sus pruebas antes de implementar. El material retirado continúa disponible en Git y solo se consulta cuando se necesita evidencia histórica.
-| 2026-09-18 | 1.24.0 | Implementación local verificada de la solicitud pendiente de elección libre por caso: reset limpio, pgTAP completo y gate de aplicación pasan; revisión, PR, CI y evidencia live permanecen pendientes. | Registrar el nuevo contrato sin afirmar despliegue, aprobación ni confirmación. |
