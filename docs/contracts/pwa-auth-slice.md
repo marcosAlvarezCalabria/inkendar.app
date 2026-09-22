@@ -122,7 +122,7 @@ And no existe un service worker que persista datos privados
 - El composition root vive en `apps/inkendar/app` y convierte cada `Request` en un adaptador con cabeceras `Set-Cookie` propagables, también cuando una ruta privada rota la sesión.
 - Las cookies Auth son `HttpOnly`, `SameSite=Lax`, `Path=/` y `Secure` en producción; local y test conservan HTTP sin `Secure`. Los atributos se imponen sobre cada escritura de Supabase, incluida renovación y borrado.
 - `/login` acepta solo email/password y devuelve un único mensaje público para cualquier rechazo de credenciales.
-- `POST /login` y `POST /logout` exigen un `Origin` HTTP(S) idéntico al origen confiable; `Sec-Fetch-Site`, cuando existe, debe ser `same-origin`. `INKENDAR_APP_ORIGIN` fija el origen canónico detrás de proxy, sin ruta ni barra final.
+- `POST /login` y `POST /logout` exigen un `Origin` HTTP(S) idéntico al origen confiable; `Sec-Fetch-Site`, cuando existe, debe ser `same-origin`. `INKENDAR_APP_ORIGIN` es obligatorio y fija el origen canónico detrás de proxy, sin ruta ni barra final; su host exacto es la única excepción de acción reenviada configurada en React Router.
 - `/app`, `/app/owner` y `/app/artist` se protegen en loaders SSR. El servidor no serializa la membership completa: solo los campos mínimos del shell autorizado.
 - `/logout` acepta únicamente `POST` y usa logout de alcance local.
 - Las rutas privadas y de autenticación devuelven `Cache-Control: private, no-store`.

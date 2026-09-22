@@ -328,7 +328,7 @@ El mecanismo concreto puede comenzar con funciones programadas sobre la platafor
 ## 9. Despliegue inicial
 
 - `inkendar.es`: landing comercial independiente, sin datos de estudios.
-- `app.inkendar.es`: PWA y API/BFF de la plataforma. Este origen es el valor confiable por defecto para mutaciones de autenticación; un proxy o dominio alternativo debe fijar explícitamente `INKENDAR_APP_ORIGIN` y no se confía en cabeceras de host reenviadas por el cliente.
+- `app.inkendar.es`: PWA y API/BFF de la plataforma. Todo entorno debe fijar `INKENDAR_APP_ORIGIN` al origen externo HTTP(S) exacto. El host derivado es la única excepción permitida por React Router cuando un proxy reescribe el origen interno de una acción; una configuración ausente o inválida impide arrancar o construir la aplicación. No se confía en cabeceras de host reenviadas por el cliente.
 - dominio del estudio: web creada por Incamdi o web existente conectada al feed público.
 - Supabase Cloud Pro: un proyecto de producción multi-tenant.
 - Desarrollo: Supabase local o proyecto gratuito separado.

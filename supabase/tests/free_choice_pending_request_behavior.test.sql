@@ -58,7 +58,18 @@ select throws_ok($$select public.select_public_free_choice_availability(repeat('
 select throws_ok($$select public.select_public_free_choice_availability(repeat('12',32),repeat('31',32),'2026-09-22T10:00:00Z','2026-09-22T11:00:00Z','2026-09-20T09:01:00Z')$$,'P0002',null,'a competing interval cannot replace the winner');
 select is((public.get_public_free_choice_availability_context(repeat('12',32),'2026-09-20T09:02:00Z')->'pending_request'->>'start_at'),'2026-09-22T09:00:00+00:00','subsequent GET resolves only the pending interval');
 select is((select count(*) from public.list_active_booking_holds('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','2026-09-22T00:00:00Z','2026-09-23T00:00:00Z','2026-09-20T09:02:00Z')),1::bigint,'pending request participates in active holds');
+-- Management uses the real transaction clock; project this fixture around that call, then restore the explicit-clock timeline used below.
+reset role;
+update public.free_choice_pending_request
+set created_at=transaction_timestamp(),expires_at=transaction_timestamp()+interval '1 hour',start_at=transaction_timestamp()+interval '2 hours',end_at=transaction_timestamp()+interval '3 hours'
+where tattoo_case_id='70000000-0000-0000-0000-000000000071';
+set local role service_role;
 select ok((select (value->'pending_requests'->0) ?& array['customer_name','case_summary','artist_display_name','start_at','end_at','expires_at'] and not (value->'pending_requests'->0) ?| array['studio_id','tattoo_case_id','artist_profile_id','access_id','selector_hash'] from (select public.get_free_choice_availability_management('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001') value) management),'owner management exposes minimum useful private context without internal IDs');
+reset role;
+update public.free_choice_pending_request
+set created_at='2026-09-20T09:00:00Z',expires_at='2026-09-21T09:00:00Z',start_at='2026-09-22T09:00:00Z',end_at='2026-09-22T10:00:00Z'
+where tattoo_case_id='70000000-0000-0000-0000-000000000071';
+set local role service_role;
 
 select lives_ok($$select public.rotate_free_choice_availability_access('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','70000000-0000-0000-0000-000000000072','50000000-0000-0000-0000-000000000001',repeat('40',32),'2026-09-22T00:00:00Z','2026-09-24T00:00:00Z',60,'2026-09-23T12:00:00Z','2026-09-20T08:00:00Z')$$,'second case keeps a distinct access');
 select throws_ok($$select public.select_public_free_choice_availability(repeat('40',32),repeat('41',32),'2026-09-22T09:30:00Z','2026-09-22T10:30:00Z','2026-09-20T09:03:00Z')$$,'P0002',null,'overlapping competing request loses under the artist lock');
