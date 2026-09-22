@@ -37,6 +37,8 @@ jobs:
 
       - name: Validate
         run: pnpm run check
+        env:
+          INKENDAR_APP_ORIGIN: https://app.inkendar.es
 
   database:
     runs-on: ubuntu-latest
