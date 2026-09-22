@@ -26,7 +26,7 @@ pnpm run check
 
 Ese comando ejecuta lint, comprobación de tipos de todos los workspaces, pruebas y build de producción. El artefacto resultante separa `apps/inkendar/build/client` y `apps/inkendar/build/server` y se puede ejecutar con `pnpm start`.
 
-En producción, `app.inkendar.es` es el origen canónico por defecto para las acciones de login y logout. Si el despliegue usa otro origen o termina TLS en un proxy, configura `INKENDAR_APP_ORIGIN` con el origen externo exacto (por ejemplo, `https://app.inkendar.es`, sin ruta ni barra final). La aplicación no deriva esta decisión de `Host`, `Forwarded` ni `X-Forwarded-*`.
+`INKENDAR_APP_ORIGIN` es obligatorio al desarrollar, validar y desplegar la aplicación. Debe contener el origen externo HTTP(S) exacto (por ejemplo, `https://app.inkendar.es`, sin ruta ni barra final); React Router permite acciones reenviadas únicamente desde el host exacto derivado de ese valor. Una configuración ausente o inválida impide arrancar o construir la aplicación. La aplicación no deriva esta decisión de `Host`, `Forwarded` ni `X-Forwarded-*`.
 
 ## Alta manual gestionada
 
