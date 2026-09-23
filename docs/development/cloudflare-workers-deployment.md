@@ -4,6 +4,12 @@ _Última actualización: 2026-09-23_
 
 Inkendar empaqueta React Router 8 SSR con el plugin oficial de Cloudflare para Vite. El Worker sirve el BFF y delega el resto de peticiones al manejador de React Router; los assets cliente se publican desde `apps/inkendar/build/client`. Supabase Cloud continúa siendo la fuente de Postgres, Auth y Storage: este despliegue no crea ni migra datos a Cloudflare.
 
+## Estado operativo actual
+
+El PR #42 está abierto, limpio y con CI verde en `c2727ee129c9a27f34781fffd45c27a8c2f34903` (`validate` y `database`, run `35879758897`). La configuración, los builds, los dry-runs y el preview local están verificados, pero no existe todavía ningún despliegue de Inkendar en Cloudflare. Tampoco se han creado proyectos Supabase Cloud para Inkendar, configurado secretos remotos, aplicado migraciones Cloud ni registrado los callbacks `workers.dev` en Google.
+
+El siguiente operador debe fusionar primero el PR #42 y seguir [el handoff de despliegue](handoff-2026-09-23-cloudflare-deployment.md). No debe interpretar un dry-run, una URL prevista o un CI verde como servicio publicado.
+
 ## Prerrequisitos externos
 
 - una cuenta Cloudflare con el subdominio `workers.dev` `calalva82` y permisos para Workers;

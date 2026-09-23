@@ -1,6 +1,6 @@
 # Contrato técnico: solicitud pendiente desde elección libre
 
-_Estado técnico: implementado y verificado localmente; pendiente de revisión, PR y CI. No acredita prueba live, aprobación ni cita._
+_Estado técnico: `DONE`. El PR #37 integró la solicitud durable con CI verde y los PR #39–#41 corrigieron el submit público/origen. El 2026-09-23 un recorrido sintético live local verificó la transición a `PENDING_OWNER_APPROVAL`; esta transición todavía no afirma una cita._
 
 ## Alcance y decisión
 
