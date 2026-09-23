@@ -2,6 +2,7 @@ import { Form, Link, useActionData, useLoaderData } from "react-router";
 import type { GalleryDiscardedRow, GalleryDraftView } from "@inkendar/application";
 import type { Route } from "./+types/owner-gallery";
 import { ownerGalleryHandlers } from "../owner-gallery.server.js";
+import { cloudflareContext } from "../cloudflare-context.js";
 
 export type GalleryArtistOption = Readonly<{ id: string; displayName: string }>;
 export type GalleryLifecycleStatus = "DRAFT" | "PUBLISHING" | "PUBLISHED" | "RETIRING";
@@ -10,7 +11,7 @@ export type OwnerGalleryData = Readonly<{ artists: readonly GalleryArtistOption[
 export function meta(): Route.MetaDescriptors { return [{ title: "Galería privada | Inkendar" }]; }
 export function headers() { return { "Cache-Control": "private, no-store", "Referrer-Policy": "same-origin", "X-Content-Type-Options": "nosniff" }; }
 export async function loader({ request }: Route.LoaderArgs) { return ownerGalleryHandlers.loader(request); }
-export async function action({ request }: Route.ActionArgs) { return ownerGalleryHandlers.action(request); }
+export async function action({ request, context }: Route.ActionArgs) { return ownerGalleryHandlers.action(request, context.get(cloudflareContext).env); }
 
 export default function OwnerGallery() { const error = (useActionData() as { error?: string } | undefined)?.error; return <OwnerGalleryView data={useLoaderData() as OwnerGalleryData} {...(error ? { error } : {})} />; }
 

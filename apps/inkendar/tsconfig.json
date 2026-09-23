@@ -8,5 +8,5 @@
     },
     "rootDirs": [".", "./.react-router/types"]
   },
-  "include": ["app/**/*.ts", "app/**/*.tsx", ".react-router/types/**/*", "react-router.config.ts", "vite.config.ts"]
+  "include": ["app/**/*.ts", "app/**/*.tsx", "workers/**/*.ts", ".react-router/types/**/*", "worker-configuration.d.ts", "react-router.config.ts", "vite.config.ts"]
 }

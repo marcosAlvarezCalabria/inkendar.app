@@ -29,6 +29,30 @@ describe("Google Calendar infrastructure", () => {
     })).toThrow("Invalid GOOGLE_OAUTH_REDIRECT_URI");
   });
 
+  it.each([
+    "http://127.0.0.1:5173/auth/google/callback",
+    "https://inkendar-staging.calalva82.workers.dev/auth/google/callback",
+    "https://inkendar.calalva82.workers.dev/auth/google/callback",
+  ])("accepts the exact Cloudflare redirect %s", (redirectUri) => {
+    expect(loadGoogleCalendarConfig({
+      GOOGLE_OAUTH_CLIENT_ID: config.clientId,
+      GOOGLE_OAUTH_CLIENT_SECRET: config.clientSecret,
+      GOOGLE_OAUTH_REDIRECT_URI: redirectUri,
+    })).toEqual({
+      clientId: config.clientId,
+      clientSecret: config.clientSecret,
+      redirectUri,
+    });
+  });
+
+  it("rejects the inactive custom-domain callback", () => {
+    expect(() => loadGoogleCalendarConfig({
+      GOOGLE_OAUTH_CLIENT_ID: config.clientId,
+      GOOGLE_OAUTH_CLIENT_SECRET: config.clientSecret,
+      GOOGLE_OAUTH_REDIRECT_URI: "https://app.inkendar.es/auth/google/callback",
+    })).toThrow("Invalid GOOGLE_OAUTH_REDIRECT_URI");
+  });
+
   it("creates an incremental authorization URL with CalendarList, FreeBusy, and event scopes", () => {
     const adapter = new GoogleCalendarHttpAdapter(config, vi.fn());
     const url = new URL(adapter.createAuthorizationUrl("synthetic-state-value-with-sufficient-entropy"));

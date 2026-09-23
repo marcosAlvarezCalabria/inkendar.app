@@ -1,6 +1,6 @@
 # Web component público de galería
 
-_Estado técnico: `IN_PROGRESS` local; pendiente de revisión y CI_
+_Estado técnico: `DONE` en código integrado. El PR #30 pasó revisión y CI; el 2026-09-23 se consumió con datos sintéticos desde una página HTML externa local. Siguen pendientes las pruebas contra Storage Cloud y en webs reales nueva/existente._
 
 ## Requisito
 

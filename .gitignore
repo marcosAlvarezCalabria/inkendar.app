@@ -4,6 +4,7 @@ build/
 .next/
 .astro/
 .react-router/
+.wrangler/
 coverage/
 playwright-report/
 test-results/

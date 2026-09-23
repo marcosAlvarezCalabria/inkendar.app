@@ -9,15 +9,22 @@
   "packageManager": "pnpm@10.22.0",
   "scripts": {
     "build": "pnpm --filter @inkendar/app run build",
+    "build:production": "pnpm --filter @inkendar/app run build:production",
+    "build:staging": "pnpm --filter @inkendar/app run build:staging",
     "db:reset": "supabase db reset --local",
     "db:start": "supabase start",
     "db:test": "supabase test db --local",
     "check": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
     "dev": "pnpm --filter @inkendar/app run dev",
+    "preview": "pnpm --filter @inkendar/app run preview",
+    "deploy:production": "pnpm --filter @inkendar/app run deploy:production",
+    "deploy:staging": "pnpm --filter @inkendar/app run deploy:staging",
+    "dry-run:production": "pnpm --filter @inkendar/app run dry-run:production",
+    "dry-run:staging": "pnpm --filter @inkendar/app run dry-run:staging",
     "lint": "eslint .",
     "onboard": "tsx scripts/manual-onboarding.ts",
     "notifications": "tsx scripts/booking-notifications.ts",
-    "start": "pnpm --filter @inkendar/app run start",
+    "typegen": "pnpm --filter @inkendar/app run typegen",
     "test": "vitest run",
     "test:auth:integration": "vitest run packages/infrastructure/src/supabase-auth.integration.test.ts",
     "test:watch": "vitest",
@@ -31,6 +38,7 @@
     "tsx": "^4.23.13",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.0",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.0",
+    "wrangler": "^4.136.3"
   }
 }

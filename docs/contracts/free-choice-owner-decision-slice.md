@@ -1,6 +1,6 @@
 # Contrato: decisión OWNER de elección libre
 
-_Estado técnico: candidato local verificado; revisión independiente, PR, CI y prueba live con Google permanecen pendientes._
+_Estado técnico: `DONE`. El PR #38 integró aprobación/rechazo, recuperación Google y terminal público con CI verde. El 2026-09-23 se verificaron con datos sintéticos el rechazo y el recorrido de aprobación hasta evento confirmado y terminal público `CONFIRMED`._
 
 ## Necesidad
 

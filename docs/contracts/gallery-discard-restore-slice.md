@@ -1,6 +1,6 @@
 # Restauración recuperable de descartes de galería
 
-_Estado técnico: el PR #31 está integrado con CI verde y la prueba live sintética se ejecutó el 2026-09-17; esa prueba detectó la deriva de posición y su corrección está IN_PROGRESS local, pendiente de revisión, PR y CI_
+_Estado técnico: `DONE`. El PR #31 integró la restauración y el PR #34 corrigió la deriva de posición con CI verde. El 2026-09-23 un ciclo sintético local `DISCARD → RESTORE` confirmó que se conserva exactamente la posición._
 
 ## Requisito
 

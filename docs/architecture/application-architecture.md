@@ -2,7 +2,7 @@
 
 _Estado: aceptada_
 
-_Última actualización: 2026-09-18_
+_Última actualización: 2026-09-23_
 
 _La fuente de verdad del comportamiento y el alcance es [Especificación de Inkendar](../product/sellable-mvp-spec.md). Este documento explica cómo construirlo y debe actualizarse cuando cambie una frontera, dependencia o decisión técnica._
 
@@ -12,7 +12,7 @@ Construir Inkendar como una **PWA sobre un monolito modular TypeScript**, con un
 
 ```text
 Landing Inkendar                   Plataforma Inkendar
-marketing independiente            app.inkendar.es
+marketing independiente            inkendar.calalva82.workers.dev
 sin datos de estudios              PWA React + TypeScript
                                             │
                                          API/BFF
@@ -36,10 +36,10 @@ La PWA no llamará directamente a Chatwoot ni a Google. El backend de Inkendar v
 La primera base utiliza:
 
 - React Router 8 en modo framework para renderizado de servidor, rutas de UI y futuros resource routes del API/BFF;
-- el servidor Node oficial de React Router como adaptador inicial portable;
+- Cloudflare Workers mediante el plugin oficial de Cloudflare para Vite y un entrypoint que delega al manejador SSR de React Router;
 - React 19 y TypeScript 6;
 - pnpm workspaces para `apps/inkendar` y los paquetes internos;
-- Node.js 24 LTS en CI, con compatibilidad declarada para la última línea 22.22.x de mantenimiento;
+- Node.js 24 LTS en CI, con compatibilidad declarada para la última línea 22.22.x de mantenimiento, y runtime Workers con compatibilidad Node soportada en producción;
 - Vitest para TDD y una prueba de arquitectura que comprueba el grafo de dependencias declarado por los workspaces.
 
 El manifiesto web establece la base instalable. El service worker y la política de caché se implementarán con el primer slice PWA que pueda probar qué recursos son públicos y cuáles contienen datos privados.
@@ -328,14 +328,15 @@ El mecanismo concreto puede comenzar con funciones programadas sobre la platafor
 ## 9. Despliegue inicial
 
 - `inkendar.es`: landing comercial independiente, sin datos de estudios.
-- `app.inkendar.es`: PWA y API/BFF de la plataforma. Todo entorno debe fijar `INKENDAR_APP_ORIGIN` al origen externo HTTP(S) exacto. El host derivado es la única excepción permitida por React Router cuando un proxy reescribe el origen interno de una acción; una configuración ausente o inválida impide arrancar o construir la aplicación. No se confía en cabeceras de host reenviadas por el cliente.
+- `inkendar.calalva82.workers.dev`: PWA y API/BFF de producción; staging usa `inkendar-staging.calalva82.workers.dev`. Todo entorno debe fijar `INKENDAR_APP_ORIGIN` al origen externo HTTP(S) exacto. El host derivado es la única excepción permitida por React Router cuando un proxy reescribe el origen interno de una acción; una configuración ausente o inválida impide arrancar o construir la aplicación. No se confía en cabeceras de host reenviadas por el cliente.
+- Un dominio personalizado para la plataforma es una mejora futura, no un requisito ni una ruta activa.
 - dominio del estudio: web creada por Incamdi o web existente conectada al feed público.
 - Supabase Cloud Pro: un proyecto de producción multi-tenant.
 - Desarrollo: Supabase local o proyecto gratuito separado.
 - Chatwoot: motor de mensajería no visible para el estudio.
 - Google Calendar: cuenta central del estudio con un calendario por artista.
 
-El proveedor de alojamiento de la PWA queda abierto hasta comparar coste, región, cron y límites de ejecución. La arquitectura no debe depender de una capacidad exclusiva de un proveedor.
+El alojamiento inicial usa Cloudflare Workers y `workers.dev`; los runners programados continúan fuera de este despliegue hasta elegir su scheduler. El dominio y los puertos mantienen aisladas las capacidades exclusivas del proveedor.
 
 ## 10. TDD, calidad y observabilidad
 

@@ -1,6 +1,6 @@
 # Contrato técnico: agenda privada de solo lectura para ARTIST
 
-_Estado técnico: `IN_PROGRESS`. Implementación y evidencia local completas; revisión independiente, PR y CI pendientes._
+_Estado técnico: `DONE` en código integrado. El PR #25 pasó revisión y CI con la RPC tenant-safe y la UI SSR read-only; no se ejecutó una prueba live externa ni se añadieron mutaciones de agenda._
 
 ## Necesidad y alcance
 

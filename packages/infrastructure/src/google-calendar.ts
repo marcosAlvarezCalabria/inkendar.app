@@ -13,7 +13,9 @@ const REVOCATION_ENDPOINT = "https://oauth2.googleapis.com/revoke";
 const CALENDAR_LIST_ENDPOINT = "https://www.googleapis.com/calendar/v3/users/me/calendarList";
 const ALLOWED_REDIRECTS = new Set([
   "http://127.0.0.1:3000/auth/google/callback",
-  "https://app.inkendar.es/auth/google/callback",
+  "http://127.0.0.1:5173/auth/google/callback",
+  "https://inkendar-staging.calalva82.workers.dev/auth/google/callback",
+  "https://inkendar.calalva82.workers.dev/auth/google/callback",
 ]);
 const TOKEN_AAD = Buffer.from("inkendar:google-calendar:refresh-token:v1", "utf8");
 

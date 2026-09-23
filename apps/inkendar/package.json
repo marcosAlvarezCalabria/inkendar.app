@@ -4,10 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "pnpm --filter @inkendar/gallery-web-component run build && react-router build",
-    "dev": "react-router dev",
-    "start": "react-router-serve ./build/server/index.js",
-    "typecheck": "react-router typegen && tsc --noEmit"
+    "build": "node ../../scripts/run-cloudflare.mjs local build",
+    "build:production": "node ../../scripts/run-cloudflare.mjs production build",
+    "build:staging": "node ../../scripts/run-cloudflare.mjs staging build",
+    "dev": "node ../../scripts/run-cloudflare.mjs local dev",
+    "preview": "node ../../scripts/run-cloudflare.mjs local preview",
+    "deploy:production": "node ../../scripts/run-cloudflare.mjs production deploy",
+    "deploy:staging": "node ../../scripts/run-cloudflare.mjs staging deploy",
+    "dry-run:production": "node ../../scripts/run-cloudflare.mjs production dry-run",
+    "dry-run:staging": "node ../../scripts/run-cloudflare.mjs staging dry-run",
+    "typegen": "node ../../scripts/run-cloudflare.mjs local typegen",
+    "typecheck": "pnpm run typegen && tsc --noEmit"
   },
   "dependencies": {
     "@inkendar/application": "workspace:*",
@@ -15,14 +22,13 @@
     "@inkendar/infrastructure": "workspace:*",
     "@inkendar/public-content": "workspace:*",
     "@inkendar/ui": "workspace:*",
-    "@react-router/node": "^8.3.1",
-    "@react-router/serve": "^8.3.1",
-    "isbot": "^5.1.36",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "react-router": "^8.3.1"
+    "react-router": "^8.3.1",
+    "isbot": "^5.1.36"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.57.3",
     "@react-router/dev": "^8.3.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

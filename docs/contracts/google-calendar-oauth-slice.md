@@ -24,10 +24,12 @@ Este slice incluye Authorization Code procesado por servidor, estado OAuth de un
 - `POST /app/owner/calendars`: mutación same-origin con `intent=connect|disconnect|assign`. `connect` inicia OAuth; `disconnect` intenta revocar el refresh token y siempre retira localmente credenciales y asignaciones; `assign` recibe `artistProfileId` y `calendarId`, donde `calendarId` vacío desasigna.
 - `GET /auth/google/callback`: callback registrado. Exige una sesión OWNER coherente, consume `state` antes del exchange y redirige solo a `/app/owner/calendars?result=<valor permitido>`.
 
-Los orígenes canónicos son `http://127.0.0.1:3000` en desarrollo y `https://app.inkendar.es` en producción. `GOOGLE_OAUTH_REDIRECT_URI` debe ser exactamente uno de:
+Los orígenes canónicos son `http://127.0.0.1:3000` para el flujo Node local, `http://127.0.0.1:5173` para Cloudflare local, `https://inkendar-staging.calalva82.workers.dev` en staging y `https://inkendar.calalva82.workers.dev` en producción. `GOOGLE_OAUTH_REDIRECT_URI` debe ser exactamente uno de:
 
 - `http://127.0.0.1:3000/auth/google/callback`
-- `https://app.inkendar.es/auth/google/callback`
+- `http://127.0.0.1:5173/auth/google/callback`
+- `https://inkendar-staging.calalva82.workers.dev/auth/google/callback`
+- `https://inkendar.calalva82.workers.dev/auth/google/callback`
 
 No se deriva el redirect de `Host` ni de cabeceras de proxy.
 

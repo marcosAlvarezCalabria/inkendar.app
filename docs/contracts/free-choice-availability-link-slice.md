@@ -1,6 +1,6 @@
 # Contrato técnico: enlace público de disponibilidad para elección libre
 
-_Estado técnico: implementado y verificado localmente, pendiente de revisión, PR y CI. Este documento fijó el primer corte antes del código de producción; no acredita prueba live ni una reserva._
+_Estado técnico: `DONE`. El PR #35 integró emisión/rotación y consulta pública con CI verde. El 2026-09-23 un recorrido sintético live local mostró los candidatos calculados para el artista; el enlace por sí solo no constituye una reserva._
 
 ## Alcance
 
