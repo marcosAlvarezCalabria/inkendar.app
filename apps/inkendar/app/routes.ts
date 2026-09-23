@@ -7,6 +7,7 @@ export default [
   route("api/public/studios/:studioSlug/gallery", "routes/public-gallery.ts"),
   route("offers/:token", "routes/public-offer.tsx"),
   route("availability/:token", "routes/public-availability.tsx"),
+  route("availability/:token/select", "routes/public-availability-selection.ts"),
   route("app", "routes/app.tsx"),
   route("app/owner", "routes/owner.tsx"),
   route("app/owner/conversations", "routes/owner-conversations.tsx"),
