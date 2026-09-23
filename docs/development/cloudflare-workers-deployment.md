@@ -40,13 +40,15 @@ Ejemplo, sin escribir el valor en el historial del shell:
 pnpm exec wrangler secret put SUPABASE_URL --env production --config apps/inkendar/wrangler.jsonc
 ```
 
-La URI OAuth registrada para producción debe ser exactamente:
+Las URI OAuth registradas para el flujo Cloudflare deben ser exactamente:
 
 ```text
+http://127.0.0.1:5173/auth/google/callback
+https://staging.app.inkendar.es/auth/google/callback
 https://app.inkendar.es/auth/google/callback
 ```
 
-Registrar aparte la URI de staging correspondiente. `INKENDAR_SMTP_CONNECTIONS_JSON` pertenece al runner de notificaciones fuera del Worker y se configura solo en el entorno autorizado que ejecute ese proceso.
+El callback local heredado `http://127.0.0.1:3000/auth/google/callback` continúa permitido para el flujo Node existente. La allowlist es literal: no admite comodines, hosts alternativos, rutas distintas ni barras finales. `INKENDAR_SMTP_CONNECTIONS_JSON` pertenece al runner de notificaciones fuera del Worker y se configura solo en el entorno autorizado que ejecute ese proceso.
 
 ## Migraciones Supabase Cloud
 
