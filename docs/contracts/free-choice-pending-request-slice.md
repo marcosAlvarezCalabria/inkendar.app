@@ -8,7 +8,7 @@ Como OWNER quiero emitir o rotar un enlace temporal para un caso `OPEN` y su art
 
 Los enlaces nuevos se identifican por caso, no por artista. El caso debe pertenecer al estudio, permanecer `OPEN` y tener `artist_profile_id` igual al artista elegido. Un caso sin artista falla cerrado: este slice no lo asigna implícitamente. La migración conserva enlaces legacy sin caso para consulta GET, pero su POST siempre responde con el mismo rechazo público genérico. Emitir de nuevo para un caso rota solo ese caso; varios casos del mismo artista pueden mantener enlaces distintos.
 
-GET calcula candidatos con reglas, FreeBusy y holds y entrega por slot `{ selector, startUtc, endUtc, startLocal, endLocal }`. `selector` es un SHA-256 opaco ligado al token y al intervalo canónico; no es un ID y no se persisten 500 candidatos. POST same-origin acepta exactamente un único `selector`, vuelve a resolver el token y recalcular candidatos tras una nueva consulta FreeBusy, encuentra el intervalo por comparación constante y solo entonces solicita la operación atómica de base de datos. No acepta tenant, artista, caso, rango ni timestamps.
+GET calcula candidatos con reglas, FreeBusy y holds y entrega por slot `{ selector, startUtc, endUtc, startLocal, endLocal }`. `selector` es un SHA-256 opaco ligado al token y al intervalo canónico; no es un ID y no se persisten 500 candidatos. La vista envía `POST /availability/:token/select` como navegación de documento a una resource route sin componente y, tras éxito, recibe `303` hacia el GET canónico. El POST acepta exactamente un único `selector` opaco y un origen HTTP(S) canónico; admite además `Origin: null` solo para la navegación opaca observada con `Sec-Fetch-Site: same-origin` y `Sec-Fetch-Mode: navigate`. Método, content type y tamaño siguen acotados, y cualquier otra combinación falla cerrada. Después vuelve a resolver el token y recalcular candidatos tras una nueva consulta FreeBusy, encuentra el intervalo por comparación constante y solo entonces solicita la operación atómica de base de datos. No acepta tenant, artista, caso, rango ni timestamps.
 
 La RPC bloquea por estudio/artista, vuelve a comprobar token vigente, caso `OPEN` y artista coherente, excluye holds de ofertas, selecciones, citas y otras solicitudes libres, y crea como máximo una solicitud por acceso. Repetir el mismo selector/intervalo devuelve éxito idempotente; una elección distinta no reemplaza a la ganadora. La caducidad es `min(now + booking_offer_expiry_hours, access.expires_at, slot.start_at)` y la solicitud deja de bloquear cuando vence; el acceso ya consumido no vuelve a anunciar candidatos. FreeBusy precede necesariamente a la transacción: el lock elimina carreras internas, pero no puede impedir que un evento externo aparezca entre la lectura de Google y el commit; por eso el estado sigue pendiente y la aprobación futura deberá revalidar.
 
@@ -32,7 +32,7 @@ And un caso cerrado, ajeno, sin artista o con otro artista falla cerrado
 
 ```gherkin
 Given un enlace nuevo vigente sin selección
-When el cliente consulta y envía exactamente un selector candidato same-origin
+When el cliente consulta y envía exactamente un selector candidato mediante el POST público permitido
 Then Inkendar reconsulta FreeBusy y holds
 And crea atómica y durablemente una solicitud PENDING_OWNER_APPROVAL
 And el GET posterior muestra solo estado pendiente, intervalo y caducidad sin PII ni IDs

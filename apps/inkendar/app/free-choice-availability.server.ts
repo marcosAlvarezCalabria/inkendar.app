@@ -1,5 +1,5 @@
 import {AvailabilityProviderUnavailableError,FreeChoiceAvailabilityContextNotFoundError,createFreeChoiceAvailabilityService} from "@inkendar/application";
-import {InvalidAvailabilityInputError,normalizePublicBookingOfferToken,type AuthorizedAccess} from "@inkendar/domain";
+import {InvalidAvailabilityInputError,normalizeFreeChoiceSlotSelector,normalizePublicBookingOfferToken,type AuthorizedAccess} from "@inkendar/domain";
 import {AesGcmGoogleTokenProtector,GoogleFreeBusyHttpAdapter,createSupabaseFreeChoiceAvailabilityAccessRepository,createSupabasePublicFreeChoiceAvailabilityRepository,loadGoogleCalendarConfig,loadGoogleTokenEncryptionKey,secureBookingOfferTokenBytes,sha256BookingOfferToken} from "@inkendar/infrastructure";
 import {authHandlers,isTrustedMutationRequest,type AuthorizedRequestAccess} from "./auth.server.js";
 
@@ -16,11 +16,30 @@ export function createOwnerFreeChoiceAvailabilityHandlers(dependencies:OwnerDepe
 
 export function createPublicFreeChoiceAvailabilityHandlers(dependencies:PublicDependencies={createService:()=>compose(null)}){return {
  async loader(_request:Request,rawToken:string|undefined){if(!canonical(rawToken))return unavailable();try{return Response.json(await dependencies.createService().getPublic(rawToken),{headers:publicFreeChoiceAvailabilityHeaders()});}catch(error){return error instanceof AvailabilityProviderUnavailableError?temporarilyUnavailable():unavailable();}},
- async action(request:Request,rawToken:string|undefined){if(request.method!=="POST"||!canonical(rawToken)||!isTrustedMutationRequest(request)||request.headers.get("content-type")?.split(";",1)[0]!=="application/x-www-form-urlencoded")return unavailable();const length=Number(request.headers.get("content-length"));if(Number.isFinite(length)&&length>256)return unavailable();try{const body=await request.text();if(body.length>256)return unavailable();const params=new URLSearchParams(body);if([...params.keys()].length!==1||!params.has("selector"))return unavailable();return Response.json(await dependencies.createService().selectPublic(rawToken,params.get("selector")??""),{headers:publicFreeChoiceAvailabilityHeaders()});}catch(error){return error instanceof AvailabilityProviderUnavailableError?temporarilyUnavailable():unavailable();}}
+ async action(request:Request,rawToken:string|undefined){
+  if(request.method!=="POST"||!canonical(rawToken)||!isTrustedPublicSelectionRequest(request)||request.headers.get("content-type")?.split(";",1)[0]!=="application/x-www-form-urlencoded")return unavailable();
+  const declaredLength=request.headers.get("content-length");
+  if(declaredLength!==null){const length=Number(declaredLength);if(!Number.isInteger(length)||length<0||length>256)return unavailable();}
+  try{
+   const body=await request.text();
+   if(body.length>256)return unavailable();
+   const entries=[...new URLSearchParams(body).entries()];
+   if(entries.length!==1||entries[0]?.[0]!=="selector")return unavailable();
+   const selector=normalizeFreeChoiceSlotSelector(entries[0][1]);
+   await dependencies.createService().selectPublic(rawToken,selector);
+   const headers=publicFreeChoiceAvailabilityHeaders();
+   headers.set("Location",`/availability/${rawToken}`);
+   return new Response(null,{status:303,headers});
+  }catch(error){return error instanceof AvailabilityProviderUnavailableError?temporarilyUnavailable():unavailable();}
+ }
 };}
 export const ownerFreeChoiceAvailabilityHandlers=createOwnerFreeChoiceAvailabilityHandlers();
 export const publicFreeChoiceAvailabilityHandlers=createPublicFreeChoiceAvailabilityHandlers();
 export function publicFreeChoiceAvailabilityHeaders(){return new Headers({"Cache-Control":"private, no-store","Referrer-Policy":"no-referrer","X-Content-Type-Options":"nosniff","X-Frame-Options":"DENY","X-Robots-Tag":"noindex, nofollow","Content-Security-Policy":"default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'"});}
+function isTrustedPublicSelectionRequest(request:Request){
+ if(isTrustedMutationRequest(request))return true;
+ return request.headers.get("Origin")==="null"&&request.headers.get("Sec-Fetch-Site")==="same-origin"&&request.headers.get("Sec-Fetch-Mode")==="navigate";
+}
 function privateHeaders(source?:Headers){const headers=new Headers(source);headers.set("Cache-Control","private, no-store");return headers;}
 function unavailable(){return new Response("Este enlace no está disponible.",{status:404,headers:publicFreeChoiceAvailabilityHeaders()});}
 function temporarilyUnavailable(){return new Response("La disponibilidad no está disponible temporalmente.",{status:503,headers:publicFreeChoiceAvailabilityHeaders()});}
