@@ -6,7 +6,7 @@ Inkendar empaqueta React Router 8 SSR con el plugin oficial de Cloudflare para V
 
 ## Estado operativo actual
 
-El PR #42 está abierto, limpio y con CI verde en `c2727ee129c9a27f34781fffd45c27a8c2f34903` (`validate` y `database`, run `35879758897`). La configuración, los builds, los dry-runs y el preview local están verificados, pero no existe todavía ningún despliegue de Inkendar en Cloudflare. Tampoco se han creado proyectos Supabase Cloud para Inkendar, configurado secretos remotos, aplicado migraciones Cloud ni registrado los callbacks `workers.dev` en Google.
+El PR #42 está abierto. La implementación de despliegue quedó fijada en `c2727ee129c9a27f34781fffd45c27a8c2f34903` y pasó `validate` y `database` en el run `35879758897`; los commits documentales posteriores no cambian el artefacto de runtime. La configuración, los builds, los dry-runs y el preview local están verificados, pero no existe todavía ningún despliegue de Inkendar en Cloudflare. Tampoco se han creado proyectos Supabase Cloud para Inkendar, configurado secretos remotos, aplicado migraciones Cloud ni registrado los callbacks `workers.dev` en Google. Verificar en GitHub el HEAD y los checks vigentes antes de fusionar.
 
 El siguiente operador debe fusionar primero el PR #42 y seguir [el handoff de despliegue](handoff-2026-09-23-cloudflare-deployment.md). No debe interpretar un dry-run, una URL prevista o un CI verde como servicio publicado.
 

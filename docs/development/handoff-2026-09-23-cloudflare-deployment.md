@@ -14,8 +14,9 @@ No desarrollar otra feature durante este slice. El runbook autoritativo es [clou
 ## Estado verificable al cerrar este chat
 
 - `main` termina en `dc03521` (PR #41).
-- PR abierto: [#42](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/42), rama `codex/cloudflare-production`, HEAD `c2727ee129c9a27f34781fffd45c27a8c2f34903`, estado `CLEAN`.
-- CI del PR: run `35879758897`, jobs `validate` y `database` exitosos.
+- PR abierto: [#42](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/42), rama `codex/cloudflare-production`. La implementación de despliegue termina en `c2727ee129c9a27f34781fffd45c27a8c2f34903`; los commits posteriores son documentales.
+- CI de la implementación: run `35879758897`, jobs `validate` y `database` exitosos. El commit documental `aee9e31` también pasó ambos checks en el run `35882367655`.
+- El siguiente operador debe volver a consultar en GitHub el HEAD, `mergeStateStatus` y los checks actuales antes de pedir el merge; no usar los identificadores históricos anteriores como sustituto.
 - Validación independiente con Node 24.19.0: 52/52 pruebas enfocadas; suite completa 556 pasadas y 1 omitida; lint, typecheck y build verdes; build→dry-run de staging y producción verdes.
 - Preview local: `/healthz` respondió 200; `/readyz` respondió 503 de forma esperada sin secretos ni binding remoto real.
 - No se hizo merge, despliegue, migración Cloud ni creación de recursos remotos de Inkendar.
