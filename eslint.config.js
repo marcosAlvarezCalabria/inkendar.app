@@ -3,7 +3,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["**/.react-router/**", "**/build/**", "**/coverage/**", "**/node_modules/**", "apps/inkendar/public/inkendar-gallery.js"],
+    ignores: ["**/.react-router/**", "**/.wrangler/**", "**/build/**", "**/coverage/**", "**/dist/**", "**/node_modules/**", "apps/inkendar/public/inkendar-gallery.js"],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,

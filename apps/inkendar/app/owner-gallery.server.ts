@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { GalleryIngestionFailedError, GalleryMutationFailedError, GalleryPublicationFailedError, InvalidGalleryInputError, createGalleryCurationService, createGalleryPublicationService, createGalleryService } from "@inkendar/application";
-import { GALLERY_MAX_FILE_BYTES, SharpGalleryImageProcessor, createSupabaseGalleryPublicationRepository, createSupabaseGalleryPublicationStorage, createSupabaseGalleryRepository, createSupabasePrivateGalleryStorage, listSupabaseGalleryArtists } from "@inkendar/infrastructure";
+import { CloudflareGalleryImageProcessor, GALLERY_MAX_FILE_BYTES, createSupabaseGalleryPublicationRepository, createSupabaseGalleryPublicationStorage, createSupabaseGalleryRepository, createSupabasePrivateGalleryStorage, listSupabaseGalleryArtists, type ImagesBinding } from "@inkendar/infrastructure";
 import type { AuthorizedAccess } from "@inkendar/domain";
 import { authHandlers, isTrustedMutationRequest, type AuthorizedRequestAccess } from "./auth.server.js";
 
@@ -9,14 +9,18 @@ type CurationService = ReturnType<typeof createGalleryCurationService>;
 type PublicationService = ReturnType<typeof createGalleryPublicationService>;
 type Dependencies = Readonly<{
   authorize(request: Request): Promise<Response | AuthorizedRequestAccess>;
-  createService(access: AuthorizedAccess, request: Request): Service;
+  createService(access: AuthorizedAccess, request: Request, environment: GalleryRuntimeEnvironment): Service;
   createCurationService?(access: AuthorizedAccess, request: Request): CurationService;
   createPublicationService?(access: AuthorizedAccess, request: Request): PublicationService;
   listArtists?(request: Request): Promise<readonly { id: string; displayName: string }[]>;
 }>;
+export type GalleryRuntimeEnvironment = Readonly<{ IMAGES?: ImagesBinding }>;
 const defaults: Required<Dependencies> = {
   authorize: (request) => authHandlers.requireRole(request, "OWNER"),
-  createService: (_access, request) => createGalleryService({ processor: new SharpGalleryImageProcessor(), repository: createSupabaseGalleryRepository(request, process.env), storage: createSupabasePrivateGalleryStorage(process.env), createId: randomUUID }),
+  createService: (_access, request, environment) => {
+    if (!environment.IMAGES) throw new Error("Missing Cloudflare Images binding");
+    return createGalleryService({ processor: new CloudflareGalleryImageProcessor(environment.IMAGES), repository: createSupabaseGalleryRepository(request, process.env), storage: createSupabasePrivateGalleryStorage(process.env), createId: randomUUID });
+  },
   createCurationService: (_access, request) => createGalleryCurationService(createSupabaseGalleryRepository(request, process.env)),
   createPublicationService: (_access, request) => createGalleryPublicationService(createSupabaseGalleryPublicationRepository(request, process.env), () => createSupabaseGalleryPublicationStorage(process.env)),
   listArtists: (request) => listSupabaseGalleryArtists(request, process.env),
@@ -37,7 +41,7 @@ export function createOwnerGalleryHandlers(dependencies: Dependencies = defaults
       }
       catch { return Response.json({ error: "No se pudo cargar la galería." }, { status: 500, headers: privateHeaders(authorization.headers) }); }
     },
-    async action(request: Request): Promise<Response> {
+    async action(request: Request, environment: GalleryRuntimeEnvironment = {}): Promise<Response> {
       if (request.method !== "POST" || !isTrustedMutationRequest(request)) return new Response("Solicitud rechazada", { status: 403, headers: privateHeaders() });
       const contentType = request.headers.get("Content-Type")?.toLowerCase() ?? "";
       const multipart = contentType.startsWith("multipart/form-data;");
@@ -55,7 +59,7 @@ export function createOwnerGalleryHandlers(dependencies: Dependencies = defaults
           exactFields(form, ["intent", "image", "altText", "target", "artistProfileId"]);
           const file = singleFile(form, "image"), artist = optional(form, "artistProfileId");
           if (file.size < 1 || file.size > GALLERY_MAX_FILE_BYTES) throw new InvalidGalleryInputError();
-          await dependencies.createService(authorization.access, request).ingest({ studioId: authorization.access.studioId, bytes: new Uint8Array(await file.arrayBuffer()), altText: required(form, "altText"), target: required(form, "target"), artistProfileId: artist?.trim() ? artist.trim() : null });
+          await dependencies.createService(authorization.access, request, environment).ingest({ studioId: authorization.access.studioId, bytes: new Uint8Array(await file.arrayBuffer()), altText: required(form, "altText"), target: required(form, "target"), artistProfileId: artist?.trim() ? artist.trim() : null });
         } else if (intent === "UPDATE") {
           if (!urlEncoded) throw new InvalidGalleryInputError();
           exactFields(form, ["intent", "handle", "altText", "target", "artistProfileId"]);
@@ -92,7 +96,7 @@ export function createOwnerGalleryHandlers(dependencies: Dependencies = defaults
   };
 }
 export const ownerGalleryHandlers = createOwnerGalleryHandlers();
-function curation(dependencies: Dependencies, access: AuthorizedAccess, request: Request): CurationService { return (dependencies.createCurationService ?? dependencies.createService)(access, request); }
+function curation(dependencies: Dependencies, access: AuthorizedAccess, request: Request): CurationService { return dependencies.createCurationService ? dependencies.createCurationService(access, request) : dependencies.createService(access, request, {}); }
 function publication(dependencies: Dependencies, access: AuthorizedAccess, request: Request): PublicationService { return (dependencies.createPublicationService ?? defaults.createPublicationService)(access, request); }
 function required(form: FormData, name: string): string { const values = form.getAll(name); if (values.length !== 1 || typeof values[0] !== "string" || values[0].length > 4096) throw new InvalidGalleryInputError(); return values[0]; }
 function optional(form: FormData, name: string): string | null { const values = form.getAll(name); if (values.length === 0) return null; if (values.length !== 1 || typeof values[0] !== "string" || values[0].length > 4096) throw new InvalidGalleryInputError(); return values[0]; }

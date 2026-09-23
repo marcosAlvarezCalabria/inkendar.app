@@ -2,9 +2,9 @@
 
 _Estado: especificación viva y fuente de verdad para alcance, comportamiento y progreso_
 
-_Versión: 1.24.0_
+_Versión: 1.26.0_
 
-_Última actualización: 2026-09-18_
+_Última actualización: 2026-09-23_
 
 _La fase anterior al desarrollo se define en [Plan de validación y lanzamiento](validation-and-launch-plan.md)._
 
@@ -106,12 +106,14 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | 2026-09-17 | DEC-042 | `ACCEPTED` | La consulta pública para elección libre usa una credencial rotatoria de 32 bytes por artista, almacenada solo como SHA-256 y ligada a rango, duración y caducidad acotados. Un GET server-only calcula candidatos con reglas, FreeBusy y holds, expone un DTO mínimo y no permite seleccionar, bloquear ni reservar. | Abrir el primer tramo seguro de elección libre reutilizando disponibilidad real sin aceptar tenant/rango del visitante, filtrar eventos o anticipar aprobación y confirmación. |
 | 2026-09-18 | DEC-043 | `ACCEPTED` | Los enlaces nuevos de elección libre se rotan por caso OPEN con artista explícito coherente; los legacy sin caso son GET-only. Un selector derivado opaco identifica cada candidato sin persistir el catálogo, POST revalida FreeBusy y una RPC serializada crea una solicitud durable `PENDING_OWNER_APPROVAL` que bloquea disponibilidad hasta su caducidad. | Personalizar el enlace para un cliente/caso sin PII pública, evitar timestamps confiados y carreras internas, y no confundir una solicitud con cita o aprobación. |
 | 2026-09-18 | DEC-044 | `ACCEPTED` | Un token de elección libre consumido pierde autoridad de selección al vencer, pero conserva consulta terminal mínima mientras se retengan acceso y solicitud; no puede rotarse. La aprobación OWNER fija binding Google inmutable y una sola autoridad `READY → INSERTING`; `READY` vencido pierde lease y autoridad sin borrar su operación, mientras desde `INSERTING` sólo reconcilia, sobrevive a caducidad y finaliza una única cita/relación. | Evitar reanunciar huecos, perder el resultado del cliente, duplicar eventos o liberar un intervalo ambiguo ante retries, respuesta perdida o carreras approve/reject/expiry. |
+| 2026-09-23 | DEC-045 | `ACCEPTED` | El SSR/BFF y sus assets se preparan para Cloudflare Workers con el plugin oficial Vite; Supabase Cloud conserva Postgres/Auth/Storage y la sanitización de imágenes usa un adaptador aislado del binding Cloudflare Images. | Cerrar la elección de hosting sin acoplar dominio o persistencia, retirar `sharp` incompatible con Workers y conservar el contrato de variantes privadas. Activación/facturación de Images, secretos, staging y despliegue siguen siendo gates operativos. |
 La arquitectura técnica está en [Arquitectura de aplicación](../architecture/application-architecture.md) y el proceso de entrega en [Flujo de desarrollo, revisión e integración](../development/delivery-workflow.md).
 
 ## Historial de la especificación
 
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
+| 2026-09-23 | 1.26.0 | Se preparó localmente el artefacto SSR para Cloudflare Workers, entornos staging/production, endpoints operativos, adaptación de imágenes y runbook de despliegue/rollback. Revisión, PR, CI, activación de Images, migraciones Cloud y todo despliegue o prueba live permanecen pendientes. | Elegir y validar técnicamente el hosting sin atribuir evidencia operativa ni mover Supabase Cloud. |
 | 2026-09-18 | 1.25.0 | Candidato local de decisión OWNER para elección libre: rechazo durable, aprobación Google recuperable, terminal público mínimo, 42 pruebas pgTAP conductuales y carreras PostgreSQL reales en ambos órdenes approve/reject. Revisión, PR, CI y prueba live permanecen pendientes. | Completar el control humano de DEC-007 sin afirmar despliegue ni evidencia operativa externa. |
 | 2026-09-18 | 1.24.0 | El PR #37 integró la solicitud pendiente de elección libre por caso tras revisión, CI, reset limpio, pgTAP y gate de aplicación. No incluyó aprobación, Google Event, notificación ni evidencia live. | Cerrar el corte de selección libre sin confundir la solicitud con una cita confirmada. |
 | 2026-09-17 | 1.23.0 | Se implementó localmente el primer corte de elección libre: emisión/rotación OWNER same-origin por artista, token hash-only, configuración acotada, consulta pública de candidatos con FreeBusy y holds, respuesta mínima y cabeceras defensivas. Pasaron 17 tests enfocados, `pnpm run check` con 491 tests y 24 asserts pgTAP transaccionales; revisión, PR, CI y prueba live quedan pendientes, y no existe selección, hold ni aprobación libre. | Permitir consulta segura de huecos sin afirmar ni crear una reserva y mantener explícito el gate posterior de selección/aprobación. |

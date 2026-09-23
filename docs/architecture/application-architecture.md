@@ -36,10 +36,10 @@ La PWA no llamará directamente a Chatwoot ni a Google. El backend de Inkendar v
 La primera base utiliza:
 
 - React Router 8 en modo framework para renderizado de servidor, rutas de UI y futuros resource routes del API/BFF;
-- el servidor Node oficial de React Router como adaptador inicial portable;
+- Cloudflare Workers mediante el plugin oficial de Cloudflare para Vite y un entrypoint que delega al manejador SSR de React Router;
 - React 19 y TypeScript 6;
 - pnpm workspaces para `apps/inkendar` y los paquetes internos;
-- Node.js 24 LTS en CI, con compatibilidad declarada para la última línea 22.22.x de mantenimiento;
+- Node.js 24 LTS en CI, con compatibilidad declarada para la última línea 22.22.x de mantenimiento, y runtime Workers con compatibilidad Node soportada en producción;
 - Vitest para TDD y una prueba de arquitectura que comprueba el grafo de dependencias declarado por los workspaces.
 
 El manifiesto web establece la base instalable. El service worker y la política de caché se implementarán con el primer slice PWA que pueda probar qué recursos son públicos y cuáles contienen datos privados.
