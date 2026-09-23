@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AccessDeniedError, type AuthorizedAccess } from "@inkendar/domain";
 import type { createAuthenticationService } from "@inkendar/application";
 
-import { createAuthHandlers, safeReturnPath, type AuthRequestContext } from "./auth.server.js";
+import { createAuthHandlers, isTrustedMutationRequest, safeReturnPath, type AuthRequestContext } from "./auth.server.js";
 
 const owner: AuthorizedAccess = {
   displayName: "Owner",
@@ -34,6 +34,39 @@ describe("PWA auth request handlers", () => {
     expect(safeReturnPath("/app/artist", "OWNER")).toBe("/app/owner");
   });
 
+  it("fails closed in production when the canonical origin is missing", () => {
+    const previousNodeEnvironment = process.env.NODE_ENV;
+    const previousAppOrigin = process.env.INKENDAR_APP_ORIGIN;
+    process.env.NODE_ENV = "production";
+    Reflect.deleteProperty(process.env, "INKENDAR_APP_ORIGIN");
+
+    try {
+      expect(isTrustedMutationRequest(new Request("https://app.inkendar.es/logout", {
+        method: "POST",
+        headers: { Origin: "https://app.inkendar.es", "Sec-Fetch-Site": "same-origin" },
+      }))).toBe(false);
+    } finally {
+      if (previousNodeEnvironment === undefined) Reflect.deleteProperty(process.env, "NODE_ENV");
+      else process.env.NODE_ENV = previousNodeEnvironment;
+      if (previousAppOrigin === undefined) Reflect.deleteProperty(process.env, "INKENDAR_APP_ORIGIN");
+      else process.env.INKENDAR_APP_ORIGIN = previousAppOrigin;
+    }
+  });
+
+  it("trusts the exact configured workers.dev origin", () => {
+    const previousAppOrigin = process.env.INKENDAR_APP_ORIGIN;
+    process.env.INKENDAR_APP_ORIGIN = "https://inkendar.calalva82.workers.dev";
+
+    try {
+      expect(isTrustedMutationRequest(new Request("https://inkendar.calalva82.workers.dev/logout", {
+        method: "POST",
+        headers: { Origin: "https://inkendar.calalva82.workers.dev", "Sec-Fetch-Site": "same-origin" },
+      }))).toBe(true);
+    } finally {
+      if (previousAppOrigin === undefined) Reflect.deleteProperty(process.env, "INKENDAR_APP_ORIGIN");
+      else process.env.INKENDAR_APP_ORIGIN = previousAppOrigin;
+    }
+  });
   it("returns rotated cookies with successful private access", async () => {
     const handlers = createAuthHandlers(() => context(owner));
 

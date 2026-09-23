@@ -15,7 +15,7 @@ export type AuthorizedRequestAccess = Readonly<{
 type ContextFactory = (request: Request) => AuthRequestContext;
 type TrustedOriginFactory = (request: Request) => string | null;
 
-const PRODUCTION_ORIGIN = "https://app.inkendar.es";
+const INTERNAL_URL_BASE = "https://inkendar.invalid";
 
 export function createAuthRequestContext(request: Request): AuthRequestContext {
   const { adapter, headers } = createSupabaseAuthRequestAdapter(request, process.env);
@@ -89,8 +89,8 @@ export function safeReturnPath(value: string | null, role: AccessRole): string {
   const fallback = roleHome(role);
   if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return fallback;
   try {
-    const url = new URL(value, "https://app.inkendar.es");
-    if (url.origin !== "https://app.inkendar.es") return fallback;
+    const url = new URL(value, INTERNAL_URL_BASE);
+    if (url.origin !== INTERNAL_URL_BASE) return fallback;
     const allowedPrefix = role === "OWNER" ? "/app/owner" : "/app/artist";
     if (url.pathname !== "/app" && url.pathname !== allowedPrefix && !url.pathname.startsWith(`${allowedPrefix}/`)) {
       return fallback;
@@ -119,7 +119,7 @@ async function currentAccessOrDenied(context: AuthRequestContext): Promise<Autho
 function defaultTrustedOrigin(request: Request): string | null {
   const configured = process.env.INKENDAR_APP_ORIGIN;
   if (configured !== undefined) return normalizedOrigin(configured);
-  if (process.env.NODE_ENV === "production") return PRODUCTION_ORIGIN;
+  if (process.env.NODE_ENV === "production") return null;
   return new URL(request.url).origin;
 }
 
