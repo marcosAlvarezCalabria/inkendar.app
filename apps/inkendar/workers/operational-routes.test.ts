@@ -5,21 +5,21 @@ const readyEnvironment = {
   SUPABASE_URL: "https://example.supabase.co",
   SUPABASE_PUBLISHABLE_KEY: "publishable",
   SUPABASE_SERVICE_ROLE_KEY: "service-role",
-  INKENDAR_APP_ORIGIN: "https://app.inkendar.es",
+  INKENDAR_APP_ORIGIN: "https://inkendar.calalva82.workers.dev",
   IMAGES: {},
 };
 
 describe("operational routes", () => {
   it("serves a cache-free liveness response without inspecting configuration", async () => {
-    const response = operationalResponse(new Request("https://app.inkendar.es/healthz"), {});
+    const response = operationalResponse(new Request("https://inkendar.calalva82.workers.dev/healthz"), {});
     expect(response?.status).toBe(200);
     expect(await response?.json()).toEqual({ status: "ok" });
     expect(response?.headers.get("Cache-Control")).toBe("no-store");
   });
 
   it("reports readiness only when core bindings are present without naming missing secrets", async () => {
-    const ready = operationalResponse(new Request("https://app.inkendar.es/readyz"), readyEnvironment);
-    const unready = operationalResponse(new Request("https://app.inkendar.es/readyz"), { ...readyEnvironment, SUPABASE_SERVICE_ROLE_KEY: "" });
+    const ready = operationalResponse(new Request("https://inkendar.calalva82.workers.dev/readyz"), readyEnvironment);
+    const unready = operationalResponse(new Request("https://inkendar.calalva82.workers.dev/readyz"), { ...readyEnvironment, SUPABASE_SERVICE_ROLE_KEY: "" });
 
     expect(ready?.status).toBe(200);
     expect(await ready?.json()).toEqual({ status: "ready" });
@@ -28,6 +28,6 @@ describe("operational routes", () => {
   });
 
   it("ignores application routes", () => {
-    expect(operationalResponse(new Request("https://app.inkendar.es/login"), readyEnvironment)).toBeNull();
+    expect(operationalResponse(new Request("https://inkendar.calalva82.workers.dev/login"), readyEnvironment)).toBeNull();
   });
 });

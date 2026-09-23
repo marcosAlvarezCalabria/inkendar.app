@@ -6,12 +6,11 @@ Inkendar empaqueta React Router 8 SSR con el plugin oficial de Cloudflare para V
 
 ## Prerrequisitos externos
 
-- una cuenta Cloudflare con la zona `inkendar.es` y permisos para Workers y rutas custom domain;
-- `app.inkendar.es` disponible para el entorno de producción;
+- una cuenta Cloudflare con el subdominio `workers.dev` `calalva82` y permisos para Workers;
 - un proyecto Supabase Cloud de staging y otro de producción, o una decisión explícita y revisada para compartir proyecto;
 - Cloudflare Images activado en la cuenta y en cada Worker que use el binding `IMAGES`.
 
-Cloudflare Images es un producto facturado. Las transformaciones mediante binding cuentan como transformaciones únicas conforme al plan vigente. `wrangler deploy --dry-run` valida la configuración y el binding declarado, pero no activa Images, no crea recursos y no demuestra autorización o facturación. Verificar el plan y activar Images antes del primer despliegue real.
+Cloudflare Images Free permite hasta 5.000 transformaciones únicas por mes. Al superar ese límite, las transformaciones nuevas fallan con el error `9422`; el plan Free no cobra el exceso. Cada combinación de imagen origen y parámetros del binding cuenta como transformación única por mes, mientras `.info()` no cuenta. Superar ese uso exige valorar Images Paid según la tarifa vigente. `wrangler deploy --dry-run` valida la configuración y el binding declarado, pero no habilita Images, no crea recursos y no demuestra disponibilidad en la cuenta. Verificar el plan y habilitar Images antes del primer despliegue real.
 
 ## Configuración y secretos
 
@@ -20,8 +19,8 @@ Cloudflare Images es un producto facturado. Las transformaciones mediante bindin
 | Entorno | Origen |
 |---|---|
 | local | `http://127.0.0.1:5173` |
-| staging | `https://staging.app.inkendar.es` |
-| production | `https://app.inkendar.es` |
+| staging | `https://inkendar-staging.calalva82.workers.dev` |
+| production | `https://inkendar.calalva82.workers.dev` |
 
 Configurar con `wrangler secret put` en `staging` y `production`:
 
@@ -44,8 +43,8 @@ Las URI OAuth registradas para el flujo Cloudflare deben ser exactamente:
 
 ```text
 http://127.0.0.1:5173/auth/google/callback
-https://staging.app.inkendar.es/auth/google/callback
-https://app.inkendar.es/auth/google/callback
+https://inkendar-staging.calalva82.workers.dev/auth/google/callback
+https://inkendar.calalva82.workers.dev/auth/google/callback
 ```
 
 El callback local heredado `http://127.0.0.1:3000/auth/google/callback` continúa permitido para el flujo Node existente. La allowlist es literal: no admite comodines, hosts alternativos, rutas distintas ni barras finales. `INKENDAR_SMTP_CONNECTIONS_JSON` pertenece al runner de notificaciones fuera del Worker y se configura solo en el entorno autorizado que ejecute ese proceso.
@@ -100,7 +99,7 @@ pnpm run deploy:staging
 pnpm run deploy:production
 ```
 
-Producción declara `app.inkendar.es` como custom domain y desactiva `workers.dev` y preview URLs. Antes de promocionar, verificar que la zona está en la misma cuenta, que no existe una ruta conflictiva y que Google OAuth y Supabase aceptan el origen/callback final. Staging usa `workers.dev` hasta provisionar y validar `staging.app.inkendar.es`; cambiarlo a custom domain antes de depender de ese hostname externamente.
+Producción despliega el Worker `inkendar` en `https://inkendar.calalva82.workers.dev`; staging despliega `inkendar-staging` en `https://inkendar-staging.calalva82.workers.dev`. Ambos conservan `workers_dev=true`; producción desactiva preview URLs para que el único origen operativo sea estable. Antes de promocionar, verificar que Google OAuth y Supabase aceptan el origen/callback exactos. Un dominio personalizado es una mejora futura y requerirá una decisión y migración explícitas de origen, OAuth y cookies.
 
 ## Observabilidad y rollback
 

@@ -19,20 +19,14 @@
       "workers_dev": true,
       "preview_urls": true,
       "images": { "binding": "IMAGES" },
-      "vars": { "INKENDAR_APP_ORIGIN": "https://staging.app.inkendar.es" }
+      "vars": { "INKENDAR_APP_ORIGIN": "https://inkendar-staging.calalva82.workers.dev" }
     },
     "production": {
-      "name": "inkendar-production",
-      "workers_dev": false,
+      "name": "inkendar",
+      "workers_dev": true,
       "preview_urls": false,
-      "routes": [
-        {
-          "pattern": "app.inkendar.es",
-          "custom_domain": true
-        }
-      ],
       "images": { "binding": "IMAGES" },
-      "vars": { "INKENDAR_APP_ORIGIN": "https://app.inkendar.es" }
+      "vars": { "INKENDAR_APP_ORIGIN": "https://inkendar.calalva82.workers.dev" }
     }
   }
 }

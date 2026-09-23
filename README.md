@@ -26,7 +26,7 @@ pnpm run check
 
 Ese comando ejecuta lint, comprobación de tipos de todos los workspaces, pruebas y build SSR para Cloudflare Workers. El artefacto resultante separa `apps/inkendar/build/client` y `apps/inkendar/build/server`; `pnpm run preview` permite un smoke local del último build.
 
-`INKENDAR_APP_ORIGIN` es obligatorio al desarrollar, validar y desplegar la aplicación. Debe contener el origen externo HTTP(S) exacto (por ejemplo, `https://app.inkendar.es`, sin ruta ni barra final); React Router permite acciones reenviadas únicamente desde el host exacto derivado de ese valor. Una configuración ausente o inválida impide arrancar o construir la aplicación. La aplicación no deriva esta decisión de `Host`, `Forwarded` ni `X-Forwarded-*`.
+`INKENDAR_APP_ORIGIN` es obligatorio al desarrollar, validar y desplegar la aplicación. Debe contener el origen externo HTTP(S) exacto (producción usa `https://inkendar.calalva82.workers.dev`, sin ruta ni barra final); React Router permite acciones reenviadas únicamente desde el host exacto derivado de ese valor. Una configuración ausente o inválida impide arrancar o construir la aplicación. La aplicación no deriva esta decisión de `Host`, `Forwarded` ni `X-Forwarded-*`.
 
 La configuración de staging/producción, secretos, migraciones Supabase Cloud, dominio, verificación y rollback se documenta en [Despliegue SSR en Cloudflare Workers](docs/development/cloudflare-workers-deployment.md).
 

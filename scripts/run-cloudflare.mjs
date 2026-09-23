@@ -9,8 +9,8 @@ if (!(["local", "production", "staging"].includes(environment) && ["build", "dep
 }
 const origins = {
   local: "http://127.0.0.1:5173",
-  staging: "https://staging.app.inkendar.es",
-  production: "https://app.inkendar.es",
+  staging: "https://inkendar-staging.calalva82.workers.dev",
+  production: "https://inkendar.calalva82.workers.dev",
 };
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");

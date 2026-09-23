@@ -13,7 +13,8 @@ afterEach(() => {
 describe("React Router action origin configuration", () => {
   it.each([
     ["http://127.0.0.1:3000", "127.0.0.1:3000"],
-    ["https://app.inkendar.es", "app.inkendar.es"],
+    ["https://inkendar.calalva82.workers.dev", "inkendar.calalva82.workers.dev"],
+    ["https://inkendar-staging.calalva82.workers.dev", "inkendar-staging.calalva82.workers.dev"],
   ])("derives the one allowed host from canonical origin %s", (origin, host) => {
     expect(allowedActionOriginsFromCanonicalOrigin(origin)).toEqual([host]);
   });
@@ -30,10 +31,10 @@ describe("React Router action origin configuration", () => {
   });
 
   it("wires the derived host into the React Router config", async () => {
-    process.env.INKENDAR_APP_ORIGIN = "https://app.inkendar.es";
+    process.env.INKENDAR_APP_ORIGIN = "https://inkendar.calalva82.workers.dev";
 
     const { default: config } = await import("./react-router.config.js");
 
-    expect(config.allowedActionOrigins).toEqual(["app.inkendar.es"]);
+    expect(config.allowedActionOrigins).toEqual(["inkendar.calalva82.workers.dev"]);
   });
 });

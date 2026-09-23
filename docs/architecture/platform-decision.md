@@ -23,7 +23,7 @@ La [Especificación de Inkendar](../product/sellable-mvp-spec.md) define el comp
 
 El MVP utiliza un proyecto Supabase multi-tenant con `studio_id`, RLS y pruebas de aislamiento. No se crea un proyecto por estudio y no se opera Supabase self-hosted durante la validación.
 
-El hosting SSR aceptado es Cloudflare Workers en `app.inkendar.es`. Supabase Cloud sigue siendo independiente del Worker. La activación y facturación de Cloudflare Images, la configuración de secretos y el smoke de staging son gates previos al primer despliegue; esta decisión no afirma que producción esté desplegada.
+El hosting SSR aceptado es Cloudflare Workers sobre el subdominio gratuito `workers.dev`: producción usa `https://inkendar.calalva82.workers.dev` y staging `https://inkendar-staging.calalva82.workers.dev`. Supabase Cloud sigue siendo independiente del Worker. La habilitación de Cloudflare Images, la configuración de secretos y el smoke de staging son gates previos al primer despliegue; esta decisión no afirma que producción esté desplegada. Un dominio personalizado queda como mejora futura no activa.
 
 ## Límites
 
