@@ -3,7 +3,7 @@ begin;
 select plan(53);
 
 select has_type('public','booking_notification_event_type','notification event type exists');
-select enum_has_labels('public','booking_notification_event_type',array['CONFIRMED','EXPIRED'],'only supported booking events are materialized');
+select enum_has_labels('public','booking_notification_event_type',array['CONFIRMED','EXPIRED','REJECTED'],'only supported booking events are materialized');
 select has_type('public','booking_notification_status','notification status exists');
 select enum_has_labels('public','booking_notification_status',array['PENDING','LEASED','SUCCEEDED','FAILED','UNKNOWN','NO_ROUTE'],'conservative states are explicit');
 select has_table('public','booking_notification_job','durable notification jobs exist');

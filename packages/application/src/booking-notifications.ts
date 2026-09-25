@@ -6,7 +6,7 @@ import {
   type ConversationProviderPort,
 } from "./conversations.js";
 
-export type BookingNotificationEventType = "CONFIRMED" | "EXPIRED";
+export type BookingNotificationEventType = "CONFIRMED" | "EXPIRED" | "REJECTED";
 export type BookingNotificationRoute =
   | Readonly<{ kind: "CHATWOOT"; externalAccountId: string; externalConversationId: string }>
   | Readonly<{ kind: "EMAIL"; recipient: string }>;
@@ -161,15 +161,23 @@ export function createBookingNotificationRunner(dependencies: RunnerDependencies
 }
 
 function chatwootMessageFor(eventType: BookingNotificationEventType): string {
-  return eventType === "CONFIRMED"
-    ? "Tu cita está confirmada. Si necesitas ayuda, responde a esta conversación."
-    : "La propuesta de horarios ha caducado. Responde a esta conversación si quieres que revisemos nuevas opciones.";
+  switch (eventType) {
+    case "CONFIRMED": return "Tu cita está confirmada. Si necesitas ayuda, responde a esta conversación.";
+    case "EXPIRED": return "La propuesta de horarios ha caducado. Responde a esta conversación si quieres que revisemos nuevas opciones.";
+    case "REJECTED": return "Tu solicitud de cita no fue aceptada. Responde a esta conversación si quieres que revisemos otras opciones.";
+  }
 }
 
 function emailMessageFor(eventType: BookingNotificationEventType, recipient: string): Readonly<{ to: string; subject: string; text: string }> {
-  return eventType === "CONFIRMED"
-    ? { to: recipient, subject: "Cita confirmada", text: "Tu cita está confirmada. Si necesitas ayuda, contacta con el estudio." }
-    : { to: recipient, subject: "Propuesta de horarios caducada", text: "La propuesta de horarios ha caducado. Contacta con el estudio si quieres revisar nuevas opciones." };
+  switch (eventType) {
+    case "CONFIRMED": return { to: recipient, subject: "Cita confirmada", text: "Tu cita está confirmada. Si necesitas ayuda, contacta con el estudio." };
+    case "EXPIRED": return { to: recipient, subject: "Propuesta de horarios caducada", text: "La propuesta de horarios ha caducado. Contacta con el estudio si quieres revisar nuevas opciones." };
+    case "REJECTED": return {
+      to: recipient,
+      subject: "Solicitud de cita no aceptada",
+      text: "Tu solicitud de cita no fue aceptada. Contacta con el estudio si quieres revisar otras opciones.",
+    };
+  }
 }
 
 function normalizeNotificationExternalMessageId(value: string): string {
