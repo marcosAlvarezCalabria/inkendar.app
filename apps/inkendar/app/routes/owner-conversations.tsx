@@ -1,4 +1,6 @@
 import { Form, Link, useActionData, useLoaderData, useRouteError } from "react-router";
+import { StatusPage } from "../ui/feedback.js";
+import { OwnerShell } from "../ui/shells.js";
 import type { ConversationPage, ConversationThread, Customer, TattooCase } from "@inkendar/application";
 import type { Route } from "./+types/owner-conversations";
 import { ownerConversationsHandlers } from "../owner-conversations.server.js";
@@ -14,8 +16,7 @@ export default function OwnerConversations() {
   const data = useLoaderData() as LoaderData;
   const actionData = useActionData() as { error?: string; blocked?: boolean } | undefined;
   const selected = data.thread ? data.conversations.items.find((conversation) => conversation.id === data.thread?.id) : undefined;
-  return <main className="shell-page">
-    <header className="section-header"><div><p className="eyebrow">Inkendar · Owner</p><h1>Conversaciones</h1></div><Link to="/app/owner">Volver al panel</Link></header>
+  return <OwnerShell title="Conversaciones">
     {actionData?.error ? <p className="form-error" role="alert">{actionData.error}</p> : null}
     <section className="records" aria-labelledby="conversation-list-title">
       <h2 id="conversation-list-title">Bandeja del estudio</h2>
@@ -48,13 +49,13 @@ export default function OwnerConversations() {
         <label>Respuesta <textarea name="content" required maxLength={2000} /></label><button type="submit" disabled={actionData?.blocked === true}>Enviar respuesta</button>
       </Form> : <p>Esta conversación no admite respuesta.</p>}
     </section> : null}
-  </main>;
+  </OwnerShell>;
 }
 
 export function ConversationActivity({ at }: { at: string }) { return <p>{"\u00daltima actividad"}: <time dateTime={at}>{at}</time></p>; }
 export function ErrorBoundary() {
   useRouteError();
-  return <main className="status-page"><p className="eyebrow">Inkendar</p><h1>Conversaciones no disponibles</h1><p>No se pudo cargar la bandeja del estudio.</p></main>;
+  return <StatusPage tone="warning" title="Conversaciones no disponibles">No se pudo cargar la bandeja del estudio.</StatusPage>;
 }
 function channelLabel(channel: ConversationPage["items"][number]["channel"]): string {
   if (channel === "web") return "Web";

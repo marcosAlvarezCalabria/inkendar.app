@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 import type { Route } from "./+types/root";
+import "@fontsource-variable/archivo/wdth.css";
 import "./styles.css";
 
 export const links: Route.LinksFunction = () => [
@@ -14,7 +15,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#17130f" />
+        <meta name="theme-color" content="#0b0b0f" />
         <Meta />
         <Links />
       </head>
