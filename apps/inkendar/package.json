@@ -17,6 +17,7 @@
     "typecheck": "pnpm run typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@fontsource-variable/archivo": "^5.3.0",
     "@inkendar/application": "workspace:*",
     "@inkendar/domain": "workspace:*",
     "@inkendar/infrastructure": "workspace:*",

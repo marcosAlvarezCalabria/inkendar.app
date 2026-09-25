@@ -1,8 +1,10 @@
-import { Form, isRouteErrorResponse, useLoaderData, useRouteError } from "react-router";
+import { isRouteErrorResponse, useLoaderData, useRouteError } from "react-router";
 import type { Route } from "./+types/artist";
 
 import type { ArtistAgendaItem } from "@inkendar/application";
 import { artistAgendaHandlers } from "../artist-agenda.server.js";
+import { EmptyState, StatusPage } from "../ui/feedback.js";
+import { ArtistShell as ArtistFrame } from "../ui/shells.js";
 
 export function meta(): Route.MetaDescriptors {
   return [{ title: "Área del artista | Inkendar" }];
@@ -28,13 +30,9 @@ export function ArtistShellView({ displayName, appointments }: Readonly<{
   appointments: readonly ArtistAgendaItem[];
 }>) {
   return (
-    <main className="shell-page">
-      <header className="shell-header">
-        <div><p className="eyebrow">Inkendar · Artista</p><h1>Hola, {displayName}</h1></div>
-        <Form method="post" action="/logout"><button className="secondary" type="submit">Cerrar sesión</button></Form>
-      </header>
+    <ArtistFrame displayName={displayName}>
       <ArtistAgenda appointments={appointments} />
-    </main>
+    </ArtistFrame>
   );
 }
 
@@ -46,14 +44,9 @@ export function ErrorBoundary() {
 export function ArtistAgenda({ appointments }: Readonly<{ appointments: readonly ArtistAgendaItem[] }>) {
   return (
     <section className="shell-panel" aria-labelledby="artist-agenda-title">
-      <div className="section-header">
-        <div>
-          <p className="eyebrow">Solo lectura</p>
-          <h2 id="artist-agenda-title">Próximas citas</h2>
-        </div>
-      </div>
+      <h2 id="artist-agenda-title">Próximas citas</h2>
       {appointments.length === 0 ? (
-        <p>No tienes próximas citas confirmadas.</p>
+        <EmptyState title="No tienes próximas citas confirmadas.">Cuando el estudio confirme una cita contigo aparecerá aquí.</EmptyState>
       ) : (
         <ol className="appointment-list">
           {appointments.map((appointment) => (
@@ -82,11 +75,11 @@ export function ArtistAgenda({ appointments }: Readonly<{ appointments: readonly
 }
 
 function Denied() {
-  return <main className="status-page"><p className="eyebrow">Inkendar</p><h1>Acceso denegado</h1><p>Tu cuenta no tiene acceso a esta área.</p></main>;
+  return <StatusPage tone="danger" title="Acceso denegado">Tu cuenta no tiene acceso a esta área.</StatusPage>;
 }
 
 function AgendaUnavailable() {
-  return <main className="status-page"><p className="eyebrow">Inkendar</p><h1>Agenda no disponible</h1><p>No se pudo cargar la agenda.</p></main>;
+  return <StatusPage tone="warning" title="Agenda no disponible">No se pudo cargar la agenda.</StatusPage>;
 }
 
 function formatDateTime(value: string, timeZone: string): string {

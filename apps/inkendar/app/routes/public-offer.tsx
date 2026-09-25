@@ -2,6 +2,7 @@ import { Form, useActionData, useLoaderData } from "react-router";
 import type { PublicBookingOfferView } from "@inkendar/application";
 import type { Route } from "./+types/public-offer";
 import { publicBookingOfferHandlers, publicBookingOfferHeaders } from "../public-booking-offer.server.js";
+import { PublicLinkShell } from "../ui/shells.js";
 
 export function meta(): Route.MetaDescriptors { return [{ title: "Opciones de fecha | Inkendar" }, { name: "robots", content: "noindex,nofollow" }, { name: "referrer", content: "no-referrer" }]; }
 export function headers() { return Object.fromEntries(publicBookingOfferHeaders()); }
@@ -20,9 +21,7 @@ export default function PublicOffer() {
   const data = useLoaderData() as PublicBookingOfferView;
   const actionData = useActionData() as { state?: "CONFIRMED" | "SELECTION_PENDING_CONFIRMATION"; reason?: "CONFLICT" | "REVIEW_REQUIRED" | "RECONNECT" | "RETRY" } | undefined;
   const pendingMessage = actionData?.state === "SELECTION_PENDING_CONFIRMATION" ? confirmationMessage(actionData.reason) : null;
-  return <main className="public-offer-page">
-    <section className="shell-panel public-offer-card">
-      <p className="eyebrow">Inkendar</p>
+  return <PublicLinkShell>
       {data.state === "OPEN" ? <>
         <h1>Opciones reservadas provisionalmente</h1>
         <p>Estas opciones para {data.artistDisplayName} están bloqueadas temporalmente hasta <time dateTime={data.expiresAt}>{data.expiresAt}</time>. Todavía requieren confirmación.</p>
@@ -47,8 +46,7 @@ export default function PublicOffer() {
         {pendingMessage ? <p className="form-error" role="alert">{pendingMessage}</p> : null}
         <Form method="post"><input type="hidden" name="intent" value="confirm"/><button type="submit">Reintentar confirmación</button></Form>
       </>}
-    </section>
-  </main>;
+  </PublicLinkShell>;
 }
 
 function confirmationMessage(reason: "CONFLICT" | "REVIEW_REQUIRED" | "RECONNECT" | "RETRY" | undefined): string {
@@ -59,5 +57,5 @@ function confirmationMessage(reason: "CONFLICT" | "REVIEW_REQUIRED" | "RECONNECT
 }
 
 export function ErrorBoundary() {
-  return <main className="public-offer-page"><section className="shell-panel public-offer-card"><p className="eyebrow">Inkendar</p><h1>Esta oferta no está disponible</h1><p>El enlace puede haber caducado o haber sido reemplazado. Pide al estudio un enlace vigente.</p></section></main>;
+  return <PublicLinkShell><h1>Esta oferta no está disponible</h1><p>El enlace puede haber caducado o haber sido reemplazado. Pide al estudio un enlace vigente.</p></PublicLinkShell>;
 }

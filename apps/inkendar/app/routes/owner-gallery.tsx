@@ -1,4 +1,5 @@
-import { Form, Link, useActionData, useLoaderData } from "react-router";
+import { Form, useActionData, useLoaderData } from "react-router";
+import { OwnerShell } from "../ui/shells.js";
 import type { GalleryDiscardedRow, GalleryDraftView } from "@inkendar/application";
 import type { Route } from "./+types/owner-gallery";
 import { ownerGalleryHandlers } from "../owner-gallery.server.js";
@@ -13,11 +14,10 @@ export function headers() { return { "Cache-Control": "private, no-store", "Refe
 export async function loader({ request }: Route.LoaderArgs) { return ownerGalleryHandlers.loader(request); }
 export async function action({ request, context }: Route.ActionArgs) { return ownerGalleryHandlers.action(request, context.get(cloudflareContext).env); }
 
-export default function OwnerGallery() { const error = (useActionData() as { error?: string } | undefined)?.error; return <OwnerGalleryView data={useLoaderData() as OwnerGalleryData} {...(error ? { error } : {})} />; }
+export default function OwnerGallery() { const error = (useActionData() as { error?: string } | undefined)?.error; return <OwnerShell title="Galería privada"><OwnerGalleryView data={useLoaderData() as OwnerGalleryData} {...(error ? { error } : {})} /></OwnerShell>; }
 
 export function OwnerGalleryView({ data, error }: Readonly<{ data: OwnerGalleryData; error?: string }>) {
-  return <main className="shell-page">
-    <header className="section-header"><div><p className="eyebrow">Inkendar · Owner</p><h1>Galería privada</h1></div><Link to="/app/owner">Volver al panel</Link></header>
+  return <>
     {error ? <p className="form-error" role="alert">{error}</p> : null}
     <section className="shell-panel" aria-labelledby="gallery-upload-title"><h2 id="gallery-upload-title">Añadir borrador</h2><p>JPEG, PNG o WebP. Máximo 10 MiB, 12000 × 12000 y 40 megapíxeles. Inkendar elimina metadata y conserva únicamente variantes privadas sanitizadas.</p>
       <Form method="post" encType="multipart/form-data" className="record-form">
@@ -31,7 +31,7 @@ export function OwnerGalleryView({ data, error }: Readonly<{ data: OwnerGalleryD
     </section>
     <section className="records" aria-labelledby="gallery-drafts-title"><h2 id="gallery-drafts-title">Borradores privados</h2>{data.drafts.length ? <ul className="gallery-grid">{data.drafts.map((draft) => <GalleryItem key={draft.thumbnailHandle} draft={draft} artists={data.artists} />)}</ul> : <p>Todavía no hay contenido activo.</p>}</section>
     <section className="records" aria-labelledby="gallery-discarded-title"><h2 id="gallery-discarded-title">Descartados recuperables</h2>{data.discarded.length ? <ul className="gallery-grid">{data.discarded.map((item) => <DiscardedGalleryItem key={item.handle} item={item} />)}</ul> : <p>No hay contenido descartado.</p>}</section>
-  </main>;
+  </>;
 }
 
 function DiscardedGalleryItem({ item }: Readonly<{ item: GalleryDiscardedRow }>) {

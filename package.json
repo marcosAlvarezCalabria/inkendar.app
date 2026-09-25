@@ -25,6 +25,7 @@
     "onboard": "tsx scripts/manual-onboarding.ts",
     "notifications": "tsx scripts/booking-notifications.ts",
     "typegen": "pnpm --filter @inkendar/app run typegen",
+    "ui:review": "tsx --tsconfig apps/inkendar/tsconfig.json scripts/ui-review.ts",
     "test": "vitest run",
     "test:auth:integration": "vitest run packages/infrastructure/src/supabase-auth.integration.test.ts",
     "test:watch": "vitest",

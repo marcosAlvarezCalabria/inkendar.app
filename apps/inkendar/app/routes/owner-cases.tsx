@@ -1,4 +1,5 @@
-import { Form, Link, useActionData, useLoaderData } from "react-router";
+import { Form, useActionData, useLoaderData } from "react-router";
+import { OwnerShell } from "../ui/shells.js";
 import type { ArtistOption, Customer, TattooCase } from "@inkendar/application";
 import type { Route } from "./+types/owner-cases";
 
@@ -15,8 +16,7 @@ export default function OwnerCases() {
   const data = useLoaderData() as LoaderData;
   const actionData = useActionData() as { error?: string } | undefined;
   return (
-    <main className="shell-page">
-      <header className="section-header"><div><p className="eyebrow">Inkendar · Owner</p><h1>Casos de tatuaje</h1></div><Link to="/app/owner">Volver al panel</Link></header>
+    <OwnerShell title="Casos de tatuaje">
       {actionData?.error ? <p className="form-error" role="alert">{actionData.error}</p> : null}
       <section className="shell-panel">
         <h2>Nuevo caso</h2>
@@ -41,7 +41,7 @@ export default function OwnerCases() {
           </Form>
         ))}
       </section>
-    </main>
+    </OwnerShell>
   );
 }
 

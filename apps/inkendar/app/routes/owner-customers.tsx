@@ -1,4 +1,5 @@
-import { Form, Link, useActionData, useLoaderData } from "react-router";
+import { Form, useActionData, useLoaderData } from "react-router";
+import { OwnerShell } from "../ui/shells.js";
 import type { Customer } from "@inkendar/application";
 import type { Route } from "./+types/owner-customers";
 
@@ -13,8 +14,7 @@ export default function OwnerCustomers() {
   const { customers } = useLoaderData() as { customers: readonly Customer[] };
   const actionData = useActionData() as { error?: string } | undefined;
   return (
-    <main className="shell-page">
-      <header className="section-header"><div><p className="eyebrow">Inkendar · Owner</p><h1>Clientes</h1></div><Link to="/app/owner">Volver al panel</Link></header>
+    <OwnerShell title="Clientes">
       {actionData?.error ? <p className="form-error" role="alert">{actionData.error}</p> : null}
       <section className="shell-panel">
         <h2>Nuevo cliente</h2>
@@ -30,7 +30,7 @@ export default function OwnerCustomers() {
         <h2 id="customer-list-title">Clientes del estudio</h2>
         {customers.length === 0 ? <p>Todavía no hay clientes.</p> : customers.map((customer) => <CustomerForm key={customer.id} customer={customer} />)}
       </section>
-    </main>
+    </OwnerShell>
   );
 }
 

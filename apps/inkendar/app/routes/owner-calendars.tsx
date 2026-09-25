@@ -1,4 +1,6 @@
 import { Form, isRouteErrorResponse, Link, useActionData, useLoaderData, useRouteError, useSearchParams } from "react-router";
+import { StatusPage } from "../ui/feedback.js";
+import { OwnerShell } from "../ui/shells.js";
 import type { ArtistCalendarAssignment, FreeChoiceOwnerManagement, GoogleCalendar, GoogleConnectionStatus } from "@inkendar/application";
 import type { AvailabilityRules } from "@inkendar/domain";
 import type { Route } from "./+types/owner-calendars";
@@ -42,24 +44,20 @@ export default function OwnerCalendars() {
   const data = useLoaderData() as View;
   const actionData = useActionData() as { error?: string; saved?: boolean; slots?: readonly { startUtc:string; endUtc:string; startLocal:string; endLocal:string }[]; accessUrl?:string; expiresAt?:string } | undefined;
   const [params] = useSearchParams();
-  return <main className="shell-page">
-    <header className="section-header"><div><p className="eyebrow">Inkendar · Owner</p><h1>Google Calendar</h1></div><Link to="/app/owner">Volver al panel</Link></header>
+  return <OwnerShell title="Google Calendar">
     {actionData?.error ? <p className="form-error" role="alert">{actionData.error}</p> : null}
     <CalendarManagement data={data} result={params.get("result")} />
     <AvailabilityManagement artists={data.artists} availabilityByArtist={data.availabilityByArtist} freeChoice={data.freeChoice} actionData={actionData} />
     <FreeChoiceDecisionList requests={data.freeChoice.pendingRequests} />
-  </main>;
+  </OwnerShell>;
 }
 
 export function ErrorBoundary() {
   const error = useRouteError();
   const unavailable = isRouteErrorResponse(error) && error.status === 503;
-  return <main className="status-page">
-    <p className="eyebrow">Inkendar</p>
-    <h1>Google Calendar no disponible</h1>
-    <p>{unavailable ? "Inténtalo de nuevo más tarde." : "No se pudo cargar la configuración de calendarios."}</p>
-    <Link to="/app/owner">Volver al panel</Link>
-  </main>;
+  return <StatusPage tone="warning" title="Google Calendar no disponible" action={<Link to="/app/owner">Volver al panel</Link>}>
+    {unavailable ? "Inténtalo de nuevo más tarde." : "No se pudo cargar la configuración de calendarios."}
+  </StatusPage>;
 }
 
 export function CalendarManagement({ data, result }: Readonly<{ data: Omit<View, "availabilityByArtist" | "freeChoice">; result: string | null }> ) {

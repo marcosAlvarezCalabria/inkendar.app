@@ -4,8 +4,8 @@
   "description": "Plataforma de operación para estudios de tatuaje.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#17130f",
-  "theme_color": "#17130f",
+  "background_color": "#0b0b0f",
+  "theme_color": "#0b0b0f",
   "icons": [
     {
       "src": "/inkendar-mark.svg",
