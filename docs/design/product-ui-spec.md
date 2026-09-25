@@ -549,7 +549,7 @@ No se consideran resueltas por esta especificación:
 4. Decidir si el panel OWNER recibe señales de atención agregadas; hoy no existe contrato visual que autorice contadores.
 5. Decidir si calendarios y ofertas se separarán en subrutas en una evolución futura; esta versión conserva las rutas reales.
 6. Definir si el editor semanal sustituirá el textarea técnico y cuál será su prueba de serialización/equivalencia.
-7. Definir el canal de aviso al cliente para rechazo de elección libre; no se promete notificación hasta que la spec canónica y la evidencia lo permitan.
+7. Validar live la notificación durable `REJECTED` tras un rechazo de elección libre. El contrato integrado reutiliza el outbox común, prioriza una única ruta Chatwoot del mismo caso y tenant, usa SMTP server-only por estudio como fallback y conserva `NO_ROUTE`/`UNKNOWN`; la evidencia live continúa pendiente.
 8. Definir el comportamiento exacto del shell estático offline cuando se implemente el service worker; no se autoriza cachear datos privados.
 9. Elegir herramienta de historias y regresión visual conforme al toolchain vigente; el contrato de fixtures no impone Storybook.
 10. Validar el sistema con owners, artistas y clientes reales antes de convertir preferencias visuales en evidencia de usabilidad.
