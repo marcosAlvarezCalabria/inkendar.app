@@ -1,6 +1,6 @@
 # Contrato técnico: notificación de rechazo de elección libre
 
-_Estado técnico: candidato `76f5c1c` revisado en el [PR #43](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/43), que permanece abierto; `validate` y `database` pasaron en el [run 36123518176](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36123518176). Merge y envío live permanecen pendientes._
+_Estado técnico: `DONE`. El [PR #43](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/43) fue integrado mediante squash en `main` como `1daf8cc85bbc48a0465496e5f2f95b2289f60a2b`; el [run post-merge 36126495899](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36126495899) concluyó `SUCCESS` con `validate` y `database`. El envío live por Chatwoot o SMTP permanece pendiente._
 
 ## Necesidad y alcance
 
@@ -92,7 +92,7 @@ Tras GREEN/REFACTOR:
 - la suite pgTAP completa pasa 948/948 aserciones;
 - `pnpm run check` pasa lint, tipos, 559 pruebas Vitest más una omitida y build cliente/SSR;
 - `supabase db lint --local --level warning` no encuentra errores y `supabase db diff --local` no encuentra drift.
-La revisión independiente no encontró observaciones bloqueantes. La implementación `76f5c1c` fue revisada en el [PR #43](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/43), que permanece abierto; los checks requeridos `validate` y `database` concluyeron `SUCCESS` en el [run 36123518176](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36123518176). Esta evidencia no acredita merge ni un mensaje real de Chatwoot o SMTP.
+La revisión independiente no encontró observaciones bloqueantes. El [PR #43](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/43) fue integrado mediante squash en `main` como `1daf8cc85bbc48a0465496e5f2f95b2289f60a2b`; el [run post-merge 36126495899](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36126495899) concluyó `SUCCESS` (`validate`: 50 s; `database`: 2 min 46 s). Esta evidencia acredita la integración técnica y su CI, pero no un mensaje real de Chatwoot o SMTP.
 
 ## Fuera de alcance
 
