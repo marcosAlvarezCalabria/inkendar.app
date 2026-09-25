@@ -18,11 +18,11 @@ const jobId = "90000000-0000-4000-8000-000000000001";
 const leaseId = "91000000-0000-4000-8000-000000000001";
 const now = new Date("2026-09-16T10:00:00.000Z");
 
-function chatwootClaimed(eventType: "CONFIRMED" | "EXPIRED" = "CONFIRMED"): BookingNotificationClaim {
+function chatwootClaimed(eventType: "CONFIRMED" | "EXPIRED" | "REJECTED" = "CONFIRMED"): BookingNotificationClaim {
   return { kind: "CLAIMED", jobId, leaseId, studioId, eventType, attemptCount: 1, route: { kind: "CHATWOOT", externalAccountId: "3", externalConversationId: "42" } };
 }
 
-function emailClaimed(eventType: "CONFIRMED" | "EXPIRED" = "CONFIRMED"): BookingNotificationClaim {
+function emailClaimed(eventType: "CONFIRMED" | "EXPIRED" | "REJECTED" = "CONFIRMED"): BookingNotificationClaim {
   return { kind: "CLAIMED", jobId, leaseId, studioId, eventType, attemptCount: 1, route: { kind: "EMAIL", recipient: "client@example.test" } };
 }
 
@@ -69,6 +69,13 @@ describe("booking notification runner", () => {
     expect(deps.provider.sendReply).toHaveBeenCalledWith("42", "La propuesta de horarios ha caducado. Responde a esta conversación si quieres que revisemos nuevas opciones.", expect.any(AbortSignal));
   });
 
+  it("generates generic free-choice rejection copy only in memory", async () => {
+    const deps = dependencies([chatwootClaimed("REJECTED"), { kind: "EMPTY" }]);
+    const runner = createBookingNotificationRunner({ ...deps, clock: () => now, monotonicClock: () => 100 });
+    await runner.run({ batchSize: 1, leaseSeconds: 30, timeBudgetMs: 5_000 });
+    expect(deps.provider.sendReply).toHaveBeenCalledWith("42", "Tu solicitud de cita no fue aceptada. Responde a esta conversación si quieres que revisemos otras opciones.", expect.any(AbortSignal));
+  });
+
   it("keeps an explicit no-route result without calling Chatwoot", async () => {
     const deps = dependencies([{ kind: "NO_ROUTE", jobId }, { kind: "EMPTY" }]);
     const runner = createBookingNotificationRunner({ ...deps, clock: () => now, monotonicClock: () => 100 });
@@ -88,6 +95,7 @@ describe("booking notification runner", () => {
   it.each([
     ["CONFIRMED", "Cita confirmada", "Tu cita está confirmada. Si necesitas ayuda, contacta con el estudio."],
     ["EXPIRED", "Propuesta de horarios caducada", "La propuesta de horarios ha caducado. Contacta con el estudio si quieres revisar nuevas opciones."],
+    ["REJECTED", "Solicitud de cita no aceptada", "Tu solicitud de cita no fue aceptada. Contacta con el estudio si quieres revisar otras opciones."],
   ] as const)("sends generic %s email copy only in memory", async (eventType, subject, text) => {
     const deps = dependencies([emailClaimed(eventType), { kind: "EMPTY" }]);
     const runner = createBookingNotificationRunner({ ...deps, clock: () => now, monotonicClock: () => 100 });
@@ -108,7 +116,7 @@ describe("booking notification runner", () => {
   });
 
   it("retries a confirmed SMTP rejection with bounded backoff", async () => {
-    const deps = dependencies([emailClaimed(), { kind: "EMPTY" }]);
+    const deps = dependencies([emailClaimed("REJECTED"), { kind: "EMPTY" }]);
     vi.mocked(deps.emailProvider.send).mockRejectedValueOnce(new BookingNotificationEmailRejectedError());
     const runner = createBookingNotificationRunner({ ...deps, clock: () => now, monotonicClock: () => 100 });
     await expect(runner.run({ batchSize: 1, leaseSeconds: 30, timeBudgetMs: 5_000 })).resolves.toMatchObject({ failed: 1, unknown: 0 });
@@ -116,7 +124,7 @@ describe("booking notification runner", () => {
   });
 
   it("marks an ambiguous SMTP outcome UNKNOWN without retry", async () => {
-    const deps = dependencies([emailClaimed(), { kind: "EMPTY" }]);
+    const deps = dependencies([emailClaimed("REJECTED"), { kind: "EMPTY" }]);
     vi.mocked(deps.emailProvider.send).mockRejectedValueOnce(new BookingNotificationEmailUnavailableError());
     const runner = createBookingNotificationRunner({ ...deps, clock: () => now, monotonicClock: () => 100 });
     await expect(runner.run({ batchSize: 1, leaseSeconds: 30, timeBudgetMs: 5_000 })).resolves.toMatchObject({ unknown: 1, failed: 0 });
@@ -133,7 +141,7 @@ describe("booking notification runner", () => {
   });
 
   it("retries a confirmed rejection with bounded backoff", async () => {
-    const deps = dependencies();
+    const deps = dependencies([chatwootClaimed("REJECTED"), { kind: "EMPTY" }]);
     vi.mocked(deps.provider.sendReply).mockRejectedValueOnce(new ConversationProviderRejectedError());
     const runner = createBookingNotificationRunner({ ...deps, clock: () => now, monotonicClock: () => 100 });
     await expect(runner.run({ batchSize: 1, leaseSeconds: 30, timeBudgetMs: 5_000 })).resolves.toMatchObject({ failed: 1, unknown: 0 });
@@ -142,7 +150,7 @@ describe("booking notification runner", () => {
   });
 
   it("marks an ambiguous external result UNKNOWN and never converts it to FAILED", async () => {
-    const deps = dependencies();
+    const deps = dependencies([chatwootClaimed("REJECTED"), { kind: "EMPTY" }]);
     vi.mocked(deps.provider.sendReply).mockRejectedValueOnce(new ConversationProviderUnavailableError());
     const runner = createBookingNotificationRunner({ ...deps, clock: () => now, monotonicClock: () => 100 });
     await expect(runner.run({ batchSize: 1, leaseSeconds: 30, timeBudgetMs: 5_000 })).resolves.toMatchObject({ unknown: 1, failed: 0 });

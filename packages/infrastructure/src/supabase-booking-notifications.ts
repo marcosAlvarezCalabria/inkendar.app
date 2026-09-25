@@ -45,7 +45,7 @@ export class SupabaseBookingNotificationRepository implements BookingNotificatio
     if (status === "NO_ROUTE" || status === "UNKNOWN") return { kind: status, jobId };
     if (status !== "CLAIMED") failed();
     const eventType = row.event_type;
-    if (eventType !== "CONFIRMED" && eventType !== "EXPIRED") failed();
+    if (eventType !== "CONFIRMED" && eventType !== "EXPIRED" && eventType !== "REJECTED") failed();
     const attemptCount = row.attempt_count;
     if (typeof attemptCount !== "number" || !Number.isInteger(attemptCount) || attemptCount < 1 || attemptCount > 3) failed();
     const common = {

@@ -8,6 +8,8 @@ Como cliente quiero recibir un aviso genérico cuando la cita se confirma o la o
 
 El slice conserva una intención durable única por oferta y evento `CONFIRMED | EXPIRED`, el runner server-only invocable desde CLI o composición de servidor y la operación que materializa ofertas vencidas antes de procesar notificaciones. Reutiliza el adaptador Chatwoot y añade un puerto de email en aplicación con un adaptador SMTP portable. No añade rutas públicas, UI, rechazo, elección libre, aprobación posterior ni una decisión de proveedor cron.
 
+La extensión posterior para solicitudes free-choice `REJECTED` reutiliza este outbox y su política conservadora sin cambiar el alcance histórico de este slice. Su contrato y evidencia viven en [Notificación de rechazo de elección libre](./free-choice-rejection-notification-slice.md).
+
 ## Persistencia y estados
 
 - `booking_notification_job` guarda únicamente IDs, tipo de evento, estado técnico, intentos acotados, próximo intento, lease opaco, ID externo confirmado y timestamps. No guarda texto, payloads, tokens ni datos de contacto.
@@ -115,4 +117,4 @@ La prueba live sigue pendiente; la evidencia local y CI no acredita un mensaje r
 
 ## Fuera de alcance
 
-Elección de un SaaS de email, UI de configuración, recordatorios, rechazos, Facebook live, endpoint público, proveedor de cron, cola dedicada y prueba live de notificaciones. La capacidad global de booking permanece `IN_PROGRESS` hasta revisión, CI y recorrido operativo.
+Este slice original no incluyó rechazos. Elección de un SaaS de email, UI de configuración, recordatorios, Facebook live, endpoint público, proveedor de cron, cola dedicada y prueba live de notificaciones permanecen fuera. La extensión posterior de rechazo free-choice está verificada solo localmente y la capacidad global de booking permanece `IN_PROGRESS` hasta revisión, CI y recorrido operativo.
