@@ -117,4 +117,4 @@ La prueba live sigue pendiente; la evidencia local y CI no acredita un mensaje r
 
 ## Fuera de alcance
 
-Este slice original no incluyó rechazos. Elección de un SaaS de email, UI de configuración, recordatorios, Facebook live, endpoint público, proveedor de cron, cola dedicada y prueba live de notificaciones permanecen fuera. La extensión posterior de rechazo free-choice está verificada solo localmente y la capacidad global de booking permanece `IN_PROGRESS` hasta revisión, CI y recorrido operativo.
+Este slice original no incluyó rechazos. Elección de un SaaS de email, UI de configuración, recordatorios, Facebook live, endpoint público, proveedor de cron, cola dedicada y prueba live de notificaciones permanecen fuera. La extensión posterior de rechazo free-choice está revisada en el PR #43 con CI verde, pero aún no se ha fusionado ni probado live; la capacidad global de booking permanece `IN_PROGRESS` hasta esos gates.

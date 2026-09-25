@@ -1,6 +1,6 @@
 # Contrato técnico: notificación de rechazo de elección libre
 
-_Estado técnico: candidato local implementado y verificado el 2026-09-25; revisión, CI y envío live permanecen pendientes._
+_Estado técnico: candidato `76f5c1c` revisado en el [PR #43](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/43), que permanece abierto; `validate` y `database` pasaron en el [run 36123518176](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36123518176). Merge y envío live permanecen pendientes._
 
 ## Necesidad y alcance
 
@@ -81,7 +81,7 @@ And el sistema falla cerrado sin exponer ni enviar datos cross-tenant
 4. REFACTOR con pruebas enfocadas, reset/pgTAP, gates completos y revisión de compatibilidad, secretos y cambios accidentales.
 
 
-## Evidencia local
+## Evidencia local y CI
 
 El RED de aplicación/adaptador ejecutó 29 pruebas y falló exactamente en los tres comportamientos ausentes: copy Chatwoot `REJECTED`, copy SMTP `REJECTED` y normalización Supabase del evento. El RED pgTAP confirmó que faltaban el valor de enum, la fuente `free_choice_request_id` y el trigger transaccional.
 
@@ -92,7 +92,7 @@ Tras GREEN/REFACTOR:
 - la suite pgTAP completa pasa 948/948 aserciones;
 - `pnpm run check` pasa lint, tipos, 559 pruebas Vitest más una omitida y build cliente/SSR;
 - `supabase db lint --local --level warning` no encuentra errores y `supabase db diff --local` no encuentra drift.
-Esta evidencia no acredita revisión, CI ni un mensaje real de Chatwoot o SMTP.
+La revisión independiente no encontró observaciones bloqueantes. La implementación `76f5c1c` fue revisada en el [PR #43](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/43), que permanece abierto; los checks requeridos `validate` y `database` concluyeron `SUCCESS` en el [run 36123518176](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36123518176). Esta evidencia no acredita merge ni un mensaje real de Chatwoot o SMTP.
 
 ## Fuera de alcance
 
