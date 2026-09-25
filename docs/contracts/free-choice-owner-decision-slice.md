@@ -14,6 +14,8 @@ La mutación privada same-origin acepta solo `requestId` e `intent=approve|rejec
 
 El GET público por el mismo token expone solo `PENDING_OWNER_APPROVAL`, `APPROVING`, `CONFIRMED`, `REJECTED` o `EXPIRED`, con intervalo únicamente mientras sigue pendiente o confirmada. La caducidad termina la autoridad de seleccionar, no la consulta del resultado: el token consumido no puede rotarse y sigue resolviendo mientras se conserven la solicitud y su acceso; un proceso de retención futuro podrá eliminar ambos y convertir después la respuesta en el 404 genérico. `APPROVING` nunca expone intervalo ni afirma cita. Ningún estado expone IDs, cliente, caso, tenant, calendario ni estado interno de Google.
 
+La notificación al cliente posterior a un rechazo no forma parte de esta decisión de dominio. Una [extensión independiente del outbox](./free-choice-rejection-notification-slice.md), integrada mediante el PR #43 con CI post-merge verde y todavía sin prueba live, observa la transición durable sin cambiar su idempotencia, la liberación del hold ni la ausencia de llamadas a Google.
+
 ## Aceptación
 
 ```gherkin

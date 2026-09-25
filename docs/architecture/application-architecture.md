@@ -2,7 +2,7 @@
 
 _Estado: aceptada_
 
-_Última actualización: 2026-09-23_
+_Última actualización: 2026-09-25_
 
 _La fuente de verdad del comportamiento y el alcance es [Especificación de Inkendar](../product/sellable-mvp-spec.md). Este documento explica cómo construirlo y debe actualizarse cuando cambie una frontera, dependencia o decisión técnica._
 
@@ -110,7 +110,7 @@ _Estado técnico de emisión y solicitud pendiente: `DONE`; el PR #37 y su CI po
 
 `FreeChoiceAvailabilityAccessRepositoryPort` rota una credencial base64url de 32 bytes por caso desde un POST OWNER same-origin; Supabase conserva solo SHA-256 junto al caso, artista, rango UTC, duración y caducidad acotados. La RPC de emisión exige OWNER/tenant, caso `OPEN` asignado al artista, reglas, asignación `writer|owner`, conexión `ACTIVE`, refresh token y scope `calendar.events.freebusy`. Las tablas y RPCs del módulo quedan sin acceso directo de `anon` o `authenticated`, con RLS, `SECURITY DEFINER`, `search_path=''` y ejecución exclusiva de `service_role`.
 
-`GET /availability/:token` valida forma antes de componer privilegios, resuelve un contexto server-only por hash y vuelve a comprobar configuración y vigencia. Aplicación descifra solo en servidor, ejecuta FreeBusy para el rango fijado, combina ocupación y holds —incluida una confirmación `INSERTING` más allá de su expiry y solo citas con `appointment CONFIRMED`— y produce como máximo 500 slots con selector opaco. La resource route `POST /availability/:token/select` acepta solo ese selector, mantiene el origen canónico y admite el origen opaco exclusivamente para una navegación `same-origin`; tras éxito responde `303` al GET canónico, reconsulta FreeBusy y solicita a la RPC serializada crear un único hold `PENDING_OWNER_APPROVAL`; una repetición idéntica es idempotente, una competidora no sustituye a la ganadora y un acceso consumido no vuelve a anunciar candidatos. Los DTOs públicos excluyen tokens, hashes, tenant, IDs, eventos, cliente y caso. Token/configuración/scope/reconnect/selector/hold incompatibles convergen en 404 genérico, fallo transitorio de Google en 503 genérico e `invalid_grant` usa CAS por hash y generación. Tras consumo, el mismo token deja de tener autoridad de selección pero conserva consulta mínima de estado mientras acceso y solicitud se retengan; no puede rotarse. `PENDING_OWNER_APPROVAL` y `CONFIRMED` incluyen intervalo, `APPROVING` omite intervalo y nunca afirma cita, y `REJECTED`/`EXPIRED` son genéricos. La aprobación/rechazo OWNER usa una operación durable `READY → INSERTING → FINALIZED`, binding Google inmutable, FreeBusy final, exclusión local del hold propio y reconciliación por `Events.get`; `READY` vencido converge a `EXPIRED`, limpia su lease y conserva la operación sin autoridad; sólo `INSERTING` sobrevive a caducidad y bloquea nuevas reservas. Notificación de rechazo free-choice queda fuera.
+`GET /availability/:token` valida forma antes de componer privilegios, resuelve un contexto server-only por hash y vuelve a comprobar configuración y vigencia. Aplicación descifra solo en servidor, ejecuta FreeBusy para el rango fijado, combina ocupación y holds —incluida una confirmación `INSERTING` más allá de su expiry y solo citas con `appointment CONFIRMED`— y produce como máximo 500 slots con selector opaco. La resource route `POST /availability/:token/select` acepta solo ese selector, mantiene el origen canónico y admite el origen opaco exclusivamente para una navegación `same-origin`; tras éxito responde `303` al GET canónico, reconsulta FreeBusy y solicita a la RPC serializada crear un único hold `PENDING_OWNER_APPROVAL`; una repetición idéntica es idempotente, una competidora no sustituye a la ganadora y un acceso consumido no vuelve a anunciar candidatos. Los DTOs públicos excluyen tokens, hashes, tenant, IDs, eventos, cliente y caso. Token/configuración/scope/reconnect/selector/hold incompatibles convergen en 404 genérico, fallo transitorio de Google en 503 genérico e `invalid_grant` usa CAS por hash y generación. Tras consumo, el mismo token deja de tener autoridad de selección pero conserva consulta mínima de estado mientras acceso y solicitud se retengan; no puede rotarse. `PENDING_OWNER_APPROVAL` y `CONFIRMED` incluyen intervalo, `APPROVING` omite intervalo y nunca afirma cita, y `REJECTED`/`EXPIRED` son genéricos. La aprobación/rechazo OWNER usa una operación durable `READY → INSERTING → FINALIZED`, binding Google inmutable, FreeBusy final, exclusión local del hold propio y reconciliación por `Events.get`; `READY` vencido converge a `EXPIRED`, limpia su lease y conserva la operación sin autoridad; sólo `INSERTING` sobrevive a caducidad y bloquea nuevas reservas. La [notificación de rechazo](../contracts/free-choice-rejection-notification-slice.md) reutiliza el outbox conservador y quedó integrada mediante el PR #43 con CI post-merge verde; la prueba live sigue pendiente.
 
 ### Ofertas preaprobadas y holds
 
@@ -142,17 +142,17 @@ La evidencia live sintética del 2026-09-16 recorrió una oferta preaprobada de 
 
 ### Notificaciones de booking y scheduler portable
 
-_Estado técnico: scheduler Chatwoot y fallback SMTP integrados mediante los PR #23 y #24 con CI verde; la prueba live de notificaciones permanece pendiente._
+_Estado técnico: scheduler Chatwoot y fallback SMTP integrados mediante los PR #23 y #24 con CI verde. La extensión `REJECTED` para elección libre quedó integrada mediante el PR #43 como `1daf8cc85bbc48a0465496e5f2f95b2289f60a2b`; `validate` y `database` concluyeron `SUCCESS` en el run post-merge 36126495899. Toda prueba live de notificaciones permanece pendiente._
 
-Un trigger transaccional sobre `booking_offer` materializa una sola `booking_notification_job` por oferta y evento `CONFIRMED | EXPIRED`. La tabla guarda IDs, estado, intentos, lease e ID externo confirmado; nunca texto, payloads, tokens ni datos de contacto. Una RPC global de `service_role` caduca como máximo 100 ofertas por invocación con `FOR UPDATE SKIP LOCKED`, libera solo estados provisionales y preserva `INSERTING` y `CONFIRMED`.
+Triggers transaccionales materializan una sola `booking_notification_job` por oferta y evento `CONFIRMED | EXPIRED`, o por solicitud free-choice y evento `REJECTED`. La fuente es XOR y las FKs compuestas conservan tenant y caso; la tabla guarda únicamente IDs, estado, intentos, lease e ID externo confirmado, nunca texto, payloads, tokens ni datos de contacto. Una RPC global de `service_role` caduca como máximo 100 ofertas por invocación con `FOR UPDATE SKIP LOCKED`, libera solo estados provisionales y preserva `INSERTING` y `CONFIRMED`.
 
-Aplicación ejecuta lotes de 1 a 100 con lease y presupuesto temporal acotados. El claim prefiere exactamente una `conversation_link` Chatwoot ligada al mismo customer, `tattoo_case` y tenant. Con cero o múltiples rutas obtiene en memoria el email válido mediante relaciones compuestas tenant-safe; si falta, termina `NO_ROUTE`. No persiste email, asunto, cuerpo ni payload.
+Aplicación ejecuta lotes de 1 a 100 con lease y presupuesto temporal acotados. El claim resuelve el caso desde cualquiera de las dos fuentes y prefiere exactamente una `conversation_link` Chatwoot ligada al mismo customer, `tattoo_case` y tenant. Con cero o múltiples rutas obtiene en memoria el email válido mediante relaciones compuestas tenant-safe; si falta, termina `NO_ROUTE`. No persiste email, asunto, cuerpo ni payload.
 
 El runner verifica estudio y account contra `INKENDAR_CHATWOOT_CONNECTIONS_JSON` antes de reutilizar `ChatwootConversationAdapter`. Para el fallback depende de `BookingNotificationEmailPort`; infraestructura selecciona por estudio una conexión de `INKENDAR_SMTP_CONNECTIONS_JSON` y la adapta con Nodemailer. SMTP usa autenticación, TLS directo o STARTTLS obligatorio, TLS 1.2 mínimo y timeouts acotados. La configuración y las credenciales permanecen exclusivamente en entorno server-only.
 
 Asunto y cuerpo genéricos existen solo durante el envío. Una aceptación SMTP se reduce a un hash opaco `smtp_` del message ID. Un éxito confirmado termina en `SUCCEEDED`; rechazos confirmados reintentan hasta tres veces, mientras red, timeout, respuesta ambigua, fallo al guardar éxito o lease vencido terminan en `UNKNOWN` sin reenvío automático. La falta de configuración SMTP del estudio se transiciona a `NO_ROUTE`, que no se reabre automáticamente.
 
-El ejecutor se invoca con `pnpm run notifications` y no depende de un hosting cron concreto. Rechazos de booking, recordatorios, UI y elección de un SaaS de email quedan fuera.
+El ejecutor se invoca con `pnpm run notifications` y no depende de un hosting cron concreto. El evento `REJECTED` genera copy genérico solo en memoria y no altera la transición de dominio ni llama a Google. Recordatorios, UI y elección de un SaaS de email quedan fuera.
 
 ### Agenda privada ARTIST
 
@@ -262,7 +262,7 @@ La respuesta JSON permite CORS sin credenciales, usa ETag fuerte y conditional G
 
 ### Notificaciones
 
-Las confirmaciones y vencimientos prefieren la única conversación Chatwoot original del caso y usan SMTP por estudio como fallback si existe email válido. Conservan `NO_ROUTE` cuando falta ruta/configuración y `UNKNOWN` ante ambigüedad; ningún estado se presenta como enviado sin confirmación del proveedor. Rechazos y recordatorios quedan para slices posteriores.
+Las confirmaciones, vencimientos y rechazos free-choice prefieren la única conversación Chatwoot original del caso y usan SMTP por estudio como fallback si existe email válido. Conservan `NO_ROUTE` cuando falta ruta/configuración y `UNKNOWN` ante ambigüedad; ningún estado se presenta como enviado sin confirmación del proveedor. La extensión de rechazo quedó integrada mediante el PR #43 con CI post-merge verde; la prueba live sigue pendiente y los recordatorios quedan para slices posteriores.
 
 ### Auditoría
 
@@ -317,7 +317,7 @@ Todas las tablas de negocio incluyen `studio_id`. Las políticas RLS deben demos
 El ejecutor portable implementado en el primer corte puede:
 
 - caducar ofertas y reservas provisionales;
-- enviar confirmaciones y avisos de vencimiento por Chatwoot original o fallback SMTP configurado por estudio;
+- enviar confirmaciones, avisos de vencimiento y rechazos free-choice por Chatwoot original o fallback SMTP configurado por estudio;
 - reintentar únicamente fallos externos confirmados y acotados;
 - marcar `UNKNOWN` o `NO_ROUTE` para intervención sin reenvío automático.
 
@@ -375,6 +375,7 @@ La recomendación añade un backend propio delgado, pero concentra allí autoriz
 
 | Fecha | Cambio | Motivo |
 |---|---|---|
+| 2026-09-25 | Outbox común con fuente XOR y evento `REJECTED` para solicitudes free-choice | Avisar al cliente con la política Chatwoot/SMTP ya existente sin persistir contenido/PII, duplicar envíos ambiguos ni tocar Google. |
 | 2026-09-16 | Agenda privada ARTIST mediante SSR y RPC mínima ligada a `auth.uid()` | Mostrar solo próximas citas confirmadas propias y contexto de preparación sin PII, IDs, Google directo ni mutaciones. |
 | 2026-09-16 | Fallback SMTP server-only por estudio detrás de un puerto de aplicación | Avisar cuando no existe una única ruta Chatwoot sin persistir PII/credenciales ni acoplarse a un SaaS de email. |
 | 2026-09-16 | Intención durable y runner portable para confirmación/caducidad por Chatwoot original | Ejecutar notificaciones sin persistir contenido ni duplicar envíos ante resultados ambiguos, preservando el hosting cron como decisión abierta. |
