@@ -34,7 +34,7 @@ Una orden de trabajo del estudio: hojas de papel frío sobre una mesa de tinta. 
 - Botones primarios sobre papel: sombra de sello de 2 px que desaparece al pulsar.
 - Objetivos de al menos 44 × 44 px. Deshabilitado: borde discontinuo además de la opacidad.
 - Navegación OWNER: un taladro vacío por área y relleno de ember en la activa, además de borde, peso y `aria-current="page"`.
-- Menú móvil y tablet: `<dialog>` modal abierto mediante Invoker Commands (`command="show-modal"`), que funciona antes de hidratar; el foco queda contenido, se cierra con Esc o tocando fuera y vuelve al disparador. Desde 1024 px se usa el rail persistente de 16 rem.
+- Menú móvil: `<dialog>` modal abierto mediante Invoker Commands (`command="show-modal"`), con respaldo tras hidratar; el foco queda contenido, se cierra con Esc o tocando fuera y vuelve al disparador. El logout permanece disponible en la cabecera sin JavaScript. Desde 640 px se usa un rail persistente de 14 rem, que crece a 16 rem desde 1024 px.
 - Movimiento: una sola transición del menú (200 ms, ease-out). `prefers-reduced-motion` elimina las traslaciones y los bucles.
 
 ## Prohibiciones propias de este mundo

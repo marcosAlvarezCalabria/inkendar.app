@@ -700,6 +700,17 @@ textarea[aria-invalid="true"] {
   border-bottom: 1px solid var(--line);
   background: var(--charcoal);
 }
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+}
+
+.topbar-logout {
+  padding-inline: 10px;
+}
+
 
 .menu-trigger {
   min-width: 44px;
@@ -799,6 +810,10 @@ textarea[aria-invalid="true"] {
 }
 
 .breadcrumbs a {
+  display: inline-flex;
+  align-items: center;
+  min-width: 44px;
+  min-height: 44px;
   color: var(--text-muted);
 }
 
@@ -914,24 +929,8 @@ textarea[aria-invalid="true"] {
 }
 
 @media (min-width: 40rem) {
-  .workspace {
-    padding: var(--space-8) var(--space-6) var(--space-12);
-  }
-
-  .sheet,
-  .shell-panel,
-  .auth-card {
-    padding: var(--space-6);
-  }
-
-  h1 {
-    font-size: var(--step-4);
-  }
-}
-
-@media (min-width: 64rem) {
   .app-frame[data-role="owner"] {
-    grid-template-columns: 16rem minmax(0, 1fr);
+    grid-template-columns: 14rem minmax(0, 1fr);
     grid-template-rows: 1fr;
   }
 
@@ -961,6 +960,25 @@ textarea[aria-invalid="true"] {
 
   .rail-logout button {
     width: 100%;
+  }
+  .workspace {
+    padding: var(--space-8) var(--space-6) var(--space-12);
+  }
+
+  .sheet,
+  .shell-panel,
+  .auth-card {
+    padding: var(--space-6);
+  }
+
+  h1 {
+    font-size: var(--step-4);
+  }
+}
+
+@media (min-width: 64rem) {
+  .app-frame[data-role="owner"] {
+    grid-template-columns: 16rem minmax(0, 1fr);
   }
 
   .workspace {

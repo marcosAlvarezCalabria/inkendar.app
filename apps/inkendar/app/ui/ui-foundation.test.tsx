@@ -99,6 +99,31 @@ describe("OwnerShell", () => {
     expect(html).toMatch(/<button\b[^>]*command="close"[^>]*>[^<]*Cerrar menú/u);
   });
 
+  it("keeps logout available in the compact header without JavaScript", () => {
+    const html = renderOwner("/app/owner/customers");
+    const topbar = /<header\b[^>]*class="[^"]*topbar[^"]*"[^>]*>([\s\S]*?)<\/header>/u.exec(html)?.[1] ?? "";
+
+    expect(topbar).toMatch(/<button\b[^>]*form="session-logout"[^>]*>[^<]*Salir<\/button>/u);
+  });
+
+  it("uses a persistent OWNER rail at the tablet breakpoint", () => {
+    const styles = readFileSync(join(appDir, "styles.css"), "utf8");
+    const appFrameStart = styles.indexOf("/* ---------- App frame");
+    const tabletStart = styles.indexOf("@media (min-width: 40rem)", appFrameStart);
+    const desktopStart = styles.indexOf("@media (min-width: 64rem)", tabletStart);
+    const tabletRules = styles.slice(tabletStart, desktopStart);
+
+    expect(tabletRules).toMatch(/\.app-frame\[data-role="owner"\][\s\S]*grid-template-columns:\s*14rem minmax\(0, 1fr\)/u);
+    expect(tabletRules).toMatch(/\.app-frame\[data-role="owner"\] \.topbar,[\s\S]*\.menu-sheet[\s\S]*display:\s*none/u);
+    expect(tabletRules).toMatch(/\.rail[\s\S]*display:\s*grid/u);
+  });
+
+  it("keeps breadcrumb links at the 44px interaction target", () => {
+    const styles = readFileSync(join(appDir, "styles.css"), "utf8");
+
+    expect(styles).toMatch(/\.breadcrumbs a\s*\{[^}]*display:\s*inline-flex[^}]*min-width:\s*44px[^}]*min-height:\s*44px/su);
+  });
+
   it("keeps a short breadcrumb back to the panel inside area pages", () => {
     const html = renderOwner("/app/owner/customers");
     const breadcrumb = /<nav\b[^>]*aria-label="Ruta"[^>]*>([\s\S]*?)<\/nav>/u.exec(html)?.[1] ?? "";

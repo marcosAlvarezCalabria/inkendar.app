@@ -9,7 +9,7 @@ const LOGOUT_FORM_ID = "session-logout";
 
 /**
  * Private OWNER frame: compact header with a modal menu on small screens and a
- * persistent rail from 1024px. Visibility here is never an authorization control.
+ * persistent rail from 640px. Visibility here is never an authorization control.
  */
 export function OwnerShell({ title, description, action, children }: Readonly<{
   title: string;
@@ -39,16 +39,19 @@ export function OwnerShell({ title, description, action, children }: Readonly<{
       <a className="skip-link" href="#contenido">Saltar al contenido</a>
       <header className="topbar">
         <Link className="brand-line" to="/app/owner"><BrandMark /> Inkendar</Link>
-        <button
-          className="button button-quiet menu-trigger"
-          type="button"
-          aria-haspopup="dialog"
-          onClick={openMenu}
-          {...{ command: "show-modal", commandfor: menuId }}
-        >
-          <span className="menu-glyph" aria-hidden="true" />
-          Menú
-        </button>
+        <div className="topbar-actions">
+          <button
+            className="button button-quiet menu-trigger"
+            type="button"
+            aria-haspopup="dialog"
+            onClick={openMenu}
+            {...{ command: "show-modal", commandfor: menuId }}
+          >
+            <span className="menu-glyph" aria-hidden="true" />
+            Menú
+          </button>
+          <button className="button button-quiet topbar-logout" type="submit" form={LOGOUT_FORM_ID} aria-label="Cerrar sesión">Salir</button>
+        </div>
       </header>
 
       <aside className="rail">
