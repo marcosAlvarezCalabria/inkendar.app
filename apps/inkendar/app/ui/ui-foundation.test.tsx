@@ -109,7 +109,7 @@ describe("OwnerShell", () => {
   it("uses a persistent OWNER rail at the tablet breakpoint", () => {
     const styles = readFileSync(join(appDir, "styles.css"), "utf8");
     const appFrameStart = styles.indexOf("/* ---------- App frame");
-    const tabletStart = styles.indexOf("@media (min-width: 40rem)", appFrameStart);
+    const tabletStart = styles.indexOf("@media (min-width: 48rem)", appFrameStart);
     const desktopStart = styles.indexOf("@media (min-width: 64rem)", tabletStart);
     const tabletRules = styles.slice(tabletStart, desktopStart);
 
@@ -267,15 +267,16 @@ describe("presentation fixtures", () => {
 
     expect(uiFoundationScenarios.length).toBeGreaterThan(0);
     for (const email of serialized.match(/[\w.+-]+@[\w.-]+/gu) ?? []) expect(email).toMatch(/@example\.invalid$/u);
-    for (const scenario of uiFoundationScenarios) expect(["mobile", "tablet", "desktop"]).toContain(scenario.viewport);
+    for (const scenario of uiFoundationScenarios) expect(["compact", "mobile", "tablet", "desktop"]).toContain(scenario.viewport);
   });
 
   it("render every scenario in the review document with the shared stylesheet", async () => {
     const { uiFoundationScenarios } = await import("./fixtures/ui-foundation.fixtures.js");
-    const { renderUiReviewDocument } = await import("./fixtures/ui-review.js");
+    const { renderUiReviewDocument, viewportWidths } = await import("./fixtures/ui-review.js");
     const html = renderUiReviewDocument({ stylesheetHref: "styles.css", fontStylesheetHref: "font.css" });
 
     expect(html).toMatch(/^<!doctype html>/iu);
+    expect(viewportWidths).toEqual({ compact: 320, mobile: 375, tablet: 768, desktop: 1280 });
     expect(html).toContain('<html lang="es"');
     expect(html).toContain('href="styles.css"');
     for (const scenario of uiFoundationScenarios) expect(html).toContain(`id="${scenario.id}"`);

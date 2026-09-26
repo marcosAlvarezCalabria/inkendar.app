@@ -18,7 +18,8 @@ export default function OwnerConversations() {
   const selected = data.thread ? data.conversations.items.find((conversation) => conversation.id === data.thread?.id) : undefined;
   return <OwnerShell title="Conversaciones">
     {actionData?.error ? <p className="form-error" role="alert">{actionData.error}</p> : null}
-    <section className="records" aria-labelledby="conversation-list-title">
+    <div className="conversation-layout" data-has-selection={data.thread ? "true" : "false"}>
+    <section className="records conversation-inbox" aria-labelledby="conversation-list-title">
       <h2 id="conversation-list-title">Bandeja del estudio</h2>
       {data.conversations.items.length === 0 ? <p>Todavía no hay conversaciones.</p> : data.conversations.items.map((conversation) => <article className="shell-panel" key={conversation.id}>
         <h3><Link to={`?conversation=${encodeURIComponent(conversation.id)}`}>{conversation.contactName}</Link></h3>
@@ -31,7 +32,8 @@ export default function OwnerConversations() {
         {data.conversations.nextPage !== null ? <Link to={`?page=${data.conversations.nextPage}`}>Siguiente</Link> : null}
       </nav>
     </section>
-    {data.thread ? <section className="shell-panel" aria-labelledby="conversation-title">
+    {data.thread ? <section className="shell-panel conversation-detail" aria-labelledby="conversation-title">
+      <p className="conversation-back"><Link to=".">Volver a conversaciones</Link></p>
       <h2 id="conversation-title">Detalle de {selected?.contactName ?? "la conversación"}</h2>
       {data.thread.before ? <p><Link to={`?conversation=${encodeURIComponent(data.thread.id)}&before=${encodeURIComponent(data.thread.before)}`}>Cargar mensajes anteriores</Link></p> : null}
       <div className="records" aria-label="Mensajes públicos">
@@ -49,6 +51,7 @@ export default function OwnerConversations() {
         <label>Respuesta <textarea name="content" required maxLength={2000} /></label><button type="submit" disabled={actionData?.blocked === true}>Enviar respuesta</button>
       </Form> : <p>Esta conversación no admite respuesta.</p>}
     </section> : null}
+    </div>
   </OwnerShell>;
 }
 

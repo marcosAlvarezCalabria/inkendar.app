@@ -14,7 +14,7 @@ export function Layout({ children }: { children: ReactNode }) {
     <html lang="es">
       <head>
         <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" content="#0b0b0f" />
         <Meta />
         <Links />

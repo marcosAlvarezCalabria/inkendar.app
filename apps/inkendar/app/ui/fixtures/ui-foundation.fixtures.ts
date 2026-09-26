@@ -8,7 +8,7 @@ import type { Tone } from "../feedback.js";
 export type FixtureScenario<TView, TAction = never> = Readonly<{
   id: string;
   description: string;
-  viewport: "mobile" | "tablet" | "desktop";
+  viewport: "compact" | "mobile" | "tablet" | "desktop";
   view: TView;
   actionResult?: TAction;
   latencyMs?: number;
@@ -50,7 +50,7 @@ export const uiFoundationScenarios = [
   {
     id: "owner-shell-mobile",
     description: "Shell OWNER a 320 px con título largo",
-    viewport: "mobile",
+    viewport: "compact",
     view: { kind: "owner-shell", pathname: "/app/owner/offers", title: "Ofertas de fechas preaprobadas para casos abiertos" },
   },
   {
