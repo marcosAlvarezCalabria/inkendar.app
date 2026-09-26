@@ -34,7 +34,7 @@ describe("Chatwoot conversation adapter", () => {
       {
         id: 84, account_id: 3, inbox_id: 7, conversation_id: 42, content: "Mira esto", message_type: 0,
         content_type: "text", private: false, created_at: 84,
-        attachments: [{ id: 6, message_id: 84, account_id: 3, file_type: "image", content_type: "image/png", data_url: "https://chat.example.test/files/6", file_size: 68, width: 1, height: 1 }],
+        attachments: [{ id: 6, message_id: 84, account_id: 3, file_type: "image", content_type: "image/png", data_url: "https://chat.example.test/files/6", file_size: 68, width: null, height: null }],
       },
       {
         id: 85, account_id: 3, inbox_id: 7, conversation_id: 42, content: null, message_type: 0,
@@ -73,12 +73,35 @@ describe("Chatwoot conversation adapter", () => {
     expect(JSON.stringify(thread)).not.toContain("169.254.169.254");
   });
 
+  it("accepts the official message-list projection with nullable attachment dimensions", async () => {
+    const attachment = {
+      id: 6, message_id: 84, account_id: 3, file_type: "image", extension: "png", content_type: "image/png",
+      data_url: "https://chat.example.test/files/6", thumb_url: "https://chat.example.test/thumbs/6",
+      file_size: 68, width: null, height: null,
+    };
+    const message = {
+      id: 84, inbox_id: 7, conversation_id: 42, content: "Mira esto", message_type: 0,
+      content_type: "text", private: false, created_at: 84, attachments: [attachment],
+    };
+    const request = vi.fn(async (url: string) => url.endsWith("/messages")
+      ? json({ payload: [message] })
+      : json({ id: 42, account_id: 3, inbox_id: 7, can_reply: true }));
+
+    const thread = await new ChatwootConversationAdapter(connection, request).getConversation("42");
+
+    expect(thread.messages).toEqual([{
+      id: "84", direction: "incoming", content: "Mira esto", createdAt: "1970-01-01T00:01:24.000Z",
+      attachments: [{ id: "6", kind: "image" }],
+    }]);
+    expect(JSON.stringify(thread)).not.toContain("chat.example.test");
+  });
+
   it("downloads a referenced image server-side and validates its real bytes", async () => {
     const png = Uint8Array.from(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64"));
     const request = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url) => {
       if (url.endsWith("/messages?before=85")) return json({ payload: [{
-        id: 84, account_id: 3, inbox_id: 7, conversation_id: 42, content: null, message_type: 0, content_type: "text", private: false, created_at: 84,
-        attachments: [{ id: 6, message_id: 84, account_id: 3, file_type: "image", content_type: "image/png", data_url: "https://chat.example.test/files/6", file_size: png.byteLength, width: 1, height: 1 }],
+        id: 84, inbox_id: 7, conversation_id: 42, content: null, message_type: 0, content_type: "text", private: false, created_at: 84,
+        attachments: [{ id: 6, message_id: 84, account_id: 3, file_type: "image", extension: "png", content_type: "image/png", data_url: "https://chat.example.test/files/6", file_size: null, width: null, height: null }],
       }] });
       return new Response(png, { headers: { "Content-Type": "image/png", "Content-Length": String(png.byteLength) } });
     });

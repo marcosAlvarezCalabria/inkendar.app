@@ -128,7 +128,8 @@ export class ChatwootConversationAdapter implements ConversationProviderPort, Co
     if (!Array.isArray(body.payload) || body.payload.length > 20) throw new ConversationProviderUnavailableError();
     const row = body.payload.map(object).find((item) => id(item.id) === message);
     if (!row || row.private !== false || row.message_type !== 0 || row.content_type !== "text"
-      || id(row.account_id) !== this.#connection.accountId || id(row.conversation_id) !== conversation) throw new ConversationProviderUnavailableError();
+      || (row.account_id !== undefined && id(row.account_id) !== this.#connection.accountId)
+      || id(row.conversation_id) !== conversation) throw new ConversationProviderUnavailableError();
     const found = rawImageAttachment(row.attachments, attachment, this.#connection, message);
     if (!found) throw new ConversationProviderUnavailableError();
     return this.#downloadImage(found.url, found.mediaType, signal);
@@ -265,7 +266,7 @@ function message(value: unknown, expected: Readonly<{ externalAccountId: string;
   const row = object(value);
   if (row.private !== false || row.content_type !== "text" || (row.message_type !== 0 && row.message_type !== 1)) return null;
   if (
-    id(row.account_id) !== expected.externalAccountId
+    (row.account_id !== undefined && id(row.account_id) !== expected.externalAccountId)
     || id(row.conversation_id) !== expected.externalConversationId
     || id(row.inbox_id) !== expected.externalInboxId
   ) throw new ConversationProviderUnavailableError();
@@ -306,9 +307,9 @@ function rawImageAttachment(value: unknown, attachmentId: string, connection: Ch
       if (id(row.id) !== attachmentId || row.file_type !== "image" || !imageMediaType(row.content_type)) continue;
       if (row.message_id !== undefined && id(row.message_id) !== messageId) continue;
       if (row.account_id !== undefined && id(row.account_id) !== connection.accountId) continue;
-      if (row.file_size !== undefined && (!Number.isSafeInteger(row.file_size) || Number(row.file_size) < 1 || Number(row.file_size) > MAX_IMAGE_BYTES)) continue;
-      if (row.width !== undefined && (!Number.isSafeInteger(row.width) || Number(row.width) < 1 || Number(row.width) > MAX_IMAGE_SIDE)) continue;
-      if (row.height !== undefined && (!Number.isSafeInteger(row.height) || Number(row.height) < 1 || Number(row.height) > MAX_IMAGE_SIDE)) continue;
+      if (row.file_size != null && (!Number.isSafeInteger(row.file_size) || Number(row.file_size) < 1 || Number(row.file_size) > MAX_IMAGE_BYTES)) continue;
+      if (row.width != null && (!Number.isSafeInteger(row.width) || Number(row.width) < 1 || Number(row.width) > MAX_IMAGE_SIDE)) continue;
+      if (row.height != null && (!Number.isSafeInteger(row.height) || Number(row.height) < 1 || Number(row.height) > MAX_IMAGE_SIDE)) continue;
       const parsed = safeAttachmentUrl(row.data_url, allowed);
       if (parsed) return { url: parsed.href, mediaType: row.content_type };
     } catch { /* Malformed provider attachment is not renderable. */ }
