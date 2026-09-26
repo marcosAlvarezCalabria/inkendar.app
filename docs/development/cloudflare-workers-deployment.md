@@ -8,7 +8,7 @@ Inkendar empaqueta React Router 8 SSR con el plugin oficial de Cloudflare para V
 
 El [PR #42](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/42) quedó integrado como `271cb35` y habilitó el despliegue separado de staging y producción. Staging está publicado en `https://inkendar-staging.calalva82.workers.dev` sobre el proyecto Supabase Cloud `inkendar-staging`, con migraciones aplicadas y los secretos Supabase requeridos. El 2026-09-26 `/readyz` devolvió `200`; login OWNER y Ofertas pasaron smoke externo a 320 CSS px y en un teléfono físico.
 
-Tras integrar el [PR #48](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/48), `main` `2f9a9359f2741023d0a588af14e5e2adb5fbc454` se desplegó en staging como versión `3dfa4cb8-ec4e-46fd-9576-eddb5b8036d7`. Producción continúa sin despliegue y no debe publicarse sin aprobación explícita. El [handoff del 2026-09-23](handoff-2026-09-23-cloudflare-deployment.md) se conserva como evidencia histórica, no como lista de acciones vigente.
+Tras integrar el [PR #50](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/50), `main` `62db889d3d031a3e2df34f0e86057e346b4b3d2f` se desplegó en staging como versión `47191259-514f-45b1-8559-f221e8825e97`. `/readyz` devolvió `200`; los assets offline respondieron `200` y un smoke automatizado a 320 CSS px verificó control, allowlist, bloqueo con preservación y reconexión. La navegación al fallback quedó inconclusa por la limitación del simulador de red. Producción continúa sin despliegue y no debe publicarse sin aprobación explícita. El [handoff del 2026-09-23](handoff-2026-09-23-cloudflare-deployment.md) se conserva como evidencia histórica, no como lista de acciones vigente.
 
 ## Prerrequisitos externos
 
