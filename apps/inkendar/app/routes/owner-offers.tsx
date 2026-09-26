@@ -1,4 +1,5 @@
-import { Form, useActionData, useLoaderData } from "react-router";
+import { Form, Link, useActionData, useLoaderData, useRouteError } from "react-router";
+import { StatusPage } from "../ui/feedback.js";
 import { OwnerShell } from "../ui/shells.js";
 import type { BookingOfferManagement, BookingOfferStatus, BookingOptionStatus } from "@inkendar/application";
 import type { Route } from "./+types/owner-offers";
@@ -6,7 +7,17 @@ import { ownerBookingOfferHandlers } from "../owner-booking-offers.server.js";
 
 export function meta(): Route.MetaDescriptors { return [{ title: "Ofertas de fechas | Inkendar" }]; }
 export function headers() { return { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" }; }
-export async function loader({ request }: Route.LoaderArgs) { return ownerBookingOfferHandlers.loader(request); }
+export async function loader({ request }: Route.LoaderArgs) {
+  const response = await ownerBookingOfferHandlers.loader(request);
+  if (response.status >= 400) {
+    throw new Response(null, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
+  }
+  return response;
+}
 export async function action({ request }: Route.ActionArgs) { return ownerBookingOfferHandlers.action(request); }
 
 export default function OwnerOffers() {
@@ -19,6 +30,13 @@ export default function OwnerOffers() {
     <section className="shell-panel"><h2>Nueva oferta preaprobada</h2>{data.cases.length && data.artists.length ? <Form method="post" className="record-form"><input type="hidden" name="intent" value="create"/><label>Caso<select name="tattooCaseId" required><option value="">Selecciona un caso</option>{data.cases.map(item=><option key={item.id} value={item.id}>{item.summary}</option>)}</select></label><label>Artista<select name="artistProfileId" required><option value="">Selecciona un artista</option>{data.artists.map(item=><option key={item.id} value={item.id}>{item.displayName}</option>)}</select></label><label>Opciones UTC (inicio,fin; una por línea)<textarea name="options" placeholder="2026-09-20T09:00,2026-09-20T10:00" required/></label><button type="submit">Crear oferta y bloquear</button></Form> : <p>Necesitas al menos un caso abierto y un artista.</p>}</section>
     <section className="records"><div className="section-header"><h2>Ofertas</h2><Form method="post"><input type="hidden" name="intent" value="expire-due"/><button className="secondary" type="submit">Liberar vencidas</button></Form></div>{data.offers.length ? data.offers.map(offer=><article className="shell-panel" key={offer.id}><h3>{data.cases.find(item=>item.id===offer.tattooCaseId)?.summary ?? "Caso no disponible"}</h3><p>{offerStatusLabel(offer.status)} · vence {offer.expiresAt}</p><ul>{offer.options.map(option=><li key={option.id}>{option.startUtc} – {option.endUtc} · {optionStatusLabel(option.status)}</li>)}</ul>{offer.status === "OPEN" ? <Form method="post"><input type="hidden" name="intent" value="rotate-access"/><input type="hidden" name="offerId" value={offer.id}/><button className="secondary" type="submit">Emitir o rotar enlace de lectura</button></Form> : null}</article>) : <p>Todavía no hay ofertas.</p>}</section>
   </OwnerShell>;
+}
+
+export function ErrorBoundary() {
+  useRouteError();
+  return <StatusPage tone="warning" title="Ofertas no disponibles" action={<Link className="button" to="/app/owner/offers">Reintentar</Link>}>
+    No se pudieron cargar las ofertas. Inténtalo de nuevo más tarde.
+  </StatusPage>;
 }
 
 function offerStatusLabel(status: BookingOfferStatus): string {
