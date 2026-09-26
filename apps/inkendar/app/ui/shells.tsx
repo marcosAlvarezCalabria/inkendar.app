@@ -38,7 +38,9 @@ export function OwnerShell({ title, description, action, children }: Readonly<{
     <div className="app-frame" data-role="owner">
       <a className="skip-link" href="#contenido">Saltar al contenido</a>
       <header className="topbar">
-        <Link className="brand-line" to="/app/owner"><BrandMark /> Inkendar</Link>
+        <Link className="brand-line" to="/app/owner" aria-label="Inkendar, ir al panel">
+          <BrandMark /> <span className="brand-label">Inkendar</span>
+        </Link>
         <div className="topbar-actions">
           <button
             className="button button-quiet menu-trigger"

@@ -12,12 +12,12 @@ import { ArtistShell, OwnerShell, PublicLinkShell } from "../shells.js";
 import type { UiFoundationView } from "./ui-foundation.fixtures.js";
 import { uiFoundationScenarios } from "./ui-foundation.fixtures.js";
 
-export const viewportWidths = { mobile: 320, tablet: 768, desktop: 1280 } as const;
+export const viewportWidths = { compact: 320, mobile: 375, tablet: 768, desktop: 1280 } as const;
 
 type ReviewAssets = Readonly<{ stylesheetHref: string; fontStylesheetHref: string }>;
 
 function reviewHead({ stylesheetHref, fontStylesheetHref }: ReviewAssets): string {
-  return `<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="${fontStylesheetHref}"><link rel="stylesheet" href="${stylesheetHref}">`;
+  return `<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><link rel="stylesheet" href="${fontStylesheetHref}"><link rel="stylesheet" href="${stylesheetHref}">`;
 }
 
 /** One standalone document per scenario, for per-viewport screenshots. */

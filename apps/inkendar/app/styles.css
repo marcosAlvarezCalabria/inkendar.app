@@ -91,6 +91,7 @@ body {
   min-height: 100dvh;
   background: var(--ink);
   color: var(--text);
+  overflow-x: clip;
 }
 
 h1, h2, h3, p, ul, ol, dl, dd, figure {
@@ -142,6 +143,7 @@ time {
 
 a {
   color: var(--ember);
+  overflow-wrap: anywhere;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.2em;
 }
@@ -465,13 +467,19 @@ textarea[aria-invalid="true"] {
 }
 
 .record-form {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  grid-template-columns: minmax(0, 1fr);
   align-items: end;
 }
 
-.record-form > :is(button, .button, p) {
+.record-form > p {
+  grid-column: 1 / -1;
+}
+
+.record-form > :is(button, .button) {
   grid-column: 1 / -1;
   justify-self: start;
+  width: 100%;
+  max-width: 100%;
 }
 
 .record-form > p {
@@ -664,6 +672,20 @@ textarea[aria-invalid="true"] {
   text-decoration: none;
   text-transform: uppercase;
 }
+.brand-label {
+  display: none;
+}
+
+@media (min-width: 23rem) {
+  .brand-label {
+    display: inline;
+  }
+}
+
+.brand-line,
+.topbar-actions {
+  min-width: 0;
+}
 
 .brand-mark {
   width: 22px;
@@ -696,7 +718,10 @@ textarea[aria-invalid="true"] {
   justify-content: space-between;
   gap: var(--space-3);
   min-width: 0;
-  padding: var(--space-2) var(--space-4);
+  padding-top: max(var(--space-2), env(safe-area-inset-top));
+  padding-right: max(var(--space-4), env(safe-area-inset-right));
+  padding-bottom: var(--space-2);
+  padding-left: max(var(--space-4), env(safe-area-inset-left));
   border-bottom: 1px solid var(--line);
   background: var(--charcoal);
 }
@@ -751,7 +776,10 @@ textarea[aria-invalid="true"] {
   width: 100%;
   min-width: 0;
   max-width: 76rem;
-  padding: var(--space-6) var(--space-4) var(--space-12);
+  padding-top: var(--space-6);
+  padding-right: max(var(--space-4), env(safe-area-inset-right));
+  padding-bottom: max(var(--space-12), env(safe-area-inset-bottom));
+  padding-left: max(var(--space-4), env(safe-area-inset-left));
 }
 
 .workspace-narrow {
@@ -879,7 +907,10 @@ textarea[aria-invalid="true"] {
   margin: 0;
   border: 0;
   border-right: 1px solid var(--line);
-  padding: var(--space-4);
+  padding-top: max(var(--space-4), env(safe-area-inset-top));
+  padding-right: max(var(--space-4), env(safe-area-inset-right));
+  padding-bottom: max(var(--space-4), env(safe-area-inset-bottom));
+  padding-left: max(var(--space-4), env(safe-area-inset-left));
   background: var(--charcoal);
   color: var(--text);
   opacity: 0;
@@ -928,7 +959,19 @@ textarea[aria-invalid="true"] {
   justify-self: stretch;
 }
 
-@media (min-width: 40rem) {
+@media (min-width: 48rem) {
+  .record-form {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  }
+
+  .record-form > :is(button, .button) {
+    width: auto;
+  }
+
+  .conversation-back {
+    display: none;
+  }
+
   .app-frame[data-role="owner"] {
     grid-template-columns: 14rem minmax(0, 1fr);
     grid-template-rows: 1fr;
@@ -962,7 +1005,10 @@ textarea[aria-invalid="true"] {
     width: 100%;
   }
   .workspace {
-    padding: var(--space-8) var(--space-6) var(--space-12);
+    padding-top: var(--space-8);
+    padding-right: max(var(--space-6), env(safe-area-inset-right));
+    padding-bottom: max(var(--space-12), env(safe-area-inset-bottom));
+    padding-left: max(var(--space-6), env(safe-area-inset-left));
   }
 
   .sheet,
@@ -982,11 +1028,52 @@ textarea[aria-invalid="true"] {
   }
 
   .workspace {
-    padding: var(--space-8) var(--space-8) var(--space-12);
+    padding-top: var(--space-8);
+    padding-right: max(var(--space-8), env(safe-area-inset-right));
+    padding-bottom: max(var(--space-12), env(safe-area-inset-bottom));
+    padding-left: max(var(--space-8), env(safe-area-inset-left));
   }
 }
 
 /* ---------- Existing route patterns mapped to the foundation ---------- */
+.conversation-layout {
+  display: grid;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.conversation-layout[data-has-selection="true"] .conversation-inbox {
+  display: none;
+}
+
+.conversation-inbox nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.conversation-inbox nav a,
+.conversation-back a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+@media (min-width: 48rem) {
+  .conversation-layout {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    align-items: start;
+  }
+
+  .conversation-layout[data-has-selection="true"] .conversation-inbox {
+    display: grid;
+  }
+
+  .conversation-layout:not([data-has-selection="true"]) .conversation-inbox {
+    grid-column: 1 / -1;
+  }
+}
+
 
 .records {
   display: grid;
@@ -1122,7 +1209,10 @@ textarea[aria-invalid="true"] {
   place-items: center;
   min-height: 100vh;
   min-height: 100dvh;
-  padding: var(--space-6) var(--space-4);
+  padding-top: max(var(--space-6), env(safe-area-inset-top));
+  padding-right: max(var(--space-4), env(safe-area-inset-right));
+  padding-bottom: max(var(--space-6), env(safe-area-inset-bottom));
+  padding-left: max(var(--space-4), env(safe-area-inset-left));
 }
 
 .auth-card,
@@ -1155,7 +1245,10 @@ textarea[aria-invalid="true"] {
   min-height: 100vh;
   min-height: 100dvh;
   margin-inline: auto;
-  padding: var(--space-4) var(--space-4) var(--space-6);
+  padding-top: max(var(--space-4), env(safe-area-inset-top));
+  padding-right: max(var(--space-4), env(safe-area-inset-right));
+  padding-bottom: max(var(--space-6), env(safe-area-inset-bottom));
+  padding-left: max(var(--space-4), env(safe-area-inset-left));
 }
 
 .public-main {
@@ -1188,10 +1281,15 @@ textarea[aria-invalid="true"] {
 }
 
 .public-sheet ol > li form {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
   gap: var(--space-3);
+}
+
+.public-sheet ol > li form :is(button, .button) {
+  width: 100%;
+  max-width: 100%;
 }
 
 .public-foot p {
