@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 import type { Route } from "./+types/root";
+import { OfflineBoundary } from "./ui/offline-support.js";
 import "@fontsource-variable/archivo/wdth.css";
 import "./styles.css";
 
@@ -29,5 +30,5 @@ export function Layout({ children }: { children: ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />;
+  return <OfflineBoundary><Outlet /></OfflineBoundary>;
 }
