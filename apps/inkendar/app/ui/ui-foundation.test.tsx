@@ -27,12 +27,13 @@ function openingTags(html: string, tag: string): string[] {
 }
 
 describe("OWNER navigation", () => {
-  it("lists the seven operational areas in product order", () => {
+  it("lists the eight operational areas in product order", () => {
     expect(ownerNavItems.map((item) => item.label)).toEqual([
       "Panel",
       "Conversaciones",
       "Clientes",
       "Casos",
+      "Equipo",
       "Calendario",
       "Ofertas",
       "Galería",
@@ -42,6 +43,7 @@ describe("OWNER navigation", () => {
       "/app/owner/conversations",
       "/app/owner/customers",
       "/app/owner/cases",
+      "/app/owner/team",
       "/app/owner/calendars",
       "/app/owner/offers",
       "/app/owner/gallery",

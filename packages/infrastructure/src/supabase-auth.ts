@@ -1,7 +1,7 @@
 import { createServerClient, parseCookieHeader, serializeCookieHeader, type CookieOptions } from "@supabase/ssr";
 
 import type { AuthSessionPort, LoginCredentials, MembershipAccessPort } from "@inkendar/application";
-import type { AccessRole, IdentityAccessRecord } from "@inkendar/domain";
+import type { AccessRole, AccessStatus, IdentityAccessRecord } from "@inkendar/domain";
 
 type AuthResult = Promise<{ data: { user: { id: string } | null }; error: unknown }>;
 type QueryResult = Promise<{ data: unknown; error: unknown }>;
@@ -55,7 +55,7 @@ export class SupabaseAuthenticationAdapter implements AuthSessionPort, Membershi
   async findForUser(userId: string): Promise<readonly IdentityAccessRecord[]> {
     const { data, error } = await this.client
       .from("membership")
-      .select("id,studio_id,user_id,user_profile_id,role")
+      .select("id,studio_id,user_id,user_profile_id,role,status")
       .match({ user_id: userId });
     if (error || !Array.isArray(data)) {
       throw new Error("Supabase membership lookup failed");
@@ -161,6 +161,7 @@ function mapMembershipRecord(
   const membership = {
     id: string(row.id),
     role: role(row.role),
+    status: status(row.status),
     studioId: string(row.studio_id),
     userId: string(row.user_id),
   };
@@ -202,4 +203,8 @@ function string(value: unknown): string {
 
 function role(value: unknown): AccessRole {
   return value === "OWNER" || value === "ARTIST" ? value : ("" as AccessRole);
+}
+
+function status(value: unknown): AccessStatus {
+  return value === "ACTIVE" || value === "SUSPENDED" ? value : ("" as AccessStatus);
 }

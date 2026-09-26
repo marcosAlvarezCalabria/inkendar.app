@@ -2,7 +2,7 @@
 
 _Estado: especificación viva y fuente de verdad para alcance, comportamiento y progreso_
 
-_Versión: 1.30.5_
+_Versión: 1.30.6_
 
 _Última actualización: 2026-09-26_
 
@@ -46,7 +46,7 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | Instagram en Chatwoot | `PASS` | Recepción y respuesta por el canal original verificadas. |
 | Facebook Messenger | `CONNECTED` | Falta la prueba bidireccional final. |
 | Operación dentro de Inkendar | `IN_PROGRESS` | El contrato técnico original de conversaciones está `DONE` con CI verde en el run 34883809683. La visualización de imágenes entrantes quedó integrada mediante el [PR #52](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/52) y el squash `c62c9e0`, con `validate` y `database` verdes en el [run post-merge 36244018683](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36244018683). Falta el recorrido live de la PWA con una conexión Chatwoot sintética. |
-| PWA y autenticación | `PASS` | Login email/password, cookies SSR, guards y logout ya tenían smoke Auth/RLS real. Los [PR #45](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/45)–[#48](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/48) integraron la especificación UI, la fundación visual, el comportamiento mobile-first y el fallo seguro de Ofertas. El run post-merge [36231279413](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36231279413) pasó `validate` y `database` con 590 pruebas y 1 omitida; el 2026-09-26 login OWNER y Ofertas se verificaron en staging a 320 CSS px y después en un teléfono físico. El [PR #50](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/50) integró el shell offline y el bloqueo de mutaciones; el [run post-merge 36238090450](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36238090450) quedó verde. En staging, un smoke automatizado a 320 CSS px verificó registro/control del service worker, allowlist exacta de tres assets públicos, aviso offline, bloqueo sin perder valores y recuperación al reconectar. La navegación al fallback estático quedó inconclusa por la limitación del simulador de red y la suspensión explícita de accesos sigue pendiente. |
+| PWA y autenticación | `PASS` | Login email/password, cookies SSR, guards y logout ya tenían smoke Auth/RLS real. Los [PR #45](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/45)–[#48](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/48) integraron la especificación UI, la fundación visual, el comportamiento mobile-first y el fallo seguro de Ofertas. El run post-merge [36231279413](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36231279413) pasó `validate` y `database` con 590 pruebas y 1 omitida; el 2026-09-26 login OWNER y Ofertas se verificaron en staging a 320 CSS px y después en un teléfono físico. El [PR #50](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/50) integró el shell offline y el bloqueo de mutaciones; el [run post-merge 36238090450](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36238090450) quedó verde. En staging, un smoke automatizado a 320 CSS px verificó registro/control del service worker, allowlist exacta de tres assets públicos, aviso offline, bloqueo sin perder valores y recuperación al reconectar. La navegación al fallback estático quedó inconclusa por la limitación del simulador de red y la suspensión explícita de accesos ARTIST está implementada y verificada localmente; revisión independiente, PR y CI siguen pendientes. |
 | Clientes y casos de tatuaje | `PASS` | Dominio, aplicación, adaptador Supabase y UI SSR OWNER pasaron `npm run check` con 97 pruebas; migración limpia, seed y 58 aserciones pgTAP del slice pasaron dentro de las 117 aserciones del job `database` en el [run 34774972933](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34774972933). |
 | Agenda privada ARTIST | `DONE` | El PR #25 y CI verde integraron la agenda SSR read-only, RPC mínima tenant-safe y 27 aserciones pgTAP. No se ejecutó prueba live ni se añadieron mutaciones de agenda; el único formulario del shell es el logout global. |
 | Alta manual gestionada | `PASS` | El CLI de servidor, Auth Admin, compensación y RPC idempotentes pasaron 32 pruebas enfocadas, `npm run check` con 38 pruebas y 21 aserciones pgTAP dentro del job `database` [run 34756137292](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34756137292). No incluye login, sesión ni UI de autenticación. |
@@ -112,12 +112,14 @@ Las correcciones editoriales pueden agruparse en una entrada. Los cambios de com
 | 2026-09-25 | DEC-047 | `ACCEPTED` | Rechazar una solicitud free-choice materializa en la misma transacción una intención durable `REJECTED` dentro del outbox común, con fuente XOR oferta/solicitud, ruta Chatwoot inequívoca preferida y fallback SMTP tenant-safe. Conserva los terminales `NO_ROUTE`/`UNKNOWN`, el reintento acotado de rechazos confirmados y la prohibición de persistir contenido o PII. | Avisar al cliente reutilizando la política conservadora ya probada sin crear otro runner, proveedor, endpoint o posibilidad de duplicar envíos ante ambigüedad. |
 | 2026-09-26 | DEC-048 | `ACCEPTED` | El service worker precachea exclusivamente `/offline.html`, `/inkendar-mark.svg` y `/manifest.webmanifest`; las navegaciones son network-first y solo caen al HTML estático cuando falla la red. No cachea respuestas navegables, `/app`, APIs, enlaces opacos, mensajes, PII, imágenes privadas ni datos dinámicos. La UI detecta conectividad, marca los datos como posiblemente desactualizados y bloquea formularios no-GET sin perder sus valores hasta reconectar. | Dar una salida offline segura y auditable sin prometer operación offline, duplicar fuentes de datos ni persistir contenido privado en el dispositivo. |
 | 2026-09-26 | DEC-049 | `ACCEPTED` | Conversaciones OWNER muestra solo imágenes entrantes JPEG/PNG/WebP junto con su caption cuando existe. Una ruta privada same-origin recupera la imagen desde Chatwoot bajo autorización OWNER/tenant, limita origen/redirecciones, tiempo, tamaño, firma y dimensiones, y responde sin caché; los formatos o bytes inválidos muestran un placeholder accesible. No añade envío de archivos ni persistencia de contenido. | Permitir revisar referencias visuales sin exponer URLs/tokens del proveedor, servir contenido activo o alterar la fuente operativa de mensajes. |
+| 2026-09-26 | DEC-050 | `ACCEPTED` | El OWNER activo suspende o restaura una membership ARTIST de su tenant mediante RPC `auth.uid()` exclusiva de `authenticated`; `ACTIVE | SUSPENDED` gobierna login, sesión, RLS y agenda directa, sin borrar identidad ni historial. La escritura directa de membership por `authenticated` queda cerrada y la provisión `service_role` continúa. | Retirar acceso con tokens vigentes, impedir escalación o cruces de tenant y conservar citas/casos y la misma identidad para restauración. |
 La arquitectura técnica está en [Arquitectura de aplicación](../architecture/application-architecture.md) y el proceso de entrega en [Flujo de desarrollo, revisión e integración](../development/delivery-workflow.md).
 
 ## Historial de la especificación
 
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
+| 2026-09-26 | 1.30.6 | Se implementó localmente la suspensión/restauración OWNER de ARTIST con estado persistido, RPC tenant-safe, guard de sesión y agenda, RLS activa y UI Equipo. Pruebas enfocadas y pgTAP locales pasan; revisión, PR, CI y live siguen pendientes. | Cerrar la retirada explícita de acceso sin eliminar identidad ni historial. |
 | 2026-09-26 | 1.30.5 | Se desplegó `main` `81ab2d713a12cc295479a078b8d5b55ed407458b` en staging como versión `5ca5b753-0d26-49a2-80df-6ac2f478b5a9`; `/healthz`, `/readyz` y `/login` devolvieron `200`. El Worker conserva únicamente los secretos Supabase, por lo que la conexión Chatwoot y la prueba live de imágenes siguen pendientes. Producción no se desplegó. | Registrar la versión operativa observada y sus límites sin atribuir una integración externa todavía no configurada. |
 | 2026-09-26 | 1.30.4 | El [PR #52](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/52) integró la lectura de imágenes entrantes por proxy privado como squash `c62c9e0`; `validate` y `database` concluyeron verdes en el [run post-merge 36244018683](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36244018683). No se ejecutó un recorrido live con Chatwoot ni un despliegue de este cambio. | Registrar la evidencia técnica final sin confundir CI con operación conectada. |
 | 2026-09-26 | 1.30.3 | Se implementó localmente la lectura de imágenes entrantes JPEG/PNG/WebP en Conversaciones OWNER mediante proxy privado y validación acotada de bytes/orígenes. Revisión, PR, CI y recorrido live siguen pendientes. | Añadir contexto visual a los mensajes sin entregar URLs autenticadas al navegador ni guardar adjuntos en Inkendar. |
@@ -384,6 +386,18 @@ And cada fila contiene intervalo y zona explícitos, nombre visible del cliente,
 And no contiene contacto, conversaciones, Google, tokens, IDs internos, notas ni referencias
 And no puede leer citas de otros artistas o tenants
 And no puede responder clientes, confirmar o cancelar citas, ni modificar contenido
+```
+
+#### Suspensión de acceso ARTIST
+
+```gherkin
+Given un OWNER activo y un ARTIST del mismo estudio con sesión vigente
+When el OWNER suspende su acceso
+Then el ARTIST pierde acceso en la siguiente petición y no puede consultar la agenda por RPC directa
+And se conservan identidad, membership, perfiles, casos, citas e historial
+When el OWNER restaura la misma membership
+Then la identidad vuelve a acceder sin reprovisión
+And ningún OWNER, otro tenant o actor ARTIST puede ser objeto o autor de esa transición
 ```
 
 #### Publicación en una web existente

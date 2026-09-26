@@ -7,7 +7,7 @@ const studioId = "20000000-0000-4000-8000-000000000001";
 
 function record(role: "OWNER" | "ARTIST"): IdentityAccessRecord {
   return {
-    membership: { id: "40000000-0000-4000-8000-000000000001", role, studioId, userId },
+    membership: { id: "40000000-0000-4000-8000-000000000001", role, status: "ACTIVE", studioId, userId },
     userProfile: {
       id: "30000000-0000-4000-8000-000000000001",
       displayName: "María",
@@ -40,6 +40,8 @@ describe("identity access", () => {
       [{ ...record("OWNER"), userProfile: { ...record("OWNER").userProfile, studioId: "another-studio" } }],
     ],
     ["artist without artist profile", [{ ...record("ARTIST"), artistProfile: null }]],
+    ["suspended artist", [{ ...record("ARTIST"), membership: { ...record("ARTIST").membership, status: "SUSPENDED" } }]],
+    ["suspended owner", [{ ...record("OWNER"), membership: { ...record("OWNER").membership, status: "SUSPENDED" } }]],
   ])("denies %s without returning tenant data", (_case, records) => {
     expect(() => resolveAccess(userId, records as IdentityAccessRecord[])).toThrow(AccessDeniedError);
   });

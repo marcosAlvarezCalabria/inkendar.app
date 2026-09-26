@@ -79,6 +79,8 @@ reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000001', true);
 
+reset role;
+set local role service_role;
 select throws_ok(
   $$
     insert into public.membership (id, studio_id, user_id, user_profile_id, role)
@@ -109,9 +111,12 @@ select lives_ok(
       'ARTIST'
     )
   $$,
-  'owner can create an artist membership in their studio'
+  'managed onboarding can create an artist membership in the studio'
 );
 
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000001', true);
 select lives_ok(
   $$
     insert into public.artist_profile (id, studio_id, membership_id, user_id, display_name)
@@ -171,10 +176,11 @@ select results_eq(
   'artist cannot update their own profile'
 );
 
-select results_eq(
+select throws_ok(
   $$ update public.membership set role = 'OWNER' returning id $$,
-  $$ select null::uuid where false $$,
-  'artist cannot promote their own membership'
+  '42501',
+  null,
+  'artist cannot directly update their membership'
 );
 
 select results_eq(

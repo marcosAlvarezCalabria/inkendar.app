@@ -81,12 +81,12 @@ No crea una cuenta. Abre uno de dos enlaces opacos y caducables: opciones preapr
 
 ## 4. Inventario de rutas y conteo de pantallas
 
-El archivo [`apps/inkendar/app/routes.ts`](../../apps/inkendar/app/routes.ts) declara 19 entradas. El inventario de producto cuenta **11 pantallas visuales**: rutas que renderizan contenido y a las que una persona puede llegar como destino. No cuenta redirects, acciones POST, callbacks ni recursos binarios/JSON.
+El archivo [`apps/inkendar/app/routes.ts`](../../apps/inkendar/app/routes.ts) declara 20 entradas. El inventario de producto cuenta **12 pantallas visuales**: rutas que renderizan contenido y a las que una persona puede llegar como destino. No cuenta redirects, acciones POST, callbacks ni recursos binarios/JSON.
 
 | # | Pantalla | Ruta visual | Actor | Propósito |
 |---:|---|---|---|---|
 | 1 | Acceso | `/login` | OWNER / ARTIST | iniciar sesión con una cuenta aprovisionada |
-| 2 | Panel del estudio | `/app/owner` | OWNER | orientar y entrar en las seis áreas operativas |
+| 2 | Panel del estudio | `/app/owner` | OWNER | orientar y entrar en las siete áreas operativas |
 | 3 | Conversaciones | `/app/owner/conversations` | OWNER | revisar, vincular y responder conversaciones |
 | 4 | Clientes | `/app/owner/customers` | OWNER | crear y mantener clientes |
 | 5 | Casos de tatuaje | `/app/owner/cases` | OWNER | crear, asignar y archivar casos |
@@ -96,6 +96,7 @@ El archivo [`apps/inkendar/app/routes.ts`](../../apps/inkendar/app/routes.ts) de
 | 9 | Agenda del artista | `/app/artist` | ARTIST | consultar próximas citas confirmadas propias |
 | 10 | Opciones preaprobadas | `/offers/:token` | Cliente | elegir una opción reservada y ver su estado |
 | 11 | Elección libre | `/availability/:token` | Cliente | solicitar un hueco y seguir la decisión del estudio |
+| 12 | Equipo y accesos | `/app/owner/team` | OWNER | listar miembros y suspender o restaurar ARTIST del propio estudio |
 
 Rutas no contadas como pantallas:
 
@@ -117,7 +118,7 @@ No se crea una duodécima pantalla para “inicio”: la ruta `/` no es la landi
 
 ### 5.1 Shell privado OWNER
 
-En móvil usa una cabecera compacta con identidad de estudio, acceso al menú y estado de conexión solo cuando requiera atención. La navegación principal contiene: Panel, Conversaciones, Clientes, Casos, Calendario, Ofertas y Galería. “Cerrar sesión” queda separado al final.
+En móvil usa una cabecera compacta con identidad de estudio, acceso al menú y estado de conexión solo cuando requiera atención. La navegación principal contiene: Panel, Conversaciones, Clientes, Casos, Equipo, Calendario, Ofertas y Galería. “Cerrar sesión” queda separado al final.
 
 En tablet y escritorio, la navegación pasa a rail lateral persistente. La cabecera de contenido contiene breadcrumb corto, título, ayuda contextual opcional y una única acción primaria de pantalla. El ítem activo se expresa con texto, contraste, borde y `aria-current="page"`.
 
@@ -157,7 +158,7 @@ En listados, buscar/filtrar solo se añade cuando el volumen real lo justifique 
 
 **Objetivo:** hacer visibles las áreas disponibles y orientar la siguiente acción.
 
-**Contenido mínimo:** saludo, navegación global, seis tarjetas de área con verbo y descripción, cierre de sesión. No usar gráficas, facturación, métricas ni feed de actividad sin fuente real.
+**Contenido mínimo:** saludo, navegación global, siete accesos de área con verbo y descripción, cierre de sesión. No usar gráficas, facturación, métricas ni feed de actividad sin fuente real.
 
 **Prioridad:** Conversaciones y solicitudes que requieran acción pueden subir en orden cuando el backend exponga una señal aprobada; el orden base sigue el flujo conversación → cliente/caso → calendario/oferta → contenido.
 
@@ -248,6 +249,14 @@ Móvil usa una tarjeta por imagen con miniatura 4:3 y acciones en menú o grupos
 **Contenido mínimo:** artista, zona, validez, candidatos, aviso explícito de aprobación, acción por hueco.
 
 **Estados:** `OPEN` con o sin candidatos, `PENDING_OWNER_APPROVAL`, `APPROVING`, `CONFIRMED`, `REJECTED`, `EXPIRED` y enlace no disponible. Después de elegir, el texto principal es “Solicitud recibida”, no “Reserva”. La pantalla puede recomendar conservar el enlace, pero no promete notificación hasta que ese canal esté verificado.
+
+### 6.12 Equipo y accesos — `/app/owner/team`
+
+**Objetivo:** que el OWNER retire o restituya el acceso de un ARTIST de su estudio conservando historial.
+
+**Contenido mínimo:** miembros del estudio en tarjetas de una columna, nombre, rol y estado textual `Activo`/`Suspendido`. Los OWNER se muestran sin acción. Cada ARTIST dispone de una sola acción etiquetada según el estado, con explicación explícita de que suspender impide entrar y conserva citas/casos. La restauración reutiliza la misma cuenta.
+
+**Interacción:** formularios POST same-origin con botones de al menos 44 px, utilizables con teclado y sin hover. El resultado se anuncia de forma accesible; un error no revela detalles de proveedor ni otros tenants. La autorización permanece en servidor y RPC. Este slice está implementado y validado localmente; revisión visual independiente, CI y prueba live están pendientes.
 
 ## 7. Estados transversales
 
@@ -405,7 +414,7 @@ Rutas técnicas y visuales permanecen separadas. Por ejemplo, `/availability/:to
 Dado que una persona autenticada tiene rol OWNER
 Cuando entra en /app
 Entonces llega al panel OWNER
-Y puede identificar las seis áreas operativas
+Y puede identificar las siete áreas operativas
 Y no se muestra navegación ARTIST como alternativa de rol
 ```
 
