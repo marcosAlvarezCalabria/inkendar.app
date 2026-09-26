@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { Form, Link, useActionData, useLoaderData, useRouteError } from "react-router";
 import { StatusPage } from "../ui/feedback.js";
 import { OwnerShell } from "../ui/shells.js";
-import type { ConversationPage, ConversationThread, Customer, TattooCase } from "@inkendar/application";
+import type { ConversationMessage, ConversationPage, ConversationThread, Customer, TattooCase } from "@inkendar/application";
 import type { Route } from "./+types/owner-conversations";
 import { ownerConversationsHandlers } from "../owner-conversations.server.js";
 
@@ -36,9 +37,7 @@ export default function OwnerConversations() {
       <p className="conversation-back"><Link to=".">Volver a conversaciones</Link></p>
       <h2 id="conversation-title">Detalle de {selected?.contactName ?? "la conversación"}</h2>
       {data.thread.before ? <p><Link to={`?conversation=${encodeURIComponent(data.thread.id)}&before=${encodeURIComponent(data.thread.before)}`}>Cargar mensajes anteriores</Link></p> : null}
-      <div className="records" aria-label="Mensajes públicos">
-        {data.thread.messages.length === 0 ? <p>No hay mensajes de texto públicos.</p> : data.thread.messages.map((message) => <article key={message.id}><p><strong>{message.direction === "incoming" ? "Cliente" : "Estudio"}</strong></p><p>{message.content}</p><time dateTime={message.createdAt}>{message.createdAt}</time></article>)}
-      </div>
+      <ConversationMessages conversationId={data.thread.id} messages={data.thread.messages} />
       {data.customers.length > 0 ? <Form method="post" className="record-form">
         <input type="hidden" name="intent" value="link" /><input type="hidden" name="conversationId" value={data.thread.id} />
         <label>Cliente <select name="customerId" required defaultValue={selected?.link?.customerId ?? ""}><option value="">Selecciona un cliente</option>{data.customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
@@ -56,6 +55,25 @@ export default function OwnerConversations() {
 }
 
 export function ConversationActivity({ at }: { at: string }) { return <p>{"\u00daltima actividad"}: <time dateTime={at}>{at}</time></p>; }
+export function ConversationMessages({ conversationId, messages }: { conversationId: string; messages: readonly ConversationMessage[] }) {
+  return <div className="records" aria-label="Mensajes públicos">
+    {messages.length === 0 ? <p>No hay mensajes públicos.</p> : messages.map((message) => <article className="conversation-message" key={message.id}>
+      <p><strong>{message.direction === "incoming" ? "Cliente" : "Estudio"}</strong></p>
+      {message.content ? <p>{message.content}</p> : null}
+      {message.attachments?.map((attachment, index) => attachment.kind === "image"
+        ? <ConversationImage key={attachment.id} source={`/app/owner/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(message.id)}/attachments/${encodeURIComponent(attachment.id)}`} />
+        : <p className="conversation-attachment-placeholder" role="status" key={`unsupported-${index}`}>Adjunto no disponible</p>)}
+      <time dateTime={message.createdAt}>{message.createdAt}</time>
+    </article>)}
+  </div>;
+}
+
+function ConversationImage({ source }: { source: string }) {
+  const [failed, setFailed] = useState(false);
+  return failed
+    ? <p className="conversation-attachment-placeholder" role="status">Adjunto no disponible</p>
+    : <img className="conversation-attachment-image" src={source} alt="Imagen adjunta del cliente" loading="lazy" decoding="async" onError={() => setFailed(true)} />;
+}
 export function ErrorBoundary() {
   useRouteError();
   return <StatusPage tone="warning" title="Conversaciones no disponibles">No se pudo cargar la bandeja del estudio.</StatusPage>;

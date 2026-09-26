@@ -13,7 +13,9 @@ export type ConversationStatus = "open" | "pending" | "resolved" | "snoozed";
 export type ConversationChannel = "web" | "instagram" | "facebook" | "unknown";
 export type MessageDirection = "incoming" | "outgoing";
 export type ConversationSummary = Readonly<{ id: string; inboxId: string; status: ConversationStatus; channel: ConversationChannel; contactName: string; unreadCount: number; lastActivityAt: string; canReply: boolean }>;
-export type ConversationMessage = Readonly<{ id: string; direction: MessageDirection; content: string; createdAt: string }>;
+export type ConversationAttachment = Readonly<{ kind: "image"; id: string } | { kind: "unsupported" }>;
+export type ConversationMessage = Readonly<{ id: string; direction: MessageDirection; content: string; createdAt: string; attachments?: readonly ConversationAttachment[] }>;
+export type ConversationImage = Readonly<{ bytes: Uint8Array; mediaType: "image/jpeg" | "image/png" | "image/webp"; width: number; height: number }>;
 export type ConversationThread = Readonly<{ id: string; inboxId: string; canReply: boolean; messages: readonly ConversationMessage[]; before: string | null }>;
 export type ConversationBatch = Readonly<{ items: readonly ConversationSummary[]; totalCount: number }>;
 export type ConversationPage = Readonly<{ items: readonly LinkedConversationSummary[]; page: number; pageSize: 25; totalCount: number; previousPage: number | null; nextPage: number | null }>;
@@ -32,6 +34,9 @@ export interface ConversationProviderPort {
   listConversations(page: number, signal?: AbortSignal): Promise<ConversationBatch>;
   getConversation(conversationId: string, before?: string, signal?: AbortSignal): Promise<ConversationThread>;
   sendReply(conversationId: string, content: string, signal?: AbortSignal): Promise<Readonly<{ externalMessageId: string }>>;
+}
+export interface ConversationImageProviderPort {
+  getImageAttachment(conversationId: string, messageId: string, attachmentId: string, signal?: AbortSignal): Promise<ConversationImage>;
 }
 export interface ConversationLinksRepositoryPort {
   listLinks(studioId: string, externalAccountId: string): Promise<readonly ConversationLink[]>;

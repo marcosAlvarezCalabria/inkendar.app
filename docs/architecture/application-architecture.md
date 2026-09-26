@@ -82,9 +82,11 @@ El modelo evita borrado y workflows anticipados: clientes usan ACTIVE / ARCHIVED
 
 ### Conversaciones OWNER
 
-_Estado tecnico del slice: `DONE`. GitHub Actions verifico 156 pruebas, build, migraciones limpias y pgTAP en el run 34883809683. El recorrido live de la PWA con Chatwoot permanece `IN_PROGRESS`._
+_Estado tecnico del slice original: `DONE`. GitHub Actions verifico 156 pruebas, build, migraciones limpias y pgTAP en el run 34883809683. La extension de imagenes entrantes esta implementada localmente, pendiente de revision, PR y CI; el recorrido live de la PWA con Chatwoot permanece `IN_PROGRESS`._
 
-La bandeja SSR OWNER resuelve la conexion por `studioId` despues del guard. Si el estudio no tiene conexion devuelve una pagina vacia `private, no-store` sin cargar proveedor, credenciales ni `service_role`. Las conversaciones recorren paginas 1..1000 de 25 filas con `all_count`; el detalle carga hasta 20 mensajes publicos de texto y usa un cursor positivo `before`.
+La bandeja SSR OWNER resuelve la conexion por `studioId` despues del guard. Si el estudio no tiene conexion devuelve una pagina vacia `private, no-store` sin cargar proveedor, credenciales ni `service_role`. Las conversaciones recorren paginas 1..1000 de 25 filas con `all_count`; el detalle carga hasta 20 mensajes publicos de texto e imagenes entrantes y usa un cursor positivo `before`.
+
+El adaptador Chatwoot proyecta cada adjunto entrante como handle de imagen o placeholder, conserva el caption y no serializa la URL externa. `ConversationImageProviderPort` permite a un resource route same-origin resolver IDs tras el guard OWNER del estudio; la ruta no compone credenciales para usuarios denegados ni usa `service_role`. La descarga usa la cuenta configurada, allowlist exacta de origen Chatwoot y orígenes HTTPS adicionales server-only, redirecciones manuales acotadas y ninguna cabecera de token en la petición del archivo. La respuesta exige MIME JPEG/PNG/WebP coincidente, firma y dimensiones reales, máximo 10 MiB, 8192 px por lado, 40 MP y 8 s. Devuelve `private, no-store`, `nosniff` y `no-referrer`; el service worker no la cachea. El proveedor conserva los bytes y no se añade persistencia ni subida de archivos.
 
 Supabase conserva `conversation_link` para customer/tattoo_case, `conversation_webhook_receipt` para entregas firmadas y `conversation_outbound_operation` sin contenido para idempotencia. Las RPC outbound son exclusivas de `service_role`, se componen lazy tras OWNER y serializan una clave UUID: `SUCCEEDED` reutiliza el resultado, `PENDING` bloquea concurrencia y `FAILED`/`UNKNOWN` son finales. Un reintento consciente despues de `FAILED` usa una clave nueva; `UNKNOWN` requiere intervencion manual.
 
@@ -381,6 +383,7 @@ La recomendación añade un backend propio delgado, pero concentra allí autoriz
 
 | Fecha | Cambio | Motivo |
 |---|---|---|
+| 2026-09-26 | Lectura local de imagenes entrantes de Chatwoot por proxy OWNER privado | Mostrar referencias visuales sin filtrar tokens/URLs externas ni persistir contenido; revision, CI y live siguen pendientes. |
 | 2026-09-26 | Shell offline estático con allowlist cerrada y guard de mutaciones en navegador | Ofrecer una salida segura cuando falla una navegación sin convertir la aplicación en offline-first ni persistir contenido privado o dinámico. |
 | 2026-09-25 | Outbox común con fuente XOR y evento `REJECTED` para solicitudes free-choice | Avisar al cliente con la política Chatwoot/SMTP ya existente sin persistir contenido/PII, duplicar envíos ambiguos ni tocar Google. |
 | 2026-09-16 | Agenda privada ARTIST mediante SSR y RPC mínima ligada a `auth.uid()` | Mostrar solo próximas citas confirmadas propias y contexto de preparación sin PII, IDs, Google directo ni mutaciones. |

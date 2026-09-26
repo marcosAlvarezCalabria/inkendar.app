@@ -11,6 +11,7 @@ export default [
   route("app", "routes/app.tsx"),
   route("app/owner", "routes/owner.tsx"),
   route("app/owner/conversations", "routes/owner-conversations.tsx"),
+  route("app/owner/conversations/:conversationId/messages/:messageId/attachments/:attachmentId", "routes/owner-conversation-image.ts"),
   route("app/owner/customers", "routes/owner-customers.tsx"),
   route("app/owner/cases", "routes/owner-cases.tsx"),
   route("app/owner/calendars", "routes/owner-calendars.tsx"),

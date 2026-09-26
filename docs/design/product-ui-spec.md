@@ -108,6 +108,7 @@ Rutas no contadas como pantallas:
 | `/auth/google/callback` | callback técnico | vuelve a la pantalla de calendarios con feedback seguro |
 | `/api/public/studios/:studioSlug/gallery` | recurso JSON | sin UI PWA; contrato público separado |
 | `/api/webhooks/chatwoot/:connectionId` | webhook técnico | nunca se enlaza en UI |
+| `/app/owner/conversations/:conversationId/messages/:messageId/attachments/:attachmentId` | recurso de imagen entrante privado | se consume solo dentro del detalle OWNER |
 | `/app/owner/gallery/thumbnails/:handle` | recurso de imagen privado | se consume dentro de Galería |
 
 No se crea una duodécima pantalla para “inicio”: la ruta `/` no es la landing comercial ni un dashboard público.
@@ -164,9 +165,9 @@ En listados, buscar/filtrar solo se añade cuando el volumen real lo justifique 
 
 **Objetivo:** revisar la bandeja, abrir un hilo, vincularlo y responder sin revelar Chatwoot.
 
-**Contenido mínimo:** lista paginada con contacto, canal, estado, no leídos y fecha; detalle seleccionado con mensajes incrementales; asociación a cliente/caso; caja de respuesta; navegación de página existente.
+**Contenido mínimo:** lista paginada con contacto, canal, estado, no leídos y fecha; detalle seleccionado con mensajes incrementales, imágenes entrantes admitidas y su texto cuando existe; asociación a cliente/caso; caja de respuesta de texto; navegación de página existente. Los adjuntos no admitidos o fallidos muestran “Adjunto no disponible” sin enlace al proveedor.
 
-**Composición:** móvil alterna lista y detalle con retorno explícito; tablet/escritorio usa master-detail. Mantener visible el nombre del contacto y el estado mientras se redacta.
+**Composición:** móvil alterna lista y detalle con retorno explícito; tablet/escritorio usa master-detail. Las imágenes se contienen dentro del ancho disponible sin scroll horizontal, llevan alt descriptivo y carga diferida. Mantener visible el nombre del contacto y el estado mientras se redacta.
 
 **Estados de dominio:** conversación sin vínculo; vinculada a cliente; vinculada a caso; envío en curso; enviado confirmado; fallo confirmado reintentable; resultado ambiguo que no invita a reenviar automáticamente. Si el proveedor está desconectado, distinguir “bandeja temporalmente no disponible” de “no hay conversaciones”.
 
