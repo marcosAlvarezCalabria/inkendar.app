@@ -1,10 +1,10 @@
 # Contrato del slice: conversaciones OWNER
 
-_Estado tecnico: DONE_
+_Estado tecnico del slice original: DONE. Extension de imagenes entrantes: implementacion local, pendiente de revision, PR y CI._
 
 _Recorrido live con Chatwoot: IN_PROGRESS_
 
-_Ultima actualizacion: 2026-09-14_
+_Ultima actualizacion: 2026-09-26_
 
 ## Objetivo
 
@@ -12,9 +12,9 @@ Como owner de un estudio quiero consultar y responder conversaciones desde Inken
 
 ## Alcance
 
-Este slice incorpora una bandeja SSR exclusiva para OWNER con paginacion explicita de conversaciones, lectura de sus mensajes publicos de texto, respuesta publica de texto y un vinculo tenant-scoped con `customer` y `tattoo_case`. Chatwoot permanece como fuente de verdad de conversaciones y mensajes; Inkendar solo persiste identificadores externos, relaciones de dominio y estado tecnico de ingesta.
+Este slice incorpora una bandeja SSR exclusiva para OWNER con paginacion explicita de conversaciones, lectura de mensajes publicos de texto y de imagenes entrantes, respuesta publica de texto y un vinculo tenant-scoped con `customer` y `tattoo_case`. Chatwoot permanece como fuente de verdad de conversaciones, mensajes y adjuntos; Inkendar solo persiste identificadores externos, relaciones de dominio y estado tecnico de ingesta.
 
-El webhook acepta unicamente `message_created`, exige la firma oficial de Chatwoot y registra una recepcion idempotente sin copiar contenido. No incorpora asignacion, cambio de estado, adjuntos, notas privadas, busqueda, tiempo real en navegador, WhatsApp, booking, calendario, galeria ni acceso ARTIST.
+El webhook acepta unicamente `message_created`, exige la firma oficial de Chatwoot y registra una recepcion idempotente sin copiar contenido. La extension de imagenes es solo lectura: no incorpora subida/envio de archivos, audio, video, documentos, asignacion, cambio de estado, notas privadas, busqueda, tiempo real en navegador, WhatsApp, booking, calendario, galeria ni acceso ARTIST.
 
 ## Criterios de aceptacion
 
@@ -33,10 +33,19 @@ And no expone el token, la URL del proveedor ni su payload bruto
 ```gherkin
 Given una conversacion visible para la conexion del estudio
 When el owner abre su detalle
-Then ve en orden cronologico solo mensajes publicos de texto entrantes y salientes
+Then ve en orden cronologico mensajes publicos de texto entrantes y salientes e imagenes entrantes admitidas
 And la carga inicial contiene como maximo 20 mensajes
 And los lotes anteriores usan un unico cursor positivo opaco `before`
-And las notas privadas, actividades y contenidos no soportados no se muestran como mensajes del cliente
+And las notas privadas y actividades no se muestran como mensajes del cliente
+And los adjuntos no soportados muestran un estado accesible sin enlace externo
+```
+
+```gherkin
+Given un mensaje entrante publico con imagen JPEG, PNG o WebP y texto opcional
+When el OWNER abre el hilo
+Then conserva el texto como caption y carga la imagen desde una ruta privada same-origin
+And el navegador no recibe el token ni la URL autenticada del proveedor
+And una imagen invalida, demasiado grande o no soportada termina en un placeholder accesible
 ```
 
 ```gherkin
@@ -110,6 +119,7 @@ And las rutas OWNER mantienen Cache-Control private, no-store
 ### Puertos de aplicacion
 
 - `ConversationProviderPort`: `listConversations`, `getConversation`, `sendReply`. Usa IDs externos opacos y DTOs normalizados; no menciona Chatwoot.
+- `ConversationImageProviderPort`: recupera solo una imagen entrante publica por IDs de conversacion, mensaje y adjunto; devuelve bytes y tipo/dimensiones validados. No serializa URL del proveedor.
 - `ConversationLinksRepositoryPort`: lista y guarda vinculos del estudio, comprueba cliente/caso y conserva el estado de ingesta.
 - `ConversationWebhookRepositoryPort`: registra atomicamente una entrega normalizada y devuelve `ACCEPTED | DUPLICATE`.
 - `ConversationOutboundRepositoryPort`: reclama y transiciona operaciones sin contenido mediante RPCs exclusivas de `service_role`.
@@ -132,7 +142,8 @@ And las rutas OWNER mantienen Cache-Control private, no-store
 - Estados aceptados: `open`, `pending`, `resolved`, `snoozed`; cualquier otro payload del proveedor falla como no valido.
 - Canales de UI aceptados: `web`, `instagram`, `facebook` y `unknown`; el adaptador reduce variantes externas sin ampliar capacidades.
 - Una respuesta usa NFKC, recorte, conserva saltos internos, rechaza controles no permitidos y admite de 1 a 2.000 caracteres.
-- El adaptador solo devuelve mensajes `private = false`, `content_type = text`, con tipo entrante o saliente y contenido no vacio.
+- El adaptador solo devuelve mensajes `private = false`, `content_type = text`, con tipo entrante o saliente y contenido no vacio o, para entrantes, adjuntos. Los mensajes privados y actividades siguen filtrados. Cada adjunto visible es un handle de imagen o un placeholder; nunca incluye URL externa.
+- Una imagen admitida exige `file_type = image`, MIME JPEG/PNG/WebP, URL HTTPS del origen Chatwoot o de un origen adicional exacto configurado en servidor, respuesta MIME coherente, firma y dimensiones reales validas. Limites: 10 MiB reales, lado maximo 8192 px, 40 MP, 8 s y hasta tres redirecciones manuales bajo la misma allowlist. GIF, SVG, HTML, documentos, audio y video no se sirven.
 
 ### Errores publicos
 
@@ -152,7 +163,7 @@ Cada formulario lleva una clave UUID. `SUCCEEDED` reutiliza el ID confirmado sin
 - Chatwoot es externo y sus respuestas son no confiables: infraestructura valida status HTTP, JSON y campos antes de normalizarlos.
 - El webhook es publico y falla cerrado: acepta como maximo 256 KiB reales, se firma sobre `timestamp.raw_body`, se compara en tiempo constante, se limita a cinco minutos y exige delivery ID antes de parsear o persistir.
 - La ruta webhook usa `service_role` solo despues de autenticar y normalizar el evento. Las rutas OWNER usan el cliente Supabase sujeto a cookies/RLS.
-- HTML y respuestas con datos privados usan `Cache-Control: private, no-store`; no se guardan mensajes, PII, tokens, firmas ni cuerpos brutos en Postgres, URLs o memoria de agentes.
+- HTML y respuestas con datos privados usan `Cache-Control: private, no-store`; la imagen privada agrega `X-Content-Type-Options: nosniff` y `Referrer-Policy: no-referrer`. No se guardan mensajes, imagenes, PII, tokens, firmas ni cuerpos brutos en Postgres, URLs o memoria de agentes.
 
 ## Plan RED-GREEN-REFACTOR
 
@@ -176,3 +187,5 @@ Estas referencias fijan solo el contrato del adaptador de infraestructura. La sp
 El PR #9 verifico en GitHub Actions la instalacion reproducible, lint, tipos, 156 pruebas y los builds cliente/SSR. El job `database` aplico todas las migraciones sobre Supabase limpio y paso las suites pgTAP acumuladas, incluida `conversation_outbound_idempotency.test.sql`, junto con el smoke autenticado. Evidencia: [run 34883809683](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34883809683).
 
 Esta evidencia cierra el contrato tecnico. No se ejecuto un recorrido live de la PWA contra una conexion Chatwoot sintetica; esa validacion operativa permanece `IN_PROGRESS` y no se usaron datos de clientes.
+
+La extension local de imagenes entrantes del 2026-09-26 aun no forma parte de esa evidencia de CI ni de una prueba live. Requiere revision e integracion independientes.

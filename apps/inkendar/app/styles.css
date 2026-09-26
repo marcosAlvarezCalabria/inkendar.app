@@ -1092,6 +1092,27 @@ textarea[aria-invalid="true"] {
   min-height: 44px;
 }
 
+.conversation-message {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.conversation-attachment-image {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: 28rem;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+}
+
+.conversation-attachment-placeholder {
+  padding: var(--space-3);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-md);
+}
+
 @media (min-width: 48rem) {
   .conversation-layout {
     grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);

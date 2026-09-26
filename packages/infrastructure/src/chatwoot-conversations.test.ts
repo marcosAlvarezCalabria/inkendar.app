@@ -29,6 +29,188 @@ function json(body: unknown, status = 200): Response {
 }
 
 describe("Chatwoot conversation adapter", () => {
+  it("normalizes public incoming image attachments without exposing their provider URL", async () => {
+    const messages = [
+      {
+        id: 84, account_id: 3, inbox_id: 7, conversation_id: 42, content: "Mira esto", message_type: 0,
+        content_type: "text", private: false, created_at: 84,
+        attachments: [{ id: 6, message_id: 84, account_id: 3, file_type: "image", content_type: "image/png", data_url: "https://chat.example.test/files/6", file_size: 68, width: 1, height: 1 }],
+      },
+      {
+        id: 85, account_id: 3, inbox_id: 7, conversation_id: 42, content: null, message_type: 0,
+        content_type: "text", private: false, created_at: 85,
+        attachments: [{ id: 7, message_id: 85, account_id: 3, file_type: "image", content_type: "image/jpeg", data_url: "https://chat.example.test/files/7", file_size: 128, width: 2, height: 3 }],
+      },
+      {
+        id: 86, account_id: 3, inbox_id: 7, conversation_id: 42, content: null, message_type: 0,
+        content_type: "text", private: false, created_at: 86,
+        attachments: [{ id: 8, message_id: 86, account_id: 3, file_type: "file", content_type: "application/pdf", data_url: "https://chat.example.test/files/8", file_size: 128 }],
+      },
+      {
+        id: 87, account_id: 3, inbox_id: 7, conversation_id: 42, content: null, message_type: 0,
+        content_type: "text", private: false, created_at: 87,
+        attachments: [{ id: 9, message_id: 87, account_id: 3, file_type: "image", content_type: "image/png", data_url: "http://169.254.169.254/latest/meta-data", file_size: 68 }],
+      },
+      {
+        id: 88, account_id: 3, inbox_id: 7, conversation_id: 42, content: null, message_type: 0,
+        content_type: "text", private: true, created_at: 88,
+        attachments: [{ id: 10, message_id: 88, account_id: 3, file_type: "image", content_type: "image/png", data_url: "https://chat.example.test/files/10", file_size: 68 }],
+      },
+    ];
+    const request = vi.fn(async (url: string) => url.endsWith("/messages")
+      ? json({ payload: messages })
+      : json({ id: 42, account_id: 3, inbox_id: 7, can_reply: true, messages: [] }));
+
+    const thread = await new ChatwootConversationAdapter(connection, request).getConversation("42");
+
+    expect(thread.messages).toEqual([
+      { id: "84", direction: "incoming", content: "Mira esto", createdAt: "1970-01-01T00:01:24.000Z", attachments: [{ id: "6", kind: "image" }] },
+      { id: "85", direction: "incoming", content: "", createdAt: "1970-01-01T00:01:25.000Z", attachments: [{ id: "7", kind: "image" }] },
+      { id: "86", direction: "incoming", content: "", createdAt: "1970-01-01T00:01:26.000Z", attachments: [{ kind: "unsupported" }] },
+      { id: "87", direction: "incoming", content: "", createdAt: "1970-01-01T00:01:27.000Z", attachments: [{ kind: "unsupported" }] },
+    ]);
+    expect(JSON.stringify(thread)).not.toContain("chat.example.test");
+    expect(JSON.stringify(thread)).not.toContain("169.254.169.254");
+  });
+
+  it("downloads a referenced image server-side and validates its real bytes", async () => {
+    const png = Uint8Array.from(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64"));
+    const request = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url) => {
+      if (url.endsWith("/messages?before=85")) return json({ payload: [{
+        id: 84, account_id: 3, inbox_id: 7, conversation_id: 42, content: null, message_type: 0, content_type: "text", private: false, created_at: 84,
+        attachments: [{ id: 6, message_id: 84, account_id: 3, file_type: "image", content_type: "image/png", data_url: "https://chat.example.test/files/6", file_size: png.byteLength, width: 1, height: 1 }],
+      }] });
+      return new Response(png, { headers: { "Content-Type": "image/png", "Content-Length": String(png.byteLength) } });
+    });
+
+    const image = await new ChatwootConversationAdapter(connection, request).getImageAttachment("42", "84", "6");
+
+    expect(image).toEqual({ bytes: png, mediaType: "image/png", width: 1, height: 1 });
+    expect(request.mock.calls[1]?.[0]).toBe("https://chat.example.test/files/6");
+    expect(request.mock.calls[1]?.[1]).toEqual(expect.objectContaining({ redirect: "manual", signal: expect.any(AbortSignal) }));
+    expect(request.mock.calls[1]?.[1]?.headers).toBeUndefined();
+  });
+
+  it.each([
+    { mediaType: "image/jpeg", encoded: "/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMgD/2wBDAAgEBAQEBAUFBQUFBQYGBgYGBgYGBgYGBgYHBwcICAgHBwcGBgcHCAgICAkJCQgICAgJCQoKCgwMCwsODg4RERT/xABMAAEBAAAAAAAAAAAAAAAAAAAABgEBAQAAAAAAAAAAAAAAAAAABgcQAQAAAAAAAAAAAAAAAAAAAAARAQAAAAAAAAAAAAAAAAAAAAD/wAARCAACAAIDASIAAhEAAxEA/9oADAMBAAIRAxEAPwCLAE1/f//Z" },
+    { mediaType: "image/webp", encoded: "UklGRjwAAABXRUJQVlA4IDAAAADQAQCdASoCAAIAAgA0JaACdLoB+AADsAD+8Oj3/yC5YXXI1/8gP+QH/ID/+PIAAAA=" },
+  ] as const)("serves real $mediaType bytes when allowed", async ({ mediaType, encoded }) => {
+    const bytes = Uint8Array.from(Buffer.from(encoded, "base64"));
+    const request = vi.fn(async (url: string) => url.endsWith("/messages?before=85")
+      ? json({ payload: [{
+        id: 84, account_id: 3, inbox_id: 7, conversation_id: 42, content: null, message_type: 0, content_type: "text", private: false, created_at: 84,
+        attachments: [{ id: 6, file_type: "image", content_type: mediaType, data_url: "https://chat.example.test/files/6" }],
+      }] })
+      : new Response(bytes, { headers: { "Content-Type": mediaType } }));
+
+    await expect(new ChatwootConversationAdapter(connection, request).getImageAttachment("42", "84", "6"))
+      .resolves.toEqual({ bytes, mediaType, width: 2, height: 2 });
+  });
+
+  it.each([
+    { name: "HTML disguised as PNG", headers: { "Content-Type": "image/png" }, body: new TextEncoder().encode("<html>unsafe</html>") },
+    { name: "unsupported GIF", headers: { "Content-Type": "image/gif" }, body: new TextEncoder().encode("GIF89a") },
+    { name: "oversized response", headers: { "Content-Type": "image/png", "Content-Length": String(10 * 1024 * 1024 + 1) }, body: new Uint8Array() },
+  ])("rejects $name when proxying an advertised image", async ({ headers, body }) => {
+    const request = vi.fn(async (url: string) => url.endsWith("/messages?before=85")
+      ? json({ payload: [{
+        id: 84, account_id: 3, inbox_id: 7, conversation_id: 42, content: null, message_type: 0, content_type: "text", private: false, created_at: 84,
+        attachments: [{ id: 6, message_id: 84, account_id: 3, file_type: "image", content_type: "image/png", data_url: "https://chat.example.test/files/6", file_size: 64, width: 1, height: 1 }],
+      }] })
+      : new Response(body, { headers }));
+
+    await expect(new ChatwootConversationAdapter(connection, request).getImageAttachment("42", "84", "6"))
+      .rejects.toBeInstanceOf(ConversationProviderUnavailableError);
+  });
+
+  it("blocks redirects outside the configured attachment origins", async () => {
+    const request = vi.fn(async (url: string) => url.endsWith("/messages?before=85")
+      ? json({ payload: [{
+        id: 84, account_id: 3, inbox_id: 7, conversation_id: 42, content: null, message_type: 0, content_type: "text", private: false, created_at: 84,
+        attachments: [{ id: 6, message_id: 84, account_id: 3, file_type: "image", content_type: "image/png", data_url: "https://chat.example.test/files/6", file_size: 64, width: 1, height: 1 }],
+      }] })
+      : new Response(null, { status: 302, headers: { Location: "https://169.254.169.254/internal" } }));
+
+    await expect(new ChatwootConversationAdapter(connection, request).getImageAttachment("42", "84", "6"))
+      .rejects.toBeInstanceOf(ConversationProviderUnavailableError);
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it("follows an explicitly configured HTTPS image origin without forwarding the API token", async () => {
+    const png = Uint8Array.from(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64"));
+    const request = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url) => {
+      if (url.endsWith("/messages?before=85")) return json({ payload: [{
+        id: 84, account_id: 3, inbox_id: 7, conversation_id: 42, content: null, message_type: 0, content_type: "text", private: false, created_at: 84,
+        attachments: [{ id: 6, message_id: 84, account_id: 3, file_type: "image", content_type: "image/png", data_url: "https://chat.example.test/files/6" }],
+      }] });
+      if (url === "https://chat.example.test/files/6") return new Response(null, { status: 302, headers: { Location: "https://cdn.example.test/signed/6" } });
+      return new Response(png, { headers: { "Content-Type": "image/png" } });
+    });
+    const adapter = new ChatwootConversationAdapter({ ...connection, attachmentOrigins: ["https://cdn.example.test"] }, request);
+
+    await expect(adapter.getImageAttachment("42", "84", "6")).resolves.toMatchObject({ mediaType: "image/png", width: 1, height: 1 });
+    expect(request.mock.calls[2]?.[0]).toBe("https://cdn.example.test/signed/6");
+    expect(request.mock.calls[1]?.[1]).toEqual(expect.objectContaining({ redirect: "manual", credentials: "omit" }));
+    expect(request.mock.calls[2]?.[1]?.headers).toBeUndefined();
+  });
+
+  it.each([
+    { name: "another account", row: { account_id: 4 } },
+    { name: "another conversation", row: { conversation_id: 43 } },
+    { name: "a private note", row: { private: true } },
+    { name: "an outgoing image", row: { message_type: 1 } },
+    { name: "a foreign attachment", row: { attachments: [{ id: 6, message_id: 99, account_id: 3, file_type: "image", content_type: "image/png", data_url: "https://chat.example.test/files/6" }] } },
+  ])("never fetches $name", async ({ row }) => {
+    const request = vi.fn(async () => json({ payload: [{
+      id: 84, account_id: 3, inbox_id: 7, conversation_id: 42, content: null, message_type: 0, content_type: "text", private: false, created_at: 84,
+      attachments: [{ id: 6, message_id: 84, account_id: 3, file_type: "image", content_type: "image/png", data_url: "https://chat.example.test/files/6" }],
+      ...row,
+    }] }));
+
+    await expect(new ChatwootConversationAdapter(connection, request).getImageAttachment("42", "84", "6"))
+      .rejects.toBeInstanceOf(ConversationProviderUnavailableError);
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects an image whose actual dimensions exceed the limit", async () => {
+    const png = Uint8Array.from(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64"));
+    new DataView(png.buffer).setUint32(16, 8_193);
+    const request = vi.fn(async (url: string) => url.endsWith("/messages?before=85")
+      ? json({ payload: [{
+        id: 84, account_id: 3, inbox_id: 7, conversation_id: 42, content: null, message_type: 0, content_type: "text", private: false, created_at: 84,
+        attachments: [{ id: 6, file_type: "image", content_type: "image/png", data_url: "https://chat.example.test/files/6" }],
+      }] })
+      : new Response(png, { headers: { "Content-Type": "image/png" } }));
+
+    await expect(new ChatwootConversationAdapter(connection, request).getImageAttachment("42", "84", "6"))
+      .rejects.toBeInstanceOf(ConversationProviderUnavailableError);
+  });
+
+  it("rejects a truncated PNG that has dimensions but no complete image", async () => {
+    const pngHeader = Uint8Array.from(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwC", "base64"));
+    const request = vi.fn(async (url: string) => url.endsWith("/messages?before=85")
+      ? json({ payload: [{
+        id: 84, account_id: 3, inbox_id: 7, conversation_id: 42, content: null, message_type: 0, content_type: "text", private: false, created_at: 84,
+        attachments: [{ id: 6, file_type: "image", content_type: "image/png", data_url: "https://chat.example.test/files/6" }],
+      }] })
+      : new Response(pngHeader, { headers: { "Content-Type": "image/png" } }));
+
+    await expect(new ChatwootConversationAdapter(connection, request).getImageAttachment("42", "84", "6"))
+      .rejects.toBeInstanceOf(ConversationProviderUnavailableError);
+  });
+
+  it("rejects an oversized streamed body even without Content-Length", async () => {
+    const request = vi.fn(async (url: string) => url.endsWith("/messages?before=85")
+      ? json({ payload: [{
+        id: 84, account_id: 3, inbox_id: 7, conversation_id: 42, content: null, message_type: 0, content_type: "text", private: false, created_at: 84,
+        attachments: [{ id: 6, file_type: "image", content_type: "image/png", data_url: "https://chat.example.test/files/6" }],
+      }] })
+      : new Response(new Uint8Array(10 * 1024 * 1024 + 1), { headers: { "Content-Type": "image/png" } }));
+
+    await expect(new ChatwootConversationAdapter(connection, request).getImageAttachment("42", "84", "6"))
+      .rejects.toBeInstanceOf(ConversationProviderUnavailableError);
+  });
+
   it("represents missing owner configuration as no connection", () => {
     expect(new ChatwootConnections(undefined).forStudio(studioId)).toBeNull();
     expect(new ChatwootConnections("[]").forStudio(studioId)).toBeNull();
@@ -46,6 +228,14 @@ describe("Chatwoot conversation adapter", () => {
       connection,
       { ...connection, connectionId: "south-connection-2026", studioId: otherStudioId },
     ]))).toThrow(ConversationProviderUnavailableError);
+  });
+
+  it("requires explicit public HTTPS attachment origins in server configuration", () => {
+    const trusted = new ChatwootConnections(JSON.stringify([{ ...connection, attachmentOrigins: ["https://cdn.example.test"] }]));
+    expect(trusted.forStudio(studioId)?.attachmentOrigins).toEqual(["https://cdn.example.test"]);
+    for (const origin of ["http://cdn.example.test", "https://127.0.0.1", "https://localhost", "https://cdn.example.test/path", "https://user@cdn.example.test"]) {
+      expect(() => new ChatwootConnections(JSON.stringify([{ ...connection, attachmentOrigins: [origin] }]))).toThrow(ConversationProviderUnavailableError);
+    }
   });
 
   it("lists and normalizes a bounded page and its all_count metadata", async () => {
