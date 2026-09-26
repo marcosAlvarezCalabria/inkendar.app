@@ -338,6 +338,8 @@ El mecanismo concreto puede comenzar con funciones programadas sobre la platafor
 
 El alojamiento inicial usa Cloudflare Workers y `workers.dev`; los runners programados continúan fuera de este despliegue hasta elegir su scheduler. El dominio y los puertos mantienen aisladas las capacidades exclusivas del proveedor.
 
+_Estado operativo a 2026-09-26:_ staging está desplegado sobre el proyecto Supabase Cloud `inkendar-staging`; `/readyz`, login OWNER y Ofertas pasaron smoke externo. Producción no está desplegada. Esta evidencia operativa no completa Google, Chatwoot, Storage/Images, notificaciones ni piloto, que conservan sus gates independientes.
+
 ## 10. TDD, calidad y observabilidad
 
 El proceso operativo completo está definido en [Flujo de desarrollo, revisión e integración](../development/delivery-workflow.md). Dos agentes trabajan secuencialmente: uno implementa mediante TDD y otro revisa, ejecuta la validación completa, gestiona el Pull Request y vigila el CI.

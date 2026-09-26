@@ -2,6 +2,8 @@
 
 _Fecha: 2026-09-23_
 
+_Estado: `SUPERSEDED` el 2026-09-26. Staging ya está operativo; consultar el [runbook vigente](cloudflare-workers-deployment.md). Producción continúa pendiente de aprobación explícita._
+
 ## Objetivo único del siguiente chat
 
 Publicar de forma segura primero staging y después producción, sin comprar dominio:
