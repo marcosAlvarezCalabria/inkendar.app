@@ -82,7 +82,7 @@ El modelo evita borrado y workflows anticipados: clientes usan ACTIVE / ARCHIVED
 
 ### Conversaciones OWNER
 
-_Estado tecnico del slice original: `DONE`. GitHub Actions verifico 156 pruebas, build, migraciones limpias y pgTAP en el run 34883809683. La extension de imagenes entrantes esta implementada localmente, pendiente de revision, PR y CI; el recorrido live de la PWA con Chatwoot permanece `IN_PROGRESS`._
+_Estado tecnico del slice original y la extension de imagenes entrantes: `DONE`. El PR #52 integró la extension como `c62c9e0` y el run post-merge 36244018683 verificó `validate` y `database`. El recorrido live de la PWA con Chatwoot permanece `IN_PROGRESS`._
 
 La bandeja SSR OWNER resuelve la conexion por `studioId` despues del guard. Si el estudio no tiene conexion devuelve una pagina vacia `private, no-store` sin cargar proveedor, credenciales ni `service_role`. Las conversaciones recorren paginas 1..1000 de 25 filas con `all_count`; el detalle carga hasta 20 mensajes publicos de texto e imagenes entrantes y usa un cursor positivo `before`.
 

@@ -1,6 +1,6 @@
 # Contrato del slice: conversaciones OWNER
 
-_Estado tecnico del slice original: DONE. Extension de imagenes entrantes: implementacion local, pendiente de revision, PR y CI._
+_Estado tecnico del slice original y la extension de imagenes entrantes: DONE. PR #52 integrado; run post-merge 36244018683 verde._
 
 _Recorrido live con Chatwoot: IN_PROGRESS_
 
@@ -188,4 +188,4 @@ El PR #9 verifico en GitHub Actions la instalacion reproducible, lint, tipos, 15
 
 Esta evidencia cierra el contrato tecnico. No se ejecuto un recorrido live de la PWA contra una conexion Chatwoot sintetica; esa validacion operativa permanece `IN_PROGRESS` y no se usaron datos de clientes.
 
-La extension local de imagenes entrantes del 2026-09-26 aun no forma parte de esa evidencia de CI ni de una prueba live. Requiere revision e integracion independientes.
+La extension de imagenes entrantes se integró mediante el [PR #52](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/52) como squash `c62c9e0a95150093026396d4126c933842a53994`. El [run post-merge 36244018683](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36244018683) pasó `validate` y `database`. No se ejecutó un recorrido live de la PWA con Chatwoot ni un despliegue de este cambio.
