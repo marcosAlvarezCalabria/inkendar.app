@@ -1,8 +1,10 @@
 # Especificación de diseño de producto — PWA Inkendar
 
-_Estado: especificación autoritativa de UX/UI, lista para implementación incremental_
+_Estado: especificación autoritativa de UX/UI; fundación y endurecimiento mobile-first integrados, resto incremental_
 
-_Última actualización: 2026-09-25_
+_Última actualización: 2026-09-26_
+
+_Evidencia vigente:_ los PR #45–#48 integraron esta especificación, la fundación visual, la corrección mobile-first y el fallo seguro de Ofertas. El 2026-09-26 staging pasó revisión OWNER a 320 CSS px y una comprobación posterior en teléfono físico; esto no sustituye la revisión completa de todos los estados, roles y tecnologías de asistencia.
 
 ## 1. Autoridad, propósito y fronteras
 

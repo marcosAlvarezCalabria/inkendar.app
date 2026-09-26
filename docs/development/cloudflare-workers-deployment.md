@@ -1,19 +1,19 @@
 # Despliegue SSR en Cloudflare Workers
 
-_Última actualización: 2026-09-23_
+_Última actualización: 2026-09-26_
 
 Inkendar empaqueta React Router 8 SSR con el plugin oficial de Cloudflare para Vite. El Worker sirve el BFF y delega el resto de peticiones al manejador de React Router; los assets cliente se publican desde `apps/inkendar/build/client`. Supabase Cloud continúa siendo la fuente de Postgres, Auth y Storage: este despliegue no crea ni migra datos a Cloudflare.
 
 ## Estado operativo actual
 
-El PR #42 está abierto. La implementación de despliegue quedó fijada en `c2727ee129c9a27f34781fffd45c27a8c2f34903` y pasó `validate` y `database` en el run `35879758897`; los commits documentales posteriores no cambian el artefacto de runtime. La configuración, los builds, los dry-runs y el preview local están verificados, pero no existe todavía ningún despliegue de Inkendar en Cloudflare. Tampoco se han creado proyectos Supabase Cloud para Inkendar, configurado secretos remotos, aplicado migraciones Cloud ni registrado los callbacks `workers.dev` en Google. Verificar en GitHub el HEAD y los checks vigentes antes de fusionar.
+El [PR #42](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/42) quedó integrado como `271cb35` y habilitó el despliegue separado de staging y producción. Staging está publicado en `https://inkendar-staging.calalva82.workers.dev` sobre el proyecto Supabase Cloud `inkendar-staging`, con migraciones aplicadas y los secretos Supabase requeridos. El 2026-09-26 `/readyz` devolvió `200`; login OWNER y Ofertas pasaron smoke externo a 320 CSS px y en un teléfono físico.
 
-El siguiente operador debe fusionar primero el PR #42 y seguir [el handoff de despliegue](handoff-2026-09-23-cloudflare-deployment.md). No debe interpretar un dry-run, una URL prevista o un CI verde como servicio publicado.
+Tras integrar el [PR #48](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/48), `main` `2f9a9359f2741023d0a588af14e5e2adb5fbc454` se desplegó en staging como versión `3dfa4cb8-ec4e-46fd-9576-eddb5b8036d7`. Producción continúa sin despliegue y no debe publicarse sin aprobación explícita. El [handoff del 2026-09-23](handoff-2026-09-23-cloudflare-deployment.md) se conserva como evidencia histórica, no como lista de acciones vigente.
 
 ## Prerrequisitos externos
 
 - una cuenta Cloudflare con el subdominio `workers.dev` `calalva82` y permisos para Workers;
-- un proyecto Supabase Cloud de staging y otro de producción, o una decisión explícita y revisada para compartir proyecto;
+- el proyecto Supabase Cloud de staging ya existe; producción necesita un proyecto separado o una decisión explícita y revisada antes de publicarse;
 - Cloudflare Images activado en la cuenta y en cada Worker que use el binding `IMAGES`.
 
 Cloudflare Images Free permite hasta 5.000 transformaciones únicas por mes. Al superar ese límite, las transformaciones nuevas fallan con el error `9422`; el plan Free no cobra el exceso. Cada combinación de imagen origen y parámetros del binding cuenta como transformación única por mes, mientras `.info()` no cuenta. Superar ese uso exige valorar Images Paid según la tarifa vigente. `wrangler deploy --dry-run` valida la configuración y el binding declarado, pero no habilita Images, no crea recursos y no demuestra disponibilidad en la cuenta. Verificar el plan y habilitar Images antes del primer despliegue real.
@@ -28,7 +28,9 @@ Cloudflare Images Free permite hasta 5.000 transformaciones únicas por mes. Al 
 | staging | `https://inkendar-staging.calalva82.workers.dev` |
 | production | `https://inkendar.calalva82.workers.dev` |
 
-Configurar con `wrangler secret put` en `staging` y `production`:
+Staging tiene configurados `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` y `SUPABASE_SERVICE_ROLE_KEY`. Las credenciales Google, Chatwoot y cualquier secreto del runner se añaden solo cuando se ejecute su recorrido live. Producción no tiene configuración operativa y debe permanecer así hasta aprobación explícita.
+
+Los secretos pendientes o de nuevos entornos se configuran con `wrangler secret put` en el entorno correspondiente:
 
 - `SUPABASE_URL`;
 - `SUPABASE_PUBLISHABLE_KEY` (o temporalmente `SUPABASE_ANON_KEY` mientras el proyecto todavía la use);
@@ -98,14 +100,14 @@ La emulación local de Images es de fidelidad reducida. El smoke real del bindin
 
 ## Promoción y dominio
 
-El despliegue es una acción manual separada de esta preparación:
+El despliegue es una acción manual por entorno:
 
 ```bash
 pnpm run deploy:staging
 pnpm run deploy:production
 ```
 
-Producción despliega el Worker `inkendar` en `https://inkendar.calalva82.workers.dev`; staging despliega `inkendar-staging` en `https://inkendar-staging.calalva82.workers.dev`. Ambos conservan `workers_dev=true`; producción desactiva preview URLs para que el único origen operativo sea estable. Antes de promocionar, verificar que Google OAuth y Supabase aceptan el origen/callback exactos. Un dominio personalizado es una mejora futura y requerirá una decisión y migración explícitas de origen, OAuth y cookies.
+Producción desplegará el Worker `inkendar` en `https://inkendar.calalva82.workers.dev`; staging despliega `inkendar-staging` en `https://inkendar-staging.calalva82.workers.dev`. Ambos conservan `workers_dev=true`; producción desactiva preview URLs para que el único origen operativo sea estable. Antes de promocionar, verificar que Google OAuth y Supabase aceptan el origen/callback exactos. Un dominio personalizado es una mejora futura y requerirá una decisión y migración explícitas de origen, OAuth y cookies.
 
 ## Observabilidad y rollback
 
