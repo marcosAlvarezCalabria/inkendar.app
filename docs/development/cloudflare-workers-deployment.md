@@ -10,6 +10,8 @@ El [PR #42](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/42) qued�
 
 Tras integrar el [PR #50](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/50), `main` `62db889d3d031a3e2df34f0e86057e346b4b3d2f` se desplegó en staging como versión `47191259-514f-45b1-8559-f221e8825e97`. `/readyz` devolvió `200`; los assets offline respondieron `200` y un smoke automatizado a 320 CSS px verificó control, allowlist, bloqueo con preservación y reconexión. La navegación al fallback quedó inconclusa por la limitación del simulador de red. Producción continúa sin despliegue y no debe publicarse sin aprobación explícita. El [handoff del 2026-09-23](handoff-2026-09-23-cloudflare-deployment.md) se conserva como evidencia histórica, no como lista de acciones vigente.
 
+Tras integrar los [PR #52](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/52) y [#53](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/53), `main` `81ab2d713a12cc295479a078b8d5b55ed407458b` se desplegó en staging como versión `5ca5b753-0d26-49a2-80df-6ac2f478b5a9`. La construcción y el dry-run usaron Node 24.19.0, pnpm 10.22.0 y Wrangler 4.136.3; `/healthz`, `/readyz` y `/login` devolvieron `200`. El Worker conserva únicamente los secretos Supabase: `INKENDAR_CHATWOOT_CONNECTIONS_JSON` sigue ausente, por lo que no se atribuye un recorrido live de conversaciones o imágenes. Producción no se desplegó.
+
 ## Prerrequisitos externos
 
 - una cuenta Cloudflare con el subdominio `workers.dev` `calalva82` y permisos para Workers;
