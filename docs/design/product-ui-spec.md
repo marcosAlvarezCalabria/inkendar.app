@@ -4,7 +4,7 @@ _Estado: especificación autoritativa de UX/UI; fundación y endurecimiento mobi
 
 _Última actualización: 2026-09-26_
 
-_Evidencia vigente:_ los PR #45–#48 integraron esta especificación, la fundación visual, la corrección mobile-first y el fallo seguro de Ofertas. El 2026-09-26 staging pasó revisión OWNER a 320 CSS px y una comprobación posterior en teléfono físico. El shell offline y su guard de mutaciones recibieron revisión independiente en el [PR #50](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/50); `validate` y `database` pasaron en el [run 36237373441](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36237373441), sin atribuir evidencia live.
+_Evidencia vigente:_ los PR #45–#48 integraron esta especificación, la fundación visual, la corrección mobile-first y el fallo seguro de Ofertas. El 2026-09-26 staging pasó revisión OWNER a 320 CSS px y una comprobación posterior en teléfono físico. El [PR #50](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/50) integró el shell offline y su guard de mutaciones; `validate` y `database` pasaron en el [run post-merge 36238090450](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36238090450). En staging, un smoke automatizado a 320 CSS px verificó el aviso offline, el bloqueo con preservación, la reconexión y la allowlist pública; la navegación al fallback estático sigue pendiente de un harness que no omita el service worker.
 
 ## 1. Autoridad, propósito y fronteras
 
@@ -554,6 +554,6 @@ No se consideran resueltas por esta especificación:
 5. Decidir si calendarios y ofertas se separarán en subrutas en una evolución futura; esta versión conserva las rutas reales.
 6. Definir si el editor semanal sustituirá el textarea técnico y cuál será su prueba de serialización/equivalencia.
 7. Validar live la notificación durable `REJECTED` tras un rechazo de elección libre. El contrato integrado reutiliza el outbox común, prioriza una única ruta Chatwoot del mismo caso y tenant, usa SMTP server-only por estudio como fallback y conserva `NO_ROUTE`/`UNKNOWN`; la evidencia live continúa pendiente.
-8. Definir el comportamiento exacto del shell estático offline cuando se implemente el service worker; no se autoriza cachear datos privados.
+8. Completar el smoke de navegación al fallback estático y su reintento en un navegador o dispositivo cuya simulación de red no omita el service worker; el comportamiento y la frontera de caché ya están definidos.
 9. Elegir herramienta de historias y regresión visual conforme al toolchain vigente; el contrato de fixtures no impone Storybook.
 10. Validar el sistema con owners, artistas y clientes reales antes de convertir preferencias visuales en evidencia de usabilidad.
