@@ -112,7 +112,7 @@ Rutas no contadas como pantallas:
 | `/app/owner/conversations/:conversationId/messages/:messageId/attachments/:attachmentId` | recurso de imagen entrante privado | se consume solo dentro del detalle OWNER |
 | `/app/owner/gallery/thumbnails/:handle` | recurso de imagen privado | se consume dentro de Galería |
 
-No se crea una duodécima pantalla para “inicio”: la ruta `/` no es la landing comercial ni un dashboard público.
+La ruta `/` no añade otra pantalla al inventario: solo resuelve la sesión y redirige; no es la landing comercial ni un dashboard público.
 
 ## 5. Navegación y arquitectura de información
 

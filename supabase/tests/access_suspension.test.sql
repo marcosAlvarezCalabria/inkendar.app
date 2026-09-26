@@ -10,6 +10,8 @@ select has_column('public', 'membership', 'access_changed_by', 'last access chan
 select ok(has_function_privilege('authenticated', 'public.set_artist_access(uuid,public.membership_status)', 'execute'), 'authenticated can request an identity-bound transition');
 select ok(not has_function_privilege('anon', 'public.set_artist_access(uuid,public.membership_status)', 'execute'), 'anon cannot execute transition');
 select ok(not has_function_privilege('service_role', 'public.set_artist_access(uuid,public.membership_status)', 'execute'), 'service role cannot bypass actor-bound transition');
+select ok(not has_function_privilege('authenticated', 'private.assert_authenticated_owner(uuid)', 'execute'), 'gallery guard remains private after replacement');
+select ok(not has_function_privilege('authenticated', 'private.assert_studio_owner(uuid,uuid)', 'execute'), 'service owner guard remains private after replacement');
 select ok(not has_table_privilege('authenticated', 'public.membership', 'insert'), 'authenticated cannot insert membership directly');
 select ok(not has_table_privilege('authenticated', 'public.membership', 'update'), 'authenticated cannot update membership directly');
 select ok(not has_table_privilege('authenticated', 'public.membership', 'delete'), 'authenticated cannot delete membership directly');
@@ -110,6 +112,16 @@ select is((select count(*) from public.membership), 0::bigint, 'suspended OWNER 
 select throws_ok(
   $$ select public.set_artist_access('40000000-0000-0000-0000-000000000002', 'SUSPENDED') $$,
   '42501', 'artist access unavailable', 'suspended OWNER cannot mutate access'
+);
+select throws_ok(
+  $$ select * from public.list_gallery_drafts_v2('20000000-0000-0000-0000-000000000001', 10) $$,
+  '42501', 'gallery unavailable', 'suspended OWNER cannot call authenticated gallery RPC with old token'
+);
+
+reset role;
+select throws_ok(
+  $$ select private.assert_studio_owner('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001') $$,
+  '42501', 'owner authorization failed', 'suspended OWNER cannot pass service-side owner helper'
 );
 
 select * from finish();

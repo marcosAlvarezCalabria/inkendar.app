@@ -101,7 +101,7 @@ export class SupabaseAuthenticationAdapter implements AuthSessionPort, Membershi
 export function createSupabaseAuthRequestAdapter(
   request: Request,
   environment: Record<string, string | undefined>,
-): { adapter: SupabaseAuthenticationAdapter; headers: Headers } {
+): { adapter: SupabaseAuthenticationAdapter; headers: Headers; client: ReturnType<typeof createServerClient> } {
   const config = loadSupabasePublicConfig(environment);
   const headers = privateHeaders();
   const client = createServerClient(config.url, config.publishableKey, {
@@ -118,7 +118,7 @@ export function createSupabaseAuthRequestAdapter(
       },
     },
   });
-  return { adapter: new SupabaseAuthenticationAdapter(client as unknown as SupabaseAuthClient), headers };
+  return { adapter: new SupabaseAuthenticationAdapter(client as unknown as SupabaseAuthClient), headers, client };
 }
 
 export function privateHeaders(): Headers {

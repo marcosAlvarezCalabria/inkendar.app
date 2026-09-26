@@ -1,17 +1,20 @@
 import { createAccessSuspensionService, InvalidAccessChangeError } from "@inkendar/application";
 import { AccessDeniedError } from "@inkendar/domain";
-import { createSupabaseAccessSuspensionRequestRepository, privateHeaders } from "@inkendar/infrastructure";
+import { createSupabaseAccessSuspensionRepository, privateHeaders } from "@inkendar/infrastructure";
 
 import { authHandlers, isTrustedMutationRequest, type AuthorizedRequestAccess } from "./auth.server.js";
 
 type Dependencies = Readonly<{
   authorize(request: Request): Promise<Response | AuthorizedRequestAccess>;
-  service(request: Request): ReturnType<typeof createAccessSuspensionService>;
+  service(request: Request, authorization: AuthorizedRequestAccess): ReturnType<typeof createAccessSuspensionService>;
 }>;
 
 const defaults: Dependencies = {
   authorize: (request) => authHandlers.requireRole(request, "OWNER"),
-  service: (request) => createAccessSuspensionService(createSupabaseAccessSuspensionRequestRepository(request, process.env)),
+  service: (_request, authorization) => {
+    if (!authorization.sessionClient) throw new Error("Authenticated session client unavailable");
+    return createAccessSuspensionService(createSupabaseAccessSuspensionRepository(authorization.sessionClient));
+  },
 };
 
 export function createOwnerAccessHandlers(dependencies: Dependencies = defaults) {
@@ -21,7 +24,7 @@ export function createOwnerAccessHandlers(dependencies: Dependencies = defaults)
       if (authorization instanceof Response) return authorization;
       const headers = responseHeaders(authorization.headers);
       try {
-        const members = await dependencies.service(request).listMembers(authorization.access);
+        const members = await dependencies.service(request, authorization).listMembers(authorization.access);
         const result = new URL(request.url).searchParams.get("result");
         return Response.json({ members, result: result === "suspended" || result === "restored" ? result : null }, { headers });
       } catch {
@@ -46,7 +49,7 @@ export function createOwnerAccessHandlers(dependencies: Dependencies = defaults)
         if ((intent !== "SUSPEND" && intent !== "RESTORE") || typeof membershipId !== "string") {
           throw new InvalidAccessChangeError();
         }
-        await dependencies.service(request).setArtistStatus(
+        await dependencies.service(request, authorization).setArtistStatus(
           authorization.access,
           membershipId,
           intent === "SUSPEND" ? "SUSPENDED" : "ACTIVE",

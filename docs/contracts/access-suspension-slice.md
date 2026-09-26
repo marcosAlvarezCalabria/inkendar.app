@@ -1,6 +1,6 @@
 # Contrato del slice: suspensión de acceso ARTIST
 
-_Estado: IN_PROGRESS — implementación y validación locales; revisión independiente, PR y CI pendientes_
+_Estado: IN_PROGRESS — implementación y validación locales; nueva revisión independiente, PR y CI pendientes_
 
 _Última actualización: 2026-09-26_
 
@@ -39,10 +39,13 @@ Then la operación falla cerrada sin revelar datos ni alterar filas
 - El POST exige origen confiable, método y campos exactos `intent` y `membershipId`. No acepta `studioId` ni `ownerId`. Todas las respuestas privadas usan `Cache-Control: private, no-store` y saneamiento de errores.
 - `public.set_artist_access(uuid, membership_status)` es `SECURITY DEFINER`, fija `search_path=''`, deriva el actor de `auth.uid()`, exige una sola membership OWNER activa y perfil coherente, y bloquea una membership ARTIST coherente del mismo tenant antes de cambiarla. Solo `authenticated` puede ejecutarla; `anon`, `public` y `service_role` no.
 - `authenticated` conserva SELECT de membership bajo RLS, pero pierde INSERT/UPDATE/DELETE directos. `service_role` conserva la provisión gestionada. `private.is_studio_owner` y `private.is_studio_artist` exigen ACTIVE; el SELECT propio de membership también. `get_artist_agenda` verifica ACTIVE dentro de su RPC, incluso con token anterior a la suspensión.
+- Las comprobaciones `private.assert_authenticated_owner` (galería RPC autenticada) y `private.assert_studio_owner` (RPC internas del servicio) también exigen OWNER `ACTIVE`. La corrección vive en una migración incremental; no modifica migraciones históricas.
+- Equipo y accesos reutiliza en su repositorio el cliente Supabase SSR con el que `requireRole` resolvió la sesión. Si `getUser()` renueva el token durante esa petición, la consulta y la mutación usan la sesión renovada y la respuesta conserva los `Set-Cookie` resultantes.
 - La suspensión no toca Auth, perfiles, clientes, casos, opciones, citas, Storage ni proveedores externos. La restauración cambia solo la membership y su marca de último cambio.
 
 ## Evidencia y gate
 
 - RED: pruebas de dominio mostraron que OWNER y ARTIST suspendidos seguían autorizados; pgTAP falló sin el nuevo estado/RPC. Las suites nuevas de aplicación, infraestructura, handler y UI también se añadieron antes de sus módulos.
-- GREEN local con Node 24/pnpm 10.22: pruebas enfocadas, lint, typecheck, suite TypeScript completa (642 aprobadas, 1 omitida), build y pgTAP completo (31 archivos, 987 aserciones) pasan. El archivo nuevo tiene 39 aserciones.
-- Pendientes: revisión independiente del diff, CI del PR y cualquier recorrido live. No se afirma despliegue ni disponibilidad en staging/producción.
+- RED de revisión: con OWNER suspendido y token previo, `list_gallery_drafts_v2` y `private.assert_studio_owner` no fallaban; la continuidad del cliente SSR renovado se perdía entre `requireRole` y Equipo y accesos.
+- GREEN local tras la revisión con Node 24/pnpm 10.22: pruebas enfocadas, lint, typecheck, suite TypeScript completa (644 aprobadas, 1 omitida), build y pgTAP completo (31 archivos, 991 aserciones) pasan. El archivo de suspensión tiene 43 aserciones.
+- Pendientes: nueva revisión independiente del diff, CI del PR y cualquier recorrido live. No se afirma despliegue ni disponibilidad en staging/producción.

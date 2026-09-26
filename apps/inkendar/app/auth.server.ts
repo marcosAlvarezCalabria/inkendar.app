@@ -2,14 +2,18 @@ import { AccessDeniedError, type AccessRole, type AuthorizedAccess } from "@inke
 import { createAuthenticationService, InvalidCredentialsError } from "@inkendar/application";
 import { createSupabaseAuthRequestAdapter, privateHeaders } from "@inkendar/infrastructure";
 
+type SessionClient = ReturnType<typeof createSupabaseAuthRequestAdapter>["client"];
+
 export type AuthRequestContext = Readonly<{
   headers: Headers;
   service: ReturnType<typeof createAuthenticationService>;
+  sessionClient?: SessionClient;
 }>;
 
 export type AuthorizedRequestAccess = Readonly<{
   access: AuthorizedAccess;
   headers: Headers;
+  sessionClient?: SessionClient;
 }>;
 
 type ContextFactory = (request: Request) => AuthRequestContext;
@@ -18,10 +22,11 @@ type TrustedOriginFactory = (request: Request) => string | null;
 const INTERNAL_URL_BASE = "https://inkendar.invalid";
 
 export function createAuthRequestContext(request: Request): AuthRequestContext {
-  const { adapter, headers } = createSupabaseAuthRequestAdapter(request, process.env);
+  const { adapter, headers, client } = createSupabaseAuthRequestAdapter(request, process.env);
   return {
     headers,
     service: createAuthenticationService({ memberships: adapter, session: adapter }),
+    sessionClient: client,
   };
 }
 
@@ -73,7 +78,7 @@ export function createAuthHandlers(
         return redirectResponse(`/login?returnTo=${encodeURIComponent(returnTo)}`, context.headers);
       }
       if (access.role !== requiredRole) throw accessDenied(context.headers);
-      return { access, headers: context.headers };
+      return { access, headers: context.headers, sessionClient: context.sessionClient };
     },
 
     async logout(request: Request): Promise<Response> {

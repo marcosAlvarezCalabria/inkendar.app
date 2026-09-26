@@ -71,6 +71,19 @@ describe("owner access handlers", () => {
     expect(repo.setArtistStatus).toHaveBeenNthCalledWith(2, targetId, "ACTIVE");
   });
 
+  it("passes the refreshed authorization session to the repository factory", async () => {
+    const sessionClient = { refreshed: true };
+    const authorization = { access, headers: new Headers({ "Set-Cookie": "session=rotated" }), sessionClient };
+    const service = vi.fn(() => createAccessSuspensionService(repository()));
+    const handlers = createOwnerAccessHandlers({ authorize: async () => authorization, service });
+
+    const response = await handlers.action(mutation(form("SUSPEND")));
+
+    expect(response.status).toBe(303);
+    expect(service).toHaveBeenCalledWith(expect.any(Request), authorization);
+    expect(response.headers.get("Set-Cookie")).toContain("session=rotated");
+  });
+
   it("rejects invalid or extra fields and sanitizes persistence errors", async () => {
     const { handlers, repo } = subject();
     const extra = form("SUSPEND"); extra.set("studioId", "foreign");

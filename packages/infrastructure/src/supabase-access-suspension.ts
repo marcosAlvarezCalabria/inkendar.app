@@ -1,9 +1,7 @@
-import { createServerClient, parseCookieHeader } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { AccessSuspensionRepositoryPort, StudioMember } from "@inkendar/application";
 import { AccessDeniedError, type AccessStatus } from "@inkendar/domain";
-import { loadSupabasePublicConfig } from "./supabase-auth.js";
 
 type DataResult = Readonly<{ data: unknown; error: unknown }>;
 
@@ -49,14 +47,7 @@ export class SupabaseAccessSuspensionRepository implements AccessSuspensionRepos
   }
 }
 
-export function createSupabaseAccessSuspensionRequestRepository(
-  request: Request,
-  environment: Record<string, string | undefined>,
-): SupabaseAccessSuspensionRepository {
-  const config = loadSupabasePublicConfig(environment);
-  const client = createServerClient(config.url, config.publishableKey, {
-    cookies: { getAll: () => parseCookieHeader(request.headers.get("Cookie") ?? ""), setAll: () => undefined },
-  });
+export function createSupabaseAccessSuspensionRepository(client: SupabaseClient): SupabaseAccessSuspensionRepository {
   return new SupabaseAccessSuspensionRepository(new SupabaseAccessSuspensionGateway(client));
 }
 
