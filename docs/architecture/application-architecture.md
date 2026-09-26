@@ -2,7 +2,7 @@
 
 _Estado: aceptada_
 
-_Última actualización: 2026-09-25_
+_Última actualización: 2026-09-26_
 
 _La fuente de verdad del comportamiento y el alcance es [Especificación de Inkendar](../product/sellable-mvp-spec.md). Este documento explica cómo construirlo y debe actualizarse cuando cambie una frontera, dependencia o decisión técnica._
 
@@ -42,7 +42,11 @@ La primera base utiliza:
 - Node.js 24 LTS en CI, con compatibilidad declarada para la última línea 22.22.x de mantenimiento, y runtime Workers con compatibilidad Node soportada en producción;
 - Vitest para TDD y una prueba de arquitectura que comprueba el grafo de dependencias declarado por los workspaces.
 
-El manifiesto web establece la base instalable. El service worker y la política de caché se implementarán con el primer slice PWA que pueda probar qué recursos son públicos y cuáles contienen datos privados.
+El manifiesto web establece la base instalable. El service worker mínimo vive como asset público estable y solo precachea una lista cerrada: `/offline.html`, `/inkendar-mark.svg` y `/manifest.webmanifest`. Para navegaciones `GET` conserva red primero y usa `/offline.html` únicamente si `fetch` falla; no guarda la respuesta de navegación ni implementa caché runtime.
+
+La frontera excluye de Cache Storage todas las rutas `/app`, APIs, enlaces opacos, mensajes, PII, imágenes privadas y cualquier respuesta SSR o dinámica, aunque su contenido pudiera parecer público. La aplicación sigue dependiendo de red para leer y escribir datos. En navegador, la raíz escucha `online`/`offline`, anuncia que los datos visibles pueden estar desactualizados y bloquea formularios no-GET sin borrar sus controles; al reconectar restaura el estado previo de cada submit. Este guard mejora la experiencia, pero la autorización y validación same-origin siguen perteneciendo al servidor.
+
+El registro se ejecuta después de hidratar, dentro de un efecto de React que no participa en SSR. La página fallback es HTML/CSS autocontenido y no incorpora datos de la navegación fallida.
 
 ### Base de identidad y aislamiento
 
@@ -307,7 +311,7 @@ Todas las tablas de negocio incluyen `studio_id`. Las políticas RLS deben demos
 - Supabase se crea en una región europea disponible y se utiliza un solo proyecto multi-tenant.
 - Los tokens de Google y Chatwoot permanecen cifrados en backend y nunca se exponen al navegador, logs o documentación.
 - Los enlaces del cliente son opacos, tienen alcance mínimo, caducan y no requieren una cuenta.
-- La PWA almacena en caché la aplicación estática; no conserva permanentemente mensajes, datos personales ni imágenes privadas en el dispositivo.
+- La PWA almacena en Cache Storage únicamente el fallback y assets públicos de su allowlist explícita; no conserva respuestas de navegación, APIs, mensajes, datos personales ni imágenes privadas en el dispositivo.
 - Las referencias de clientes utilizan URLs firmadas y temporales.
 - Al procesar imágenes se eliminan metadatos como GPS antes de almacenarlas o publicarlas.
 - Las operaciones de reserva y publicación son auditables e idempotentes.
@@ -377,6 +381,7 @@ La recomendación añade un backend propio delgado, pero concentra allí autoriz
 
 | Fecha | Cambio | Motivo |
 |---|---|---|
+| 2026-09-26 | Shell offline estático con allowlist cerrada y guard de mutaciones en navegador | Ofrecer una salida segura cuando falla una navegación sin convertir la aplicación en offline-first ni persistir contenido privado o dinámico. |
 | 2026-09-25 | Outbox común con fuente XOR y evento `REJECTED` para solicitudes free-choice | Avisar al cliente con la política Chatwoot/SMTP ya existente sin persistir contenido/PII, duplicar envíos ambiguos ni tocar Google. |
 | 2026-09-16 | Agenda privada ARTIST mediante SSR y RPC mínima ligada a `auth.uid()` | Mostrar solo próximas citas confirmadas propias y contexto de preparación sin PII, IDs, Google directo ni mutaciones. |
 | 2026-09-16 | Fallback SMTP server-only por estudio detrás de un puerto de aplicación | Avisar cuando no existe una única ruta Chatwoot sin persistir PII/credenciales ni acoplarse a un SaaS de email. |

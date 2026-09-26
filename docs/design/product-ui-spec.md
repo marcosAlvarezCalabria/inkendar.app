@@ -4,7 +4,7 @@ _Estado: especificación autoritativa de UX/UI; fundación y endurecimiento mobi
 
 _Última actualización: 2026-09-26_
 
-_Evidencia vigente:_ los PR #45–#48 integraron esta especificación, la fundación visual, la corrección mobile-first y el fallo seguro de Ofertas. El 2026-09-26 staging pasó revisión OWNER a 320 CSS px y una comprobación posterior en teléfono físico; esto no sustituye la revisión completa de todos los estados, roles y tecnologías de asistencia.
+_Evidencia vigente:_ los PR #45–#48 integraron esta especificación, la fundación visual, la corrección mobile-first y el fallo seguro de Ofertas. El 2026-09-26 staging pasó revisión OWNER a 320 CSS px y una comprobación posterior en teléfono físico. El shell offline y su guard de mutaciones recibieron revisión independiente en el [PR #50](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/50); `validate` y `database` pasaron en el [run 36237373441](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36237373441), sin atribuir evidencia live.
 
 ## 1. Autoridad, propósito y fronteras
 
@@ -264,7 +264,7 @@ Cada pantalla se diseña y revisa con los siguientes estados, incluso cuando la 
 | Sesión vencida | redirige a acceso y, si es seguro, comunica que la sesión terminó; no conserva PII en URL |
 | Resultado vacío por proveedor no conectado | se distingue de empty real siempre que el loader lo pueda conocer |
 
-La PWA no cachea permanentemente mensajes, PII ni imágenes privadas. Un diseño offline completo de datos queda fuera mientras el service worker continúe fuera del slice canónico; el patrón visual no autoriza persistencia local.
+La PWA no cachea permanentemente mensajes, PII, imágenes privadas, respuestas SSR ni datos dinámicos. El service worker solo conserva el fallback autocontenido y dos assets públicos imprescindibles de una allowlist cerrada; la aplicación continúa siendo dependiente de red y un diseño offline completo de datos queda fuera del MVP.
 
 Los mensajes de feedback usan `aria-live="polite"` para éxito y progreso, `role="alert"` para error inmediato, y mueven el foco solo cuando sea necesario para localizar el resultado o el primer error.
 
@@ -479,6 +479,8 @@ Dado que la aplicación detecta ausencia de conexión
 Cuando una persona intenta una mutación
 Entonces la UI no simula éxito ni descarta su contexto seguro
 Y explica que debe reconectar antes de enviar
+Cuando recupera la conexión
+Entonces el aviso desaparece y las mutaciones vuelven a habilitarse conservando los valores previos
 ```
 
 ### Escenario: galería accesible
