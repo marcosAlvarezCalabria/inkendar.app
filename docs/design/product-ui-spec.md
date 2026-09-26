@@ -4,7 +4,7 @@ _Estado: especificación autoritativa de UX/UI; fundación y endurecimiento mobi
 
 _Última actualización: 2026-09-26_
 
-_Evidencia vigente:_ los PR #45–#48 integraron esta especificación, la fundación visual, la corrección mobile-first y el fallo seguro de Ofertas. El 2026-09-26 staging pasó revisión OWNER a 320 CSS px y una comprobación posterior en teléfono físico. El shell offline y su guard de mutaciones son un candidato local con pruebas enfocadas; no tienen todavía revisión, CI ni evidencia live.
+_Evidencia vigente:_ los PR #45–#48 integraron esta especificación, la fundación visual, la corrección mobile-first y el fallo seguro de Ofertas. El 2026-09-26 staging pasó revisión OWNER a 320 CSS px y una comprobación posterior en teléfono físico. El shell offline y su guard de mutaciones recibieron revisión independiente en el [PR #50](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/50); `validate` y `database` pasaron en el [run 36237373441](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36237373441), sin atribuir evidencia live.
 
 ## 1. Autoridad, propósito y fronteras
 
