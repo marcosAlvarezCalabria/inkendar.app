@@ -12,6 +12,7 @@ const accessRecord = {
   membership: {
     id: "40000000-0000-4000-8000-000000000001",
     role: "OWNER" as const,
+    status: "ACTIVE" as const,
     studioId: "20000000-0000-4000-8000-000000000001",
     userId: "10000000-0000-4000-8000-000000000001",
   },
@@ -76,6 +77,18 @@ describe("authentication service", () => {
     await expect(
       service.login({ email: "owner@example.com", password: "secret-password" }),
     ).rejects.toBeInstanceOf(AccessDeniedError);
+  });
+
+  it("denies login and an already authenticated request after suspension", async () => {
+    const dependencies = ports();
+    vi.mocked(dependencies.memberships.findForUser).mockResolvedValue([
+      { ...accessRecord, membership: { ...accessRecord.membership, status: "SUSPENDED" } },
+    ]);
+    const service = createAuthenticationService(dependencies);
+
+    await expect(service.login({ email: "owner@example.com", password: "secret-password" })).rejects.toBeInstanceOf(AccessDeniedError);
+    await expect(service.currentAccess()).rejects.toBeInstanceOf(AccessDeniedError);
+    expect(dependencies.session.getAuthenticatedUser).toHaveBeenCalledOnce();
   });
 
   it("returns anonymous without querying memberships", async () => {

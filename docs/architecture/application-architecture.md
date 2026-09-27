@@ -52,7 +52,7 @@ El registro se ejecuta después de hidratar, dentro de un efecto de React que no
 
 El primer slice de persistencia utiliza Supabase CLI 2.117.0 fijada en el proyecto, migraciones SQL versionadas y datos sintéticos. `auth.users` conserva la identidad autenticada; `studio` es la raíz de cada tenant, y `user_profile`, `membership` y `artist_profile` incluyen `studio_id` con claves compuestas que impiden relacionar filas de estudios distintos y que ligan cada membership a la identidad exacta de su user profile.
 
-`membership_role` admite exclusivamente `OWNER` y `ARTIST`. El alta inicial del estudio pertenece al proceso operado con credenciales de servicio: un usuario autenticado no puede crear un tenant antes de tener una membresía owner. El owner administra únicamente las filas de su estudio. El artista solo consulta su propia membresía y perfiles cuando conserva una membresía `ARTIST` activa; no recibe escrituras ni acceso al registro del estudio.
+`membership_role` admite exclusivamente `OWNER` y `ARTIST`; `membership_status` admite `ACTIVE` y `SUSPENDED`. El alta inicial del estudio pertenece al proceso operado con credenciales de servicio. El OWNER lee miembros de su estudio y conserva sus permisos sobre perfiles y datos operativos, pero `authenticated` ya no inserta, actualiza ni elimina `membership` directamente. El ARTIST consulta su propia membership y perfiles solo cuando está `ACTIVE`; no recibe escrituras ni acceso al registro del estudio.
 
 Las políticas resuelven el rol mediante funciones `SECURITY DEFINER` en el schema no expuesto `private`. Las funciones fijan `search_path = ''`, cualifican objetos, exponen únicamente ejecución a `authenticated` y se evalúan con el `studio_id` de cada fila. Esto evita tanto la recursión sobre `membership` como la reutilización de una autorización entre tenants.
 
@@ -71,6 +71,14 @@ Este módulo provisiona identidades y filas coherentes, pero no implementa login
 ### Acceso autenticado a la PWA
 
 React Router compone un adaptador por petición con `@supabase/ssr`, clave pública y cookies HTTP. Aplicación depende de puertos de sesión y lectura de membership; infraestructura usa `auth.getUser()` y consulta perfiles con el mismo cliente sujeto a RLS. Dominio acepta únicamente una membership coherente con identidad, tenant y perfiles. Los loaders protegen cada shell, devuelven `private, no-store` y no serializan tokens ni la membership completa. `service_role` se limita al alta manual y a la prueba de integración aislada.
+
+### Suspensión y restauración de acceso ARTIST
+
+_Estado: IN_PROGRESS; implementación, pruebas y pgTAP locales verificados. Revisión independiente, CI y despliegue pendientes._
+
+`/app/owner/team` lista los miembros del tenant a través de RLS y ofrece POST same-origin únicamente para ARTIST. El handler obtiene el actor mediante el guard OWNER y no acepta tenant ni identidad de OWNER en el formulario. Aplicación valida UUID y estado; infraestructura usa el cliente SSR con clave pública y llama `set_artist_access`.
+
+La RPC `SECURITY DEFINER` fija `search_path=''`, usa `auth.uid()`, exige una sola membership OWNER `ACTIVE` y perfil coherente, y bloquea una membership ARTIST del mismo tenant. Repetir el estado es no-op. El cambio efectivo guarda `access_changed_at/by`; no modifica `auth.users`, perfiles, casos ni citas. Solo `authenticated` ejecuta la RPC y `service_role` conserva únicamente la provisión gestionada. Los helpers RLS de OWNER/ARTIST, los guards directos `private.assert_authenticated_owner` (galería) y `private.assert_studio_owner` (RPC de servicio), el SELECT propio de membership, el dominio de login/sesión y `get_artist_agenda` exigen `ACTIVE`, de modo que un token anterior a la suspensión no mantiene acceso. El repositorio de Equipo reutiliza el cliente SSR que autenticó la petición para respetar un refresh de token en curso. El contrato detallado es [Suspensión de acceso ARTIST](../contracts/access-suspension-slice.md).
 
 ### Clientes y casos de tatuaje
 
@@ -166,7 +174,7 @@ _Estado técnico del slice: `DONE`; el PR #25 y su CI verde integraron la implem
 
 `/app/artist` conserva el guard SSR `ARTIST`, cookies de sesión y respuestas `private, no-store`. Aplicación depende de `ArtistAgendaRepositoryPort`, recibe un reloj inyectable y fija un máximo de 50 filas. Infraestructura usa el cliente Supabase SSR de la petición; no compone `service_role` ni consulta Google.
 
-La RPC `get_artist_agenda` es `SECURITY DEFINER`, fija `search_path=''`, se concede solo a `authenticated` y resuelve `auth.uid()`. Exige exactamente una membership y una relación coherente ARTIST con `user_profile` y `artist_profile`; OWNER, anon, `service_role` e identidades incompletas fallan cerrado. Conserva los joins compuestos de tenant entre `appointment`, `booking_option`, `tattoo_case` y `customer`, exige cita/opción `CONFIRMED`, incluye `end_at = now`, impide retroceder el reloj mediante `greatest(p_now, now())`, ordena por inicio y limita a 50. No abre acceso general ni escritura a las tablas.
+La RPC `get_artist_agenda` es `SECURITY DEFINER`, fija `search_path=''`, se concede solo a `authenticated` y resuelve `auth.uid()`. Exige exactamente una membership `ACTIVE` y una relación coherente ARTIST con `user_profile` y `artist_profile`; OWNER, ARTIST suspendido, anon, `service_role` e identidades incompletas fallan cerrado. Conserva los joins compuestos de tenant entre `appointment`, `booking_option`, `tattoo_case` y `customer`, exige cita/opción `CONFIRMED`, incluye `end_at = now`, impide retroceder el reloj mediante `greatest(p_now, now())`, ordena por inicio y limita a 50. No abre acceso general ni escritura a las tablas.
 
 El DTO contiene solo intervalo, nombre visible del customer, resumen, body area y size opcionales y la zona IANA de `artist_availability_rule`; si aún no existe regla, muestra `UTC` explícito. La UI semántica no contiene formularios de agenda ni controles de edición, IDs, contacto, conversaciones, Google, tokens, notas, referencias o estados editables. El único formulario del shell es el `POST /logout` global para cerrar la sesión; no concede ninguna mutación de agenda. Este lector representa la cita persistida en Supabase y no sustituye ni duplica Google Calendar.
 

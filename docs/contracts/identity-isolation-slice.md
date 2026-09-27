@@ -2,7 +2,9 @@
 
 _Estado: DONE_
 
-_Última actualización: 2026-09-13_
+_Última actualización: 2026-09-26_
+
+_Extensión vigente:_ [Suspensión de acceso ARTIST](access-suspension-slice.md) cambia la autoridad de escritura de `membership`. Este contrato conserva la evidencia histórica del esquema base y sus FKs; los permisos de membership descritos abajo se leen con la extensión.
 
 ## Objetivo
 
@@ -68,7 +70,7 @@ And cada columna usada para autorización o relación tiene un índice adecuado
 - `public.membership` vincula una identidad con un estudio y contiene el rol `OWNER | ARTIST`; su FK compuesta exige que `user_profile_id`, `studio_id` y `user_id` pertenezcan al mismo perfil.
 - `public.artist_profile` existe solo para una membresía ARTIST y mantiene una FK compuesta que conserva el tenant.
 - `public.studio` es la raíz del tenant. Su `id` es el valor referenciado como `studio_id` por las demás tablas privadas.
-- El owner puede `SELECT`, `INSERT`, `UPDATE` y `DELETE` sobre membresías y perfiles de su estudio, y `SELECT`, `UPDATE` y `DELETE` sobre su estudio. La creación inicial de un tenant pertenece al proceso de provisión con rol de servicio.
+- El owner puede `SELECT` sobre memberships de su estudio, gestionar el estado ARTIST mediante la RPC ligada a su identidad y mantener sus permisos anteriores sobre perfiles y estudio. `authenticated` no puede insertar, actualizar ni eliminar membership directamente; la provisión con `service_role` conserva esas escrituras.
 - El artista recibe únicamente `SELECT` sobre su propia `membership`, `user_profile` y `artist_profile` mediante RLS. No recibe acceso al registro `studio` en este slice.
 - `anon` no recibe privilegios sobre las tablas privadas.
 - Las políticas consultan roles mediante funciones `SECURITY DEFINER` en un schema no expuesto, con `search_path` vacío, nombres cualificados y permisos de ejecución mínimos para evitar recursión y secuestro de objetos.

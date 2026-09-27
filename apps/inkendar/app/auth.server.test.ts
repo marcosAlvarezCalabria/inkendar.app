@@ -77,6 +77,17 @@ describe("PWA auth request handlers", () => {
     expect((result as { headers: Headers }).headers.get("Set-Cookie")).toContain("session=rotated");
   });
 
+  it("retains the same session client after authorization refresh", async () => {
+    const sessionClient = { refreshed: true };
+    const requestContext = { ...context(owner), sessionClient };
+    const handlers = createAuthHandlers(() => requestContext);
+
+    const result = await handlers.requireRole(new Request("https://app.inkendar.es/app/owner/team"), "OWNER");
+
+    expect(result).not.toBeInstanceOf(Response);
+    expect((result as { sessionClient?: unknown }).sessionClient).toBe(sessionClient);
+  });
+
   it("redirects an anonymous private request to login with a safe return path", async () => {
     const anonymous = context(null);
     const handlers = createAuthHandlers(() => anonymous);

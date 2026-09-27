@@ -16,12 +16,14 @@ type MembershipTable = "artist_profile" | "membership" | "user_profile";
 function client(
   role: "OWNER" | "ARTIST" = "ARTIST",
   failingTable?: MembershipTable,
+  status: "ACTIVE" | "SUSPENDED" = "ACTIVE",
 ): SupabaseAuthClient {
   const rows: Record<MembershipTable, ReadonlyArray<Record<string, string>>> = {
     membership: [
       {
         id: membershipId,
         role,
+        status,
         studio_id: studioId,
         user_id: userId,
         user_profile_id: profileId,
@@ -75,7 +77,7 @@ describe("Supabase authentication adapter", () => {
     await expect(adapter.getAuthenticatedUser()).resolves.toEqual({ userId });
     await expect(adapter.findForUser(userId)).resolves.toEqual([
       {
-        membership: { id: membershipId, role: "ARTIST", studioId, userId },
+        membership: { id: membershipId, role: "ARTIST", status: "ACTIVE", studioId, userId },
         userProfile: { id: profileId, displayName: "Artist", studioId, userId },
         artistProfile: { membershipId, studioId, userId },
       },
@@ -93,11 +95,17 @@ describe("Supabase authentication adapter", () => {
 
     await expect(adapter.findForUser(userId)).resolves.toEqual([
       {
-        membership: { id: membershipId, role: "OWNER", studioId, userId },
+        membership: { id: membershipId, role: "OWNER", status: "ACTIVE", studioId, userId },
         userProfile: { id: profileId, displayName: "Owner", studioId, userId },
         artistProfile: null,
       },
     ]);
+  });
+
+  it("preserves SUSPENDED from Supabase for fail-closed application access", async () => {
+    const adapter = new SupabaseAuthenticationAdapter(client("ARTIST", undefined, "SUSPENDED"));
+    const records = await adapter.findForUser(userId);
+    expect(records[0]?.membership.status).toBe("SUSPENDED");
   });
 
   it("sanitizes profile lookup failures", async () => {

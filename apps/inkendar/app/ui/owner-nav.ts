@@ -10,6 +10,7 @@ export const ownerNavItems: readonly OwnerNavItem[] = [
   { to: "/app/owner/conversations", label: "Conversaciones", exact: false },
   { to: "/app/owner/customers", label: "Clientes", exact: false },
   { to: "/app/owner/cases", label: "Casos", exact: false },
+  { to: "/app/owner/team", label: "Equipo", exact: false },
   { to: "/app/owner/calendars", label: "Calendario", exact: false },
   { to: "/app/owner/offers", label: "Ofertas", exact: false },
   { to: "/app/owner/gallery", label: "Galería", exact: false },

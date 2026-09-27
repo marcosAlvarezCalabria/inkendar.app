@@ -29,6 +29,7 @@ export default function OwnerPanel() {
           <li><Link to="/app/owner/conversations">Gestionar conversaciones</Link></li>
           <li><Link to="/app/owner/customers">Gestionar clientes</Link></li>
           <li><Link to="/app/owner/cases">Gestionar casos de tatuaje</Link></li>
+          <li><Link to="/app/owner/team">Gestionar equipo y accesos</Link></li>
           <li><Link to="/app/owner/calendars">Gestionar Google Calendar</Link></li>
           <li><Link to="/app/owner/offers">Gestionar ofertas de fechas</Link></li>
           <li><Link to="/app/owner/gallery">Gestionar galería privada</Link></li>

@@ -10,6 +10,7 @@ export default [
   route("availability/:token/select", "routes/public-availability-selection.ts"),
   route("app", "routes/app.tsx"),
   route("app/owner", "routes/owner.tsx"),
+  route("app/owner/team", "routes/owner-team.tsx"),
   route("app/owner/conversations", "routes/owner-conversations.tsx"),
   route("app/owner/conversations/:conversationId/messages/:messageId/attachments/:attachmentId", "routes/owner-conversation-image.ts"),
   route("app/owner/customers", "routes/owner-customers.tsx"),

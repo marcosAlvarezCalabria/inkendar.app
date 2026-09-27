@@ -1,7 +1,8 @@
 export type AccessRole = "OWNER" | "ARTIST";
+export type AccessStatus = "ACTIVE" | "SUSPENDED";
 
 export type IdentityAccessRecord = Readonly<{
-  membership: Readonly<{ id: string; role: AccessRole; studioId: string; userId: string }>;
+  membership: Readonly<{ id: string; role: AccessRole; status: AccessStatus; studioId: string; userId: string }>;
   userProfile: Readonly<{
     id: string;
     displayName: string;
@@ -52,6 +53,7 @@ function isCoherentRecord(userId: string, record: IdentityAccessRecord): record 
   if (
     !membership.id ||
     !membership.studioId ||
+    membership.status !== "ACTIVE" ||
     membership.userId !== userId ||
     !userProfile ||
     !userProfile.id ||
