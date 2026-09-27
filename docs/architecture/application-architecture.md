@@ -2,7 +2,7 @@
 
 _Estado: aceptada_
 
-_Última actualización: 2026-09-26_
+_Última actualización: 2026-09-27_
 
 _La fuente de verdad del comportamiento y el alcance es [Especificación de Inkendar](../product/sellable-mvp-spec.md). Este documento explica cómo construirlo y debe actualizarse cuando cambie una frontera, dependencia o decisión técnica._
 
@@ -74,7 +74,7 @@ React Router compone un adaptador por petición con `@supabase/ssr`, clave públ
 
 ### Suspensión y restauración de acceso ARTIST
 
-_Estado: IN_PROGRESS; implementación, pruebas y pgTAP locales verificados. Revisión independiente, CI y despliegue pendientes._
+_Estado: DONE técnico mediante [PR #55](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/55), squash `0e771cf` y [CI post-merge 36311000669](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36311000669) verde. Despliegue y recorrido live pendientes._
 
 `/app/owner/team` lista los miembros del tenant a través de RLS y ofrece POST same-origin únicamente para ARTIST. El handler obtiene el actor mediante el guard OWNER y no acepta tenant ni identidad de OWNER en el formulario. Aplicación valida UUID y estado; infraestructura usa el cliente SSR con clave pública y llama `set_artist_access`.
 
