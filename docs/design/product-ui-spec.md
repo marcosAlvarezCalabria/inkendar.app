@@ -2,7 +2,7 @@
 
 _Estado: especificación autoritativa de UX/UI; fundación y endurecimiento mobile-first integrados, resto incremental_
 
-_Última actualización: 2026-09-26_
+_Última actualización: 2026-09-27_
 
 _Evidencia vigente:_ los PR #45–#48 integraron esta especificación, la fundación visual, la corrección mobile-first y el fallo seguro de Ofertas. El 2026-09-26 staging pasó revisión OWNER a 320 CSS px y una comprobación posterior en teléfono físico. El [PR #50](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/50) integró el shell offline y su guard de mutaciones; `validate` y `database` pasaron en el [run post-merge 36238090450](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36238090450). En staging, un smoke automatizado a 320 CSS px verificó el aviso offline, el bloqueo con preservación, la reconexión y la allowlist pública; la navegación al fallback estático sigue pendiente de un harness que no omita el service worker.
 
@@ -256,7 +256,7 @@ Móvil usa una tarjeta por imagen con miniatura 4:3 y acciones en menú o grupos
 
 **Contenido mínimo:** miembros del estudio en tarjetas de una columna, nombre, rol y estado textual `Activo`/`Suspendido`. Los OWNER se muestran sin acción. Cada ARTIST dispone de una sola acción etiquetada según el estado, con explicación explícita de que suspender impide entrar y conserva citas/casos. La restauración reutiliza la misma cuenta.
 
-**Interacción:** formularios POST same-origin con botones de al menos 44 px, utilizables con teclado y sin hover. El resultado se anuncia de forma accesible; un error no revela detalles de proveedor ni otros tenants. La autorización permanece en servidor y RPC. Este slice está implementado y validado localmente; revisión visual independiente, CI y prueba live están pendientes.
+**Interacción:** formularios POST same-origin con botones de al menos 44 px, utilizables con teclado y sin hover. El resultado se anuncia de forma accesible; un error no revela detalles de proveedor ni otros tenants. La autorización permanece en servidor y RPC. El [PR #55](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/55) quedó integrado con CI verde; revisión visual en dispositivo de esta pantalla y prueba live siguen pendientes.
 
 ## 7. Estados transversales
 

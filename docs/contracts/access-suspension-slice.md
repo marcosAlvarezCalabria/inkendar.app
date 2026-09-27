@@ -1,8 +1,8 @@
 # Contrato del slice: suspensión de acceso ARTIST
 
-_Estado: IN_PROGRESS — implementación y validación locales; nueva revisión independiente, PR y CI pendientes_
+_Estado: DONE — revisión independiente, PR y CI post-merge verdes; recorrido live pendiente_
 
-_Última actualización: 2026-09-26_
+_Última actualización: 2026-09-27_
 
 ## Objetivo
 
@@ -48,4 +48,4 @@ Then la operación falla cerrada sin revelar datos ni alterar filas
 - RED: pruebas de dominio mostraron que OWNER y ARTIST suspendidos seguían autorizados; pgTAP falló sin el nuevo estado/RPC. Las suites nuevas de aplicación, infraestructura, handler y UI también se añadieron antes de sus módulos.
 - RED de revisión: con OWNER suspendido y token previo, `list_gallery_drafts_v2` y `private.assert_studio_owner` no fallaban; la continuidad del cliente SSR renovado se perdía entre `requireRole` y Equipo y accesos.
 - GREEN local tras la revisión con Node 24/pnpm 10.22: pruebas enfocadas, lint, typecheck, suite TypeScript completa (644 aprobadas, 1 omitida), build y pgTAP completo (31 archivos, 991 aserciones) pasan. El archivo de suspensión tiene 43 aserciones.
-- Pendientes: nueva revisión independiente del diff, CI del PR y cualquier recorrido live. No se afirma despliegue ni disponibilidad en staging/producción.
+- La revisión independiente cerró los bypasses de OWNER suspendido y verificó el diff completo. El [PR #55](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/55) integró el squash `0e771cfc395b75e9e06f42964289fe06b47988a7`; `validate` y `database` pasaron en el [run del PR 36310866418](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36310866418) y en el [run post-merge 36311000669](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36311000669). El recorrido live y cualquier despliegue de este cambio siguen pendientes.
