@@ -2,7 +2,7 @@
 
 _Estado: especificación viva y fuente de verdad para alcance, comportamiento y progreso_
 
-_Versión: 1.30.7_
+_Versión: 1.30.8_
 
 _Última actualización: 2026-09-27_
 
@@ -37,11 +37,22 @@ Estados utilizados:
 
 Las correcciones editoriales pueden agruparse en una entrada. Los cambios de comportamiento deben tener una entrada propia con su motivo.
 
+## Topología operativa de superficies
+
+Inkendar se entrega mediante dos superficies independientes. No comparten repositorio, build, hosting ni ciclo de despliegue:
+
+| Superficie | Repositorio y fuente de verdad | Implementación | Despliegue vigente | Límite obligatorio |
+|---|---|---|---|---|
+| Landing comercial | [`marcosAlvarezCalabria/inkendar`](https://github.com/marcosAlvarezCalabria/inkendar). Sus fuentes de verdad son `PRODUCT.md`, `DESIGN.md`, `docs/design/` y `docs/research/`. | Sitio estático Astro, bilingüe, dedicado a posicionamiento, validación comercial y captación del piloto. | Netlify mediante la integración con GitHub: producción en [`inkendar.netlify.app`](https://inkendar.netlify.app) y deploy previews por Pull Request. El dominio `inkendar.es` continúa pendiente de DNS. | No contiene la PWA, API/BFF, backend, datos de estudios ni el estado técnico del software. |
+| Panel y plataforma Inkendar | [`marcosAlvarezCalabria/inkendar.app`](https://github.com/marcosAlvarezCalabria/inkendar.app). Esta especificación, la arquitectura, los contratos y los documentos de entrega son autoritativos. | PWA/SSR React Router y TypeScript, API/BFF y monolito modular; Supabase Cloud conserva datos y aislamiento multi-tenant. | Cloudflare Workers para la aplicación. Existe staging en `inkendar-staging.calalva82.workers.dev`; producción en `inkendar.calalva82.workers.dev` continúa sin desplegar. | No contiene ni despliega la landing comercial. Los cambios del panel se implementan y validan exclusivamente en este repositorio. |
+
+Una comprobación o despliegue de Netlify demuestra únicamente el estado de la landing. Una comprobación o despliegue de Cloudflare/Supabase demuestra únicamente el estado del panel. Ninguna de las dos evidencias permite declarar disponible la otra superficie.
+
 ## Progreso vigente
 
 | Área | Estado | Evidencia o siguiente gate |
 |---|---|---|
-| Landing comercial de Inkendar | `PASS` | La landing Astro vive en el repositorio independiente [`inkendar`](https://github.com/marcosAlvarezCalabria/inkendar), con CI y despliegue propios; este repositorio no contiene su código. |
+| Landing comercial de Inkendar | `PASS` | La landing Astro vive en el repositorio independiente [`inkendar`](https://github.com/marcosAlvarezCalabria/inkendar), se despliega por Netlify con CI y deploy previews propios y responde en `inkendar.netlify.app`; este repositorio no contiene su código. `inkendar.es` sigue pendiente de DNS. |
 | Chat web en Chatwoot | `PASS` | Recepción y respuesta verificadas con datos sintéticos. |
 | Instagram en Chatwoot | `PASS` | Recepción y respuesta por el canal original verificadas. |
 | Facebook Messenger | `CONNECTED` | Falta la prueba bidireccional final. |
@@ -119,6 +130,7 @@ La arquitectura técnica está en [Arquitectura de aplicación](../architecture/
 
 | Fecha | Versión | Mejora o cambio | Por qué |
 |---|---|---|---|
+| 2026-09-27 | 1.30.8 | Se documentó la topología operativa explícita: landing Astro en `inkendar` desplegada por Netlify y panel/PWA en `inkendar.app` desplegado por Cloudflare Workers con Supabase Cloud. También se fijaron los límites de evidencia y contenido entre ambas superficies. | Evitar que mantenimiento, despliegues o diagnósticos futuros mezclen repositorios, proveedores de hosting o estados de disponibilidad independientes. |
 | 2026-09-27 | 1.30.7 | El [PR #55](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/55) integró la suspensión/restauración ARTIST como squash `0e771cf` tras revisión independiente; `validate` y `database` pasaron en el [run del PR 36310866418](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36310866418) y en el [run post-merge 36311000669](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36311000669). Despliegue y prueba live siguen pendientes. | Cerrar el gate técnico con evidencia de PR y CI sin atribuir disponibilidad operativa. |
 | 2026-09-26 | 1.30.6 | Se implementó localmente la suspensión/restauración OWNER de ARTIST con estado persistido, RPC tenant-safe, guard de sesión y agenda, RLS activa y UI Equipo. Pruebas enfocadas y pgTAP locales pasan; revisión, PR, CI y live siguen pendientes. | Cerrar la retirada explícita de acceso sin eliminar identidad ni historial. |
 | 2026-09-26 | 1.30.5 | Se desplegó `main` `81ab2d713a12cc295479a078b8d5b55ed407458b` en staging como versión `5ca5b753-0d26-49a2-80df-6ac2f478b5a9`; `/healthz`, `/readyz` y `/login` devolvieron `200`. El Worker conserva únicamente los secretos Supabase, por lo que la conexión Chatwoot y la prueba live de imágenes siguen pendientes. Producción no se desplegó. | Registrar la versión operativa observada y sus límites sin atribuir una integración externa todavía no configurada. |

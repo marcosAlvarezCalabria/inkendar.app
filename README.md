@@ -2,6 +2,10 @@
 
 PWA y backend de Inkendar para operar conversaciones, casos de tatuaje, propuestas de fecha, citas, agenda de artistas y contenido publicado por estudios.
 
+## Separación de superficies
+
+Este repositorio contiene únicamente el panel/PWA y su backend: React Router/TypeScript sobre Cloudflare Workers, con Supabase Cloud para persistencia y aislamiento. La landing comercial es un proyecto independiente en [`marcosAlvarezCalabria/inkendar`](https://github.com/marcosAlvarezCalabria/inkendar), está construida con Astro y se despliega por Netlify. Un build, preview o despliegue de una superficie no valida ni publica la otra.
+
 ## Estado
 
 La base técnica ejecutable está en construcción. El estado verificable de cada área, la evidencia de CI y el siguiente gate se mantienen únicamente en la [especificación viva](docs/product/sellable-mvp-spec.md); este README no duplica el progreso por slices.

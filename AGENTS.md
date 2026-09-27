@@ -1,6 +1,6 @@
 # Instrucciones principales del software Inkendar
 
-- Este repositorio contiene exclusivamente la PWA, API/BFF, dominio, infraestructura y contratos públicos del software Inkendar. La landing comercial vive en `https://github.com/marcosAlvarezCalabria/inkendar`.
+- Este repositorio contiene exclusivamente el panel/PWA, API/BFF, dominio, infraestructura y contratos públicos del software Inkendar. Se despliega por Cloudflare Workers y usa Supabase Cloud. La landing comercial vive en `https://github.com/marcosAlvarezCalabria/inkendar`, se implementa con Astro y se despliega por Netlify; nunca implementes ni diagnostiques una superficie desde el repositorio o proveedor de la otra.
 - Para cualquier feature, corrección, refactorización, cambio arquitectónico, API, base de datos o trabajo de pruebas, carga y sigue `$staff-software-engineer` como skill principal.
 - Conserva la arquitectura aprobada: monolito modular TypeScript con dependencias hacia dominio y Supabase, Chatwoot, Google Calendar y notificaciones detrás de adaptadores.
 - Aplica TDD RED–GREEN–REFACTOR a todo cambio de comportamiento. Toda corrección reproducible empieza con una prueba de regresión. No inventes pruebas para cambios documentales o mecánicos.
