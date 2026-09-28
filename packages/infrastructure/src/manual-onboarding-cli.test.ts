@@ -11,6 +11,67 @@ const environment = {
 };
 
 describe("manual onboarding CLI boundary", () => {
+  it("accepts one leading package-manager separator before the operation", () => {
+    expect(
+      parseManualOnboardingCommand(
+        [
+          "--",
+          "add-artist",
+          "--studio-id",
+          "20000000-0000-4000-8000-000000000001",
+          "--display-name",
+          "Artist",
+          "--email",
+          "artist@example.com",
+        ],
+        environment,
+      ),
+    ).toMatchObject({
+      operation: "add-artist",
+      input: { password: "private-password" },
+    });
+  });
+
+  it("accepts one leading package-manager separator before the owner operation", () => {
+    expect(
+      parseManualOnboardingCommand(
+        [
+          "--",
+          "create-studio-owner",
+          "--studio-name",
+          "North Ink",
+          "--display-name",
+          "Owner",
+          "--email",
+          "owner@example.com",
+        ],
+        environment,
+      ),
+    ).toMatchObject({
+      operation: "create-studio-owner",
+      input: { password: "private-password" },
+    });
+  });
+
+  it.each([
+    ["duplicates", ["--", "--", "add-artist"]],
+    ["appears after the operation", ["add-artist", "--"]],
+    [
+      "is used as an option value",
+      [
+        "add-artist",
+        "--studio-id",
+        "20000000-0000-4000-8000-000000000001",
+        "--display-name",
+        "--",
+        "--email",
+        "artist@example.com",
+      ],
+    ],
+  ])("rejects a package-manager separator when it %s", (_scenario, args) => {
+    expect(() => parseManualOnboardingCommand(args, environment)).toThrow(InvalidOnboardingInputError);
+  });
+
   it("reads the password from the environment for a closed owner command", () => {
     expect(
       parseManualOnboardingCommand(

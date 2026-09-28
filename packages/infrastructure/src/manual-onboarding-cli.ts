@@ -28,7 +28,9 @@ type ManualOnboardingCommand =
 const COMMON_OPTIONS = new Set(["--display-name", "--email"]);
 
 export function parseManualOnboardingCommand(args: readonly string[], environment: Environment): ManualOnboardingCommand {
-  const [operation, ...optionArgs] = args;
+  const commandArgs = args[0] === "--" ? args.slice(1) : args;
+  if (commandArgs.includes("--")) throw invalidCommand();
+  const [operation, ...optionArgs] = commandArgs;
   const serviceRoleKey = requireEnvironment(environment, "SUPABASE_SERVICE_ROLE_KEY");
   const supabaseUrl = requireEnvironment(environment, "SUPABASE_URL");
   const password = requireEnvironment(environment, "INKENDAR_ONBOARDING_PASSWORD");
