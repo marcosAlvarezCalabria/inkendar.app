@@ -56,6 +56,18 @@ describe("manual onboarding CLI boundary", () => {
   it.each([
     ["duplicates", ["--", "--", "add-artist"]],
     ["appears after the operation", ["add-artist", "--"]],
+    [
+      "is used as an option value",
+      [
+        "add-artist",
+        "--studio-id",
+        "20000000-0000-4000-8000-000000000001",
+        "--display-name",
+        "--",
+        "--email",
+        "artist@example.com",
+      ],
+    ],
   ])("rejects a package-manager separator when it %s", (_scenario, args) => {
     expect(() => parseManualOnboardingCommand(args, environment)).toThrow(InvalidOnboardingInputError);
   });
