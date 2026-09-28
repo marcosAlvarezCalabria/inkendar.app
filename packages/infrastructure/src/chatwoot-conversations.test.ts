@@ -279,6 +279,59 @@ describe("Chatwoot conversation adapter", () => {
     );
   });
 
+  it("reports only a fixed configuration phase for an invalid server-only connection", () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      expect(() => new ChatwootConnections("private-token not-json"))
+        .toThrow(ConversationProviderUnavailableError);
+      expect(warning).toHaveBeenCalledWith("chatwoot_conversations_unavailable", { phase: "configuration" });
+      expect(JSON.stringify(warning.mock.calls)).not.toContain("private-token");
+    } finally {
+      warning.mockRestore();
+    }
+  });
+
+  it("reports a sanitized phase when a conversation-list request fails before receiving HTTP", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const request = vi.fn(async () => { throw new TypeError("synthetic-api-token private response"); });
+      await expect(new ChatwootConversationAdapter(connection, request).listConversations(1))
+        .rejects.toBeInstanceOf(ConversationProviderUnavailableError);
+      expect(warning).toHaveBeenCalledWith("chatwoot_conversations_unavailable", { phase: "transport" });
+      expect(JSON.stringify(warning.mock.calls)).not.toContain("synthetic-api-token");
+    } finally {
+      warning.mockRestore();
+    }
+  });
+
+  it("reports only an HTTP status for a failed conversation-list response", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const adapter = new ChatwootConversationAdapter(connection, async () => new Response("private-token", { status: 403 }));
+      await expect(adapter.listConversations(1)).rejects.toBeInstanceOf(ConversationProviderUnavailableError);
+      expect(warning).toHaveBeenCalledWith("chatwoot_conversations_unavailable", { phase: "http", status: 403 });
+      expect(JSON.stringify(warning.mock.calls)).not.toContain("private-token");
+    } finally {
+      warning.mockRestore();
+    }
+  });
+
+  it("distinguishes malformed JSON from a malformed conversation-list schema without logging either body", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const invalidJson = new ChatwootConversationAdapter(connection, async () => new Response("private-token", { status: 200 }));
+      await expect(invalidJson.listConversations(1)).rejects.toBeInstanceOf(ConversationProviderUnavailableError);
+      expect(warning).toHaveBeenLastCalledWith("chatwoot_conversations_unavailable", { phase: "json" });
+
+      const invalidSchema = new ChatwootConversationAdapter(connection, async () => json({ data: { meta: { all_count: 1 }, payload: [{ status: "private-token" }] } }));
+      await expect(invalidSchema.listConversations(1)).rejects.toBeInstanceOf(ConversationProviderUnavailableError);
+      expect(warning).toHaveBeenLastCalledWith("chatwoot_conversations_unavailable", { phase: "schema" });
+      expect(JSON.stringify(warning.mock.calls)).not.toContain("private-token");
+    } finally {
+      warning.mockRestore();
+    }
+  });
+
   it("rejects a conversation summary attributed to another account", async () => {
     const request = vi.fn(async () => json({ data: { payload: [{
       id: 42, account_id: 4, inbox_id: 7, status: "open", can_reply: true, unread_count: 2, last_activity_at: 1_757_841_600,

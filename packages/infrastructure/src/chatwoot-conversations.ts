@@ -47,6 +47,7 @@ export class ChatwootConnections {
       if (new Set(this.#connections.map((item) => item.connectionId)).size !== this.#connections.length) throw new Error();
       if (new Set(this.#connections.map(providerAccountKey)).size !== this.#connections.length) throw new Error();
     } catch {
+      reportConversationFailure("configuration");
       throw new ConversationProviderUnavailableError();
     }
   }
@@ -72,14 +73,19 @@ export class ChatwootConversationAdapter implements ConversationProviderPort, Co
   }
 
   async listConversations(page: number, signal?: AbortSignal): Promise<ConversationBatch> {
-    const body = await this.#get(`/api/v1/accounts/${this.#connection.accountId}/conversations?status=all&page=${page}`, signal);
-    const data = object(object(body).data);
-    const payload = data.payload;
-    if (!Array.isArray(payload) || payload.length > 25) throw new ConversationProviderUnavailableError();
-    return {
-      items: payload.map((item) => summary(item, this.#connection.accountId)).sort((left, right) => right.lastActivityAt.localeCompare(left.lastActivityAt)),
-      totalCount: nonNegativeInteger(object(data.meta).all_count),
-    };
+    const body = await this.#get(`/api/v1/accounts/${this.#connection.accountId}/conversations?status=all&page=${page}`, signal, reportConversationFailure);
+    try {
+      const data = object(object(body).data);
+      const payload = data.payload;
+      if (!Array.isArray(payload) || payload.length > 25) throw new ConversationProviderUnavailableError();
+      return {
+        items: payload.map((item) => summary(item, this.#connection.accountId)).sort((left, right) => right.lastActivityAt.localeCompare(left.lastActivityAt)),
+        totalCount: nonNegativeInteger(object(data.meta).all_count),
+      };
+    } catch (error) {
+      reportConversationFailure("schema");
+      throw error;
+    }
   }
 
   async getConversation(conversationId: string, before?: string, signal?: AbortSignal): Promise<ConversationThread> {
@@ -168,9 +174,14 @@ export class ChatwootConversationAdapter implements ConversationProviderPort, Co
     throw new ConversationProviderUnavailableError();
   }
 
-  async #get(path: string, signal?: AbortSignal): Promise<unknown> {
-    const response = await this.#request(path, {}, signal);
-    const body = await json(response);
+  async #get(path: string, signal?: AbortSignal, reportFailure?: typeof reportConversationFailure): Promise<unknown> {
+    let response: Response;
+    try { response = await this.#request(path, {}, signal); }
+    catch (error) { reportFailure?.("transport"); throw error; }
+    if (!response.ok) reportFailure?.("http", response.status);
+    let body: unknown;
+    try { body = await json(response); }
+    catch (error) { if (response.ok) reportFailure?.("json"); throw error; }
     if (!response.ok) {
       if (response.status === 404) throw new ConversationNotFoundError();
       throw new ConversationProviderUnavailableError();
@@ -190,6 +201,10 @@ export class ChatwootConversationAdapter implements ConversationProviderPort, Co
       throw new ConversationProviderUnavailableError();
     }
   }
+}
+
+function reportConversationFailure(phase: "configuration" | "transport" | "http" | "json" | "schema", status?: number): void {
+  console.warn("chatwoot_conversations_unavailable", status === undefined ? { phase } : { phase, status });
 }
 
 export function verifyChatwootWebhook(input: Readonly<{ connection: ChatwootConnection; rawBody: string; headers: Headers; now?: Date }>): ConversationWebhookEvent {
