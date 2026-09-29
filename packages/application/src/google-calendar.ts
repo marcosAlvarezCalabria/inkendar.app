@@ -63,6 +63,18 @@ export class GoogleOAuthGrantIncompleteError extends Error {
   readonly code = "GOOGLE_OAUTH_GRANT_INCOMPLETE";
   constructor() { super("Google OAuth grant is incomplete"); this.name = "GoogleOAuthGrantIncompleteError"; }
 }
+export type GoogleOAuthCompletionFailurePhase =
+  | "attempt-consumption"
+  | "provider-exchange"
+  | "token-protection"
+  | "connection-persistence";
+export class GoogleOAuthCompletionFailedError extends Error {
+  readonly code = "GOOGLE_OAUTH_COMPLETION_FAILED";
+  constructor(readonly phase: GoogleOAuthCompletionFailurePhase) {
+    super("Google OAuth completion failed");
+    this.name = "GoogleOAuthCompletionFailedError";
+  }
+}
 export class GoogleCalendarNotAssignableError extends Error {
   readonly code = "GOOGLE_CALENDAR_NOT_ASSIGNABLE";
   constructor() { super("Google calendar is not assignable"); this.name = "GoogleCalendarNotAssignableError"; }
@@ -130,18 +142,34 @@ export function createGoogleCalendarService(dependencies: Dependencies) {
       const state = bounded(stateValue, 32, 512);
       const code = bounded(codeValue, 1, 4096);
       validDate(now);
-      const consumed = await dependencies.repository.consumeAttempt({
-        stateHash: dependencies.security.hashState(state), studioId, userId, now: now.toISOString(),
-      });
+      let consumed: boolean;
+      try {
+        consumed = await dependencies.repository.consumeAttempt({
+          stateHash: dependencies.security.hashState(state), studioId, userId, now: now.toISOString(),
+        });
+      } catch {
+        throw new GoogleOAuthCompletionFailedError("attempt-consumption");
+      }
       if (!consumed) throw new GoogleOAuthAttemptInvalidError();
-      const grant = await dependencies.provider.exchangeCode(code);
+      let grant: Readonly<{ refreshToken: string | null; grantedScopes: readonly string[] }>;
+      try {
+        grant = await dependencies.provider.exchangeCode(code);
+      } catch {
+        throw new GoogleOAuthCompletionFailedError("provider-exchange");
+      }
       const scopes = [...new Set(grant.grantedScopes)].sort();
       if (!grant.refreshToken || !scopes.includes(GOOGLE_CALENDAR_LIST_SCOPE)) throw new GoogleOAuthGrantIncompleteError();
-      await dependencies.repository.activateConnection({
-        studioId,
-        encryptedRefreshToken: dependencies.tokens.encrypt(grant.refreshToken),
-        grantedScopes: scopes,
-      });
+      let encryptedRefreshToken: string;
+      try {
+        encryptedRefreshToken = dependencies.tokens.encrypt(grant.refreshToken);
+      } catch {
+        throw new GoogleOAuthCompletionFailedError("token-protection");
+      }
+      try {
+        await dependencies.repository.activateConnection({ studioId, encryptedRefreshToken, grantedScopes: scopes });
+      } catch {
+        throw new GoogleOAuthCompletionFailedError("connection-persistence");
+      }
     },
 
     async getManagementView(studioIdValue: string): Promise<Readonly<{ connectionStatus: GoogleConnectionStatus | "NOT_CONNECTED"; calendars: readonly GoogleCalendar[]; artists: readonly ArtistCalendarAssignment[] }>> {

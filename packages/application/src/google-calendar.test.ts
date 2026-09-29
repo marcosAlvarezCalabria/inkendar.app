@@ -4,6 +4,7 @@ import {
   GoogleCalendarConnectionUnavailableError,
   GoogleCalendarCredentialInvalidError,
   GoogleCalendarNotAssignableError,
+  GoogleOAuthCompletionFailedError,
   GoogleOAuthAttemptInvalidError,
   GoogleOAuthGrantIncompleteError,
   createGoogleCalendarService,
@@ -95,6 +96,23 @@ describe("Google Calendar connection service", () => {
     const service = createGoogleCalendarService(deps);
     await expect(service.completeConnection(studioId, userId, state, "code", now)).rejects.toBeInstanceOf(GoogleOAuthGrantIncompleteError);
     expect(deps.repository.activateConnection).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["attempt-consumption", (deps: ReturnType<typeof dependencies>) => vi.mocked(deps.repository.consumeAttempt).mockRejectedValueOnce(new Error("synthetic attempt detail"))],
+    ["provider-exchange", (deps: ReturnType<typeof dependencies>) => vi.mocked(deps.provider.exchangeCode).mockRejectedValueOnce(new Error("synthetic provider detail"))],
+    ["token-protection", (deps: ReturnType<typeof dependencies>) => vi.mocked(deps.tokens.encrypt).mockImplementationOnce(() => { throw new Error("synthetic token detail"); })],
+    ["connection-persistence", (deps: ReturnType<typeof dependencies>) => vi.mocked(deps.repository.activateConnection).mockRejectedValueOnce(new Error("synthetic persistence detail"))],
+  ] as const)("categorizes unexpected %s failures without retaining their details", async (phase, fail) => {
+    const deps = dependencies();
+    fail(deps);
+    const service = createGoogleCalendarService(deps);
+
+    const caught = await service.completeConnection(studioId, userId, state, "authorization-code", now).catch((error: unknown) => error);
+
+    expect(caught).toBeInstanceOf(GoogleOAuthCompletionFailedError);
+    expect(caught).toMatchObject({ phase, message: "Google OAuth completion failed" });
+    expect(JSON.stringify(caught)).not.toContain("synthetic");
   });
 
   it("lists minimal metadata and only assigns a writable calendar to an own-studio artist", async () => {
