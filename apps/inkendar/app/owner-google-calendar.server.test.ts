@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { GoogleCalendarConnectionUnavailableError } from "@inkendar/application";
+import {
+  GoogleCalendarConnectionUnavailableError,
+  GoogleOAuthAttemptInvalidError,
+  GoogleOAuthGrantIncompleteError,
+} from "@inkendar/application";
+import { GoogleCalendarInfrastructureError, SupabaseGoogleCalendarError } from "@inkendar/infrastructure";
 import type { AuthorizedAccess } from "@inkendar/domain";
 import { createOwnerGoogleCalendarHandlers, type OwnerGoogleCalendarService } from "./owner-google-calendar.server.js";
 
@@ -83,6 +88,56 @@ describe("owner Google Calendar handlers", () => {
     const response = await handlers.callback(new Request("https://app.inkendar.es/auth/google/callback?state=synthetic-oauth-state-with-at-least-32-chars&code=synthetic-code"));
     expect(current.completeConnection).toHaveBeenCalledWith(studioId, userId, "synthetic-oauth-state-with-at-least-32-chars", "synthetic-code", new Date("2026-09-14T10:00:00Z"));
     expect(response.headers.get("Location")).toBe("/app/owner/calendars?result=connected");
+  });
+
+  it.each([
+    [new GoogleCalendarInfrastructureError(), "provider-exchange-or-token-protection"],
+    [new SupabaseGoogleCalendarError(), "persistence"],
+    [new Error("synthetic sensitive detail"), "unknown"],
+  ] as const)("reports an allowlisted callback failure without leaking error details", async (failure, phase) => {
+    const current = service();
+    vi.mocked(current.completeConnection).mockRejectedValueOnce(failure);
+    const reportCallbackFailure = vi.fn();
+    const handlers = createOwnerGoogleCalendarHandlers({
+      authorize,
+      createService: () => current,
+      now: () => new Date("2026-09-14T10:00:00Z"),
+      reportCallbackFailure,
+    });
+
+    const response = await handlers.callback(new Request("https://app.inkendar.es/auth/google/callback?state=synthetic-oauth-state-with-at-least-32-chars&code=synthetic-code"));
+
+    expect(response.headers.get("Location")).toBe("/app/owner/calendars?result=failed");
+    expect(reportCallbackFailure).toHaveBeenCalledOnce();
+    expect(reportCallbackFailure).toHaveBeenCalledWith("google_calendar_oauth_callback_failed", { phase });
+    expect(JSON.stringify(reportCallbackFailure.mock.calls)).not.toContain("synthetic sensitive detail");
+  });
+
+  it("reports configuration failure without logging callback values", async () => {
+    const reportCallbackFailure = vi.fn();
+    const createService = vi.fn(() => { throw new Error("synthetic configuration detail"); });
+    const handlers = createOwnerGoogleCalendarHandlers({ authorize, createService, now: () => new Date(), reportCallbackFailure });
+
+    const response = await handlers.callback(new Request("https://app.inkendar.es/auth/google/callback?state=synthetic-oauth-state-with-at-least-32-chars&code=synthetic-code"));
+
+    expect(response.headers.get("Location")).toBe("/app/owner/calendars?result=failed");
+    expect(reportCallbackFailure).toHaveBeenCalledWith("google_calendar_oauth_callback_failed", { phase: "configuration" });
+    expect(JSON.stringify(reportCallbackFailure.mock.calls)).not.toContain("synthetic configuration detail");
+  });
+
+  it.each([
+    [new GoogleOAuthAttemptInvalidError(), "invalid-state"],
+    [new GoogleOAuthGrantIncompleteError(), "reconnect-required"],
+  ] as const)("keeps expected callback failures quiet", async (failure, result) => {
+    const current = service();
+    vi.mocked(current.completeConnection).mockRejectedValueOnce(failure);
+    const reportCallbackFailure = vi.fn();
+    const handlers = createOwnerGoogleCalendarHandlers({ authorize, createService: () => current, now: () => new Date(), reportCallbackFailure });
+
+    const response = await handlers.callback(new Request("https://app.inkendar.es/auth/google/callback?state=synthetic-oauth-state-with-at-least-32-chars&code=synthetic-code"));
+
+    expect(response.headers.get("Location")).toBe(`/app/owner/calendars?result=${result}`);
+    expect(reportCallbackFailure).not.toHaveBeenCalled();
   });
 
   it("assigns or clears one artist calendar from same-origin forms", async () => {

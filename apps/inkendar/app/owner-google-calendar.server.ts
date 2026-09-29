@@ -9,7 +9,9 @@ import {
 import {
   AesGcmGoogleTokenProtector,
   GoogleCalendarHttpAdapter,
+  GoogleCalendarInfrastructureError,
   NodeGoogleOAuthSecurity,
+  SupabaseGoogleCalendarError,
   createSupabaseGoogleCalendarRepository,
   loadGoogleCalendarConfig,
   loadGoogleTokenEncryptionKey,
@@ -24,12 +26,20 @@ type Dependencies = Readonly<{
   authorize(request: Request): Promise<Response | AuthorizedRequestAccess>;
   createService(access: AuthorizedAccess): OwnerGoogleCalendarService;
   now(): Date;
+  reportCallbackFailure?(event: "google_calendar_oauth_callback_failed", details: Readonly<{ phase: GoogleOAuthCallbackFailurePhase }>): void;
 }>;
+
+type GoogleOAuthCallbackFailurePhase =
+  | "configuration"
+  | "provider-exchange-or-token-protection"
+  | "persistence"
+  | "unknown";
 
 const defaults: Dependencies = {
   authorize: (request) => authHandlers.requireRole(request, "OWNER"),
   createService: (access) => compose(access, process.env),
   now: () => new Date(),
+  reportCallbackFailure: (event, details) => console.warn(event, details),
 };
 
 export function createOwnerGoogleCalendarHandlers(dependencies: Dependencies = defaults) {
@@ -89,7 +99,13 @@ export function createOwnerGoogleCalendarHandlers(dependencies: Dependencies = d
       if (states.length !== 1 || codes.length > 1 || errors.length > 1 || (codes.length === 1) === (errors.length === 1)) {
         return localRedirect("invalid-state", headers);
       }
-      const service = dependencies.createService(authorization.access);
+      let service: OwnerGoogleCalendarService;
+      try {
+        service = dependencies.createService(authorization.access);
+      } catch {
+        reportCallbackFailure(dependencies, "configuration");
+        return localRedirect("failed", headers);
+      }
       try {
         if (errors.length === 1) {
           await service.cancelConnectionAttempt(authorization.access.studioId, authorization.access.userId, states[0] ?? "", dependencies.now());
@@ -100,6 +116,7 @@ export function createOwnerGoogleCalendarHandlers(dependencies: Dependencies = d
       } catch (error) {
         if (error instanceof GoogleOAuthAttemptInvalidError || error instanceof InvalidGoogleCalendarInputError) return localRedirect("invalid-state", headers);
         if (error instanceof GoogleOAuthGrantIncompleteError) return localRedirect("reconnect-required", headers);
+        reportCallbackFailure(dependencies, callbackFailurePhase(error));
         return localRedirect("failed", headers);
       }
     },
@@ -138,4 +155,18 @@ function actionError(error: unknown, headers: Headers): Response {
   if (error instanceof InvalidGoogleCalendarInputError) return Response.json({ error: "Revisa los datos del formulario." }, { status: 400, headers });
   if (error instanceof GoogleCalendarNotAssignableError || error instanceof GoogleCalendarConnectionUnavailableError) return Response.json({ error: "El calendario no se puede asignar." }, { status: 409, headers });
   return Response.json({ error: "No se pudo completar la operación." }, { status: 500, headers });
+}
+
+function callbackFailurePhase(error: unknown): GoogleOAuthCallbackFailurePhase {
+  if (error instanceof SupabaseGoogleCalendarError) return "persistence";
+  if (error instanceof GoogleCalendarInfrastructureError) return "provider-exchange-or-token-protection";
+  return "unknown";
+}
+
+function reportCallbackFailure(dependencies: Dependencies, phase: GoogleOAuthCallbackFailurePhase): void {
+  try {
+    (dependencies.reportCallbackFailure ?? defaults.reportCallbackFailure)?.("google_calendar_oauth_callback_failed", { phase });
+  } catch {
+    // Diagnostics must never change the callback redirect contract.
+  }
 }
