@@ -1,17 +1,17 @@
 import {
   GoogleCalendarConnectionUnavailableError,
   GoogleCalendarNotAssignableError,
+  GoogleOAuthCompletionFailedError,
   GoogleOAuthAttemptInvalidError,
   GoogleOAuthGrantIncompleteError,
   InvalidGoogleCalendarInputError,
   createGoogleCalendarService,
+  type GoogleOAuthCompletionFailurePhase,
 } from "@inkendar/application";
 import {
   AesGcmGoogleTokenProtector,
   GoogleCalendarHttpAdapter,
-  GoogleCalendarInfrastructureError,
   NodeGoogleOAuthSecurity,
-  SupabaseGoogleCalendarError,
   createSupabaseGoogleCalendarRepository,
   loadGoogleCalendarConfig,
   loadGoogleTokenEncryptionKey,
@@ -29,11 +29,7 @@ type Dependencies = Readonly<{
   reportCallbackFailure?(event: "google_calendar_oauth_callback_failed", details: Readonly<{ phase: GoogleOAuthCallbackFailurePhase }>): void;
 }>;
 
-type GoogleOAuthCallbackFailurePhase =
-  | "configuration"
-  | "provider-exchange-or-token-protection"
-  | "persistence"
-  | "unknown";
+type GoogleOAuthCallbackFailurePhase = "configuration" | GoogleOAuthCompletionFailurePhase | "unknown";
 
 const defaults: Dependencies = {
   authorize: (request) => authHandlers.requireRole(request, "OWNER"),
@@ -158,8 +154,7 @@ function actionError(error: unknown, headers: Headers): Response {
 }
 
 function callbackFailurePhase(error: unknown): GoogleOAuthCallbackFailurePhase {
-  if (error instanceof SupabaseGoogleCalendarError) return "persistence";
-  if (error instanceof GoogleCalendarInfrastructureError) return "provider-exchange-or-token-protection";
+  if (error instanceof GoogleOAuthCompletionFailedError) return error.phase;
   return "unknown";
 }
 

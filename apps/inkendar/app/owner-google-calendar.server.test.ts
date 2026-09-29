@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   GoogleCalendarConnectionUnavailableError,
+  GoogleOAuthCompletionFailedError,
   GoogleOAuthAttemptInvalidError,
   GoogleOAuthGrantIncompleteError,
 } from "@inkendar/application";
-import { GoogleCalendarInfrastructureError, SupabaseGoogleCalendarError } from "@inkendar/infrastructure";
 import type { AuthorizedAccess } from "@inkendar/domain";
 import { createOwnerGoogleCalendarHandlers, type OwnerGoogleCalendarService } from "./owner-google-calendar.server.js";
 
@@ -91,8 +91,10 @@ describe("owner Google Calendar handlers", () => {
   });
 
   it.each([
-    [new GoogleCalendarInfrastructureError(), "provider-exchange-or-token-protection"],
-    [new SupabaseGoogleCalendarError(), "persistence"],
+    [new GoogleOAuthCompletionFailedError("attempt-consumption"), "attempt-consumption"],
+    [new GoogleOAuthCompletionFailedError("provider-exchange"), "provider-exchange"],
+    [new GoogleOAuthCompletionFailedError("token-protection"), "token-protection"],
+    [new GoogleOAuthCompletionFailedError("connection-persistence"), "connection-persistence"],
     [new Error("synthetic sensitive detail"), "unknown"],
   ] as const)("reports an allowlisted callback failure without leaking error details", async (failure, phase) => {
     const current = service();
