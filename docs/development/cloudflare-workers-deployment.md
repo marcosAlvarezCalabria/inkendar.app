@@ -1,6 +1,6 @@
 # Despliegue SSR en Cloudflare Workers
 
-_Última actualización: 2026-09-26_
+_Última actualización: 2026-09-29_
 
 Inkendar empaqueta React Router 8 SSR con el plugin oficial de Cloudflare para Vite. El Worker sirve el BFF y delega el resto de peticiones al manejador de React Router; los assets cliente se publican desde `apps/inkendar/build/client`. Supabase Cloud continúa siendo la fuente de Postgres, Auth y Storage: este despliegue no crea ni migra datos a Cloudflare.
 
@@ -11,6 +11,8 @@ El [PR #42](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/42) qued�
 Tras integrar el [PR #50](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/50), `main` `62db889d3d031a3e2df34f0e86057e346b4b3d2f` se desplegó en staging como versión `47191259-514f-45b1-8559-f221e8825e97`. `/readyz` devolvió `200`; los assets offline respondieron `200` y un smoke automatizado a 320 CSS px verificó control, allowlist, bloqueo con preservación y reconexión. La navegación al fallback quedó inconclusa por la limitación del simulador de red. Producción continúa sin despliegue y no debe publicarse sin aprobación explícita. El [handoff del 2026-09-23](handoff-2026-09-23-cloudflare-deployment.md) se conserva como evidencia histórica, no como lista de acciones vigente.
 
 Tras integrar los [PR #52](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/52) y [#53](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/53), `main` `81ab2d713a12cc295479a078b8d5b55ed407458b` se desplegó en staging como versión `5ca5b753-0d26-49a2-80df-6ac2f478b5a9`. La construcción y el dry-run usaron Node 24.19.0, pnpm 10.22.0 y Wrangler 4.136.3; `/healthz`, `/readyz` y `/login` devolvieron `200`. El Worker conserva únicamente los secretos Supabase: `INKENDAR_CHATWOOT_CONNECTIONS_JSON` sigue ausente, por lo que no se atribuye un recorrido live de conversaciones o imágenes. Producción no se desplegó.
+
+Tras integrar el [PR #59](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/59) como squash `641579dcfa978293a200163c2da29e1099a24d1e`, el [run post-merge 36472666798](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36472666798) dejó `validate` y `database` verdes. `main` se desplegó exclusivamente en `inkendar-staging` como versión `c8fddbc1-cb2b-4f1b-bc49-bee4740427f1`; `/healthz` y `/readyz` devolvieron `200` dos veces. `INKENDAR_CHATWOOT_CONNECTIONS_JSON` quedó configurado como secreto cifrado y se verificaron listado, detalle, recepción y respuesta de texto con datos sintéticos, incluida una conversación Instagram bidireccional. El webhook firmado, una imagen entrante live y la actualización automática siguen pendientes. Producción no se desplegó.
 
 ## Prerrequisitos externos
 
@@ -30,7 +32,7 @@ Cloudflare Images Free permite hasta 5.000 transformaciones únicas por mes. Al 
 | staging | `https://inkendar-staging.calalva82.workers.dev` |
 | production | `https://inkendar.calalva82.workers.dev` |
 
-Staging tiene configurados `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` y `SUPABASE_SERVICE_ROLE_KEY`. Las credenciales Google, Chatwoot y cualquier secreto del runner se añaden solo cuando se ejecute su recorrido live. Producción no tiene configuración operativa y debe permanecer así hasta aprobación explícita.
+Staging tiene configurados `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` e `INKENDAR_CHATWOOT_CONNECTIONS_JSON`. Las credenciales Google y cualquier secreto del runner se añaden solo cuando se ejecute su recorrido live. Producción no tiene configuración operativa y debe permanecer así hasta aprobación explícita.
 
 Los secretos pendientes o de nuevos entornos se configuran con `wrangler secret put` en el entorno correspondiente:
 

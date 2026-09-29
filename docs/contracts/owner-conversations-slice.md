@@ -2,9 +2,9 @@
 
 _Estado tecnico del slice original y la extension de imagenes entrantes: DONE. PR #52 integrado; run post-merge 36244018683 verde._
 
-_Recorrido live con Chatwoot: IN_PROGRESS_
+_Recorrido live con Chatwoot: PARTIAL; texto e Instagram bidireccionales verificados en staging, webhook e imagen live pendientes_
 
-_Ultima actualizacion: 2026-09-26_
+_Ultima actualizacion: 2026-09-29_
 
 ## Objetivo
 
@@ -187,6 +187,8 @@ Estas referencias fijan solo el contrato del adaptador de infraestructura. La sp
 
 El PR #9 verifico en GitHub Actions la instalacion reproducible, lint, tipos, 156 pruebas y los builds cliente/SSR. El job `database` aplico todas las migraciones sobre Supabase limpio y paso las suites pgTAP acumuladas, incluida `conversation_outbound_idempotency.test.sql`, junto con el smoke autenticado. Evidencia: [run 34883809683](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/34883809683).
 
-Esta evidencia cierra el contrato tecnico. No se ejecuto un recorrido live de la PWA contra una conexion Chatwoot sintetica; esa validacion operativa permanece `IN_PROGRESS` y no se usaron datos de clientes.
+Esta evidencia cierra el contrato tecnico. El 2026-09-28 se configuró una conexión Chatwoot sintética en `inkendar-staging` y se verificaron listado, detalle, recepción y respuesta de texto desde la PWA, incluida una conversación Instagram bidireccional. La operación observada actualiza al abrir o recargar el detalle; no acredita actualización automática en navegador.
 
-La extension de imagenes entrantes se integró mediante el [PR #52](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/52) como squash `c62c9e0a95150093026396d4126c933842a53994`. El [run post-merge 36244018683](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36244018683) pasó `validate` y `database`. No se ejecutó un recorrido live de la PWA con Chatwoot ni un despliegue de este cambio.
+La extension de imagenes entrantes se integró mediante el [PR #52](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/52) como squash `c62c9e0a95150093026396d4126c933842a53994`. El [run post-merge 36244018683](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36244018683) pasó `validate` y `database`; una imagen entrante live continúa pendiente.
+
+El [PR #59](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/59), squash `641579dcfa978293a200163c2da29e1099a24d1e`, añadió diagnóstico sanitizado por fase de configuración, transporte, HTTP, JSON o esquema. `validate` y `database` quedaron verdes en el [run post-merge 36472666798](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36472666798). Staging desplegó esa revisión como versión `c8fddbc1-cb2b-4f1b-bc49-bee4740427f1`. El webhook firmado e idempotente sigue sin prueba live.
