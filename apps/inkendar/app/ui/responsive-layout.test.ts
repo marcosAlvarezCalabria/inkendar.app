@@ -9,6 +9,8 @@ const root = readFileSync(join(appDir, "root.tsx"), "utf8");
 const shells = readFileSync(join(appDir, "ui", "shells.tsx"), "utf8");
 const conversations = readFileSync(join(appDir, "routes", "owner-conversations.tsx"), "utf8");
 const calendars = readFileSync(join(appDir, "routes", "owner-calendars.tsx"), "utf8");
+const customers = readFileSync(join(appDir, "routes", "owner-customers.tsx"), "utf8");
+const cases = readFileSync(join(appDir, "routes", "owner-cases.tsx"), "utf8");
 
 describe("mobile-first layout contract", () => {
   it("opts into viewport safe areas and prevents the document itself from overflowing", () => {
@@ -23,6 +25,14 @@ describe("mobile-first layout contract", () => {
     expect(styles).toMatch(/\.record-form\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/su);
     expect(styles).toMatch(/@media \(min-width:\s*48rem\)[\s\S]*\.record-form\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fit,/u);
     expect(styles).toMatch(/\.record-form\s*>\s*:is\(button, \.button\)\s*\{[^}]*width:\s*100%/su);
+  });
+
+  it("keeps OWNER records in one column at 320px and separates entry from the flat editable list on wide screens", () => {
+    expect(customers).toContain('className="record-workspace"');
+    expect(cases).toContain('className="record-workspace"');
+    expect(styles).toMatch(/\.record-workspace\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/su);
+    expect(styles).toMatch(/\.record-entry\s*\{[^}]*border-top:\s*1px dashed/su);
+    expect(styles).toMatch(/@media \(min-width:\s*64rem\)[\s\S]*\.record-workspace\s*\{[^}]*grid-template-columns:\s*minmax\(0, [^)]+\)\s+minmax\(0, [^)]+\)/u);
   });
 
   it("keeps compact navigation through phone widths and exposes the persistent rail at 768px", () => {
