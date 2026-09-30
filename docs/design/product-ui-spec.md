@@ -2,9 +2,11 @@
 
 _Estado: especificación autoritativa de UX/UI; fundación y endurecimiento mobile-first integrados, resto incremental_
 
-_Última actualización: 2026-09-27_
+_Última actualización: 2026-09-30_
 
 _Evidencia vigente:_ los PR #45–#48 integraron esta especificación, la fundación visual, la corrección mobile-first y el fallo seguro de Ofertas. El 2026-09-26 staging pasó revisión OWNER a 320 CSS px y una comprobación posterior en teléfono físico. El [PR #50](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/50) integró el shell offline y su guard de mutaciones; `validate` y `database` pasaron en el [run post-merge 36238090450](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36238090450). En staging, un smoke automatizado a 320 CSS px verificó el aviso offline, el bloqueo con preservación, la reconexión y la allowlist pública; la navegación al fallback estático sigue pendiente de un harness que no omita el service worker.
+
+_Frontera visual vigente:_ la revisión del prototipo Stitch “Inkendar Studio OS” del 2026-09-30 se usa únicamente como referencia de composición e identidad. No amplía el alcance, los roles, los datos ni los contratos del MVP.
 
 ## 1. Autoridad, propósito y fronteras
 
@@ -28,6 +30,41 @@ Esta especificación no decide:
 - que una integración o capacidad esté disponible sin la evidencia exigida por la spec canónica.
 
 Las referencias visuales de la landing (`inkendar/PRODUCT.md` y `inkendar/DESIGN.md`) orientan identidad y tono, pero no son fuente de verdad del software. La PWA adopta su personalidad con mayor densidad operativa, legibilidad y sobriedad.
+
+### 1.1 Decisiones sobre el prototipo visual “Inkendar Studio OS”
+
+El prototipo revisado es evidencia de una dirección visual posible, no una descripción funcional. Una pantalla, etiqueta, dato o control presente en esa referencia no entra en el MVP mientras la [spec canónica](../product/sellable-mvp-spec.md) y un contrato vigente no lo autoricen.
+
+**Se conserva como dirección visual:**
+
+- identidad carbón, papel frío y naranja, con tipografía condensada solo en títulos;
+- sensación de orden de trabajo física, bordes definidos y agrupación mediante tarjetas;
+- composición `master-detail` para Conversaciones cuando el ancho lo permita;
+- inspector contextual para mantener visible cliente, caso y cita sin duplicar datos;
+- navegación móvil clara, estados textuales y jerarquía operativa;
+- adaptación específica por tamaño sin crear capacidades diferentes por dispositivo.
+
+**Se adapta al contrato vigente:**
+
+- la “ficha técnica” se representa como caso de tatuaje y muestra solo los campos autorizados por su loader; no crea un expediente clínico o de cabina;
+- la agenda visual representa Google Calendar por artista y los holds de Inkendar; no modela cabinas, camillas o una agenda propietaria;
+- las imágenes entrantes viven en Conversaciones y la galería conserva su ciclo privado/público; no se convierten en un moodboard, stencil o archivo médico nuevo;
+- cualquier indicador del panel procede de un loader aprobado; no se fabrican métricas para reproducir la maqueta;
+- la marca visible es “Inkendar”; “Studio OS”, “Pro” y nombres de motor o proveedor no definen planes, roles ni capacidades.
+
+**Queda expresamente fuera del MVP y no aparece como ruta, navegación, CTA, fixture o estado simulable:**
+
+- WhatsApp, WhatsApp Web, WhatsApp Business o Coexistence;
+- predicción de demanda, probabilidad de cierre, TimesFM, recomendaciones o reserva decidida por IA;
+- inventario, consumibles, reposición o pedidos automáticos;
+- telemetría de cabinas, temporizadores de sesión, hardware, agujas, pigmentos o configuración de máquina;
+- protocolos sanitarios, historial médico, consentimiento clínico, documentos de identidad o firma biométrica;
+- pagos, señales cobradas por Inkendar, Bizum, TPV, POS, facturación, contabilidad o tarifas de sesión;
+- campañas, automatizaciones promocionales y paneles ejecutivos de rendimiento;
+- mutaciones ARTIST: respuesta a clientes, edición, confirmación, cobro, pausa o finalización de sesiones;
+- exposición al ARTIST de conversación, contacto, referencias, notas, IDs o información ajena al contexto mínimo aprobado.
+
+Si una capacidad excluida se reconsidera, primero requiere una decisión `ACCEPTED` en la spec canónica, su contrato técnico y un slice separado. No se introduce como detalle visual anticipado.
 
 ## 2. Principios de producto y lenguaje visual
 
@@ -160,13 +197,13 @@ En listados, buscar/filtrar solo se añade cuando el volumen real lo justifique 
 
 **Contenido mínimo:** saludo, navegación global, siete accesos de área con verbo y descripción, cierre de sesión. No usar gráficas, facturación, métricas ni feed de actividad sin fuente real.
 
-**Prioridad:** Conversaciones y solicitudes que requieran acción pueden subir en orden cuando el backend exponga una señal aprobada; el orden base sigue el flujo conversación → cliente/caso → calendario/oferta → contenido.
+**Prioridad:** Conversaciones y solicitudes que requieran acción pueden subir en orden cuando el backend exponga una señal aprobada; el orden base sigue el flujo conversación → cliente/caso → calendario/oferta → contenido. El panel no reproduce previsiones, probabilidades, stock, facturación, telemetría ni recomendaciones del prototipo.
 
 ### 6.3 Conversaciones — `/app/owner/conversations`
 
 **Objetivo:** revisar la bandeja, abrir un hilo, vincularlo y responder sin revelar Chatwoot.
 
-**Contenido mínimo:** lista paginada con contacto, canal, estado, no leídos y fecha; detalle seleccionado con mensajes incrementales, imágenes entrantes admitidas y su texto cuando existe; asociación a cliente/caso; caja de respuesta de texto; navegación de página existente. Los adjuntos no admitidos o fallidos muestran “Adjunto no disponible” sin enlace al proveedor.
+**Contenido mínimo:** lista paginada con contacto, canal, estado, no leídos y fecha; detalle seleccionado con mensajes incrementales, imágenes entrantes admitidas y su texto cuando existe; asociación a cliente/caso; caja de respuesta de texto; navegación de página existente. Los canales visibles se limitan a web, Instagram y Facebook conforme al contrato; WhatsApp no aparece ni como filtro o fixture. Los adjuntos no admitidos o fallidos muestran “Adjunto no disponible” sin enlace al proveedor. La vista no ofrece cobro, Bizum, TPV ni señal económica.
 
 **Composición:** móvil alterna lista y detalle con retorno explícito; tablet/escritorio usa master-detail. Las imágenes se contienen dentro del ancho disponible sin scroll horizontal, llevan alt descriptivo y carga diferida. Mantener visible el nombre del contacto y el estado mientras se redacta.
 
@@ -186,7 +223,7 @@ En listados, buscar/filtrar solo se añade cuando el volumen real lo justifique 
 
 **Contenido mínimo:** alta con cliente, resumen, zona, tamaño y artista opcional conforme al contrato vigente; listado; edición; `OPEN`/`ARCHIVED`.
 
-**Estados:** sin artista muestra “Sin asignar”, no vacío; sin cita no se interpreta como error; archivado conserva lectura y una apariencia secundaria. No se inventa un pipeline visual adicional.
+**Estados:** sin artista muestra “Sin asignar”, no vacío; sin cita no se interpreta como error; archivado conserva lectura y una apariencia secundaria. No se inventa un pipeline visual adicional ni campos de agujas, máquina, pigmentos, asepsia, consentimiento, historial médico, cobro o facturación.
 
 ### 6.6 Google Calendar — `/app/owner/calendars`
 
@@ -208,13 +245,15 @@ La pantalla debe usar subnavegación local o acordeones en móvil para evitar un
 
 Los campos técnicos actuales de ventanas, UTC o zona IANA pueden conservarse durante el slice funcional, pero el objetivo de diseño es un editor semanal comprensible que serialice exactamente el formulario existente; su sustitución requiere prueba de equivalencia y no cambia el action.
 
+Google Calendar sigue siendo la agenda operativa. La pantalla no crea cabinas, camillas, bloqueos sanitarios, sesiones de trabajo ni otro calendario propietario.
+
 ### 6.7 Ofertas de fechas — `/app/owner/offers`
 
 **Objetivo:** crear hasta tres opciones preaprobadas, bloquearlas temporalmente y comunicar un enlace seguro.
 
 **Contenido mínimo:** plazo del estudio, selector de caso y artista, opciones, creación, lista de ofertas, vencimiento, estado de opciones, liberación de vencidas y emisión/rotación del enlace.
 
-**Estados de dominio:** oferta `OPEN`, `SELECTED_PENDING_CONFIRMATION`, `CONFIRMED`, `EXPIRED`; opción `HELD`, `SELECTED`, `CONFIRMED`, `RELEASED`. Cada estado lleva etiqueta textual y explicación de la siguiente acción. El enlace recién emitido se presenta como dato sensible de una sola aparición con copiar y confirmación; no se conserva en historial visual si el loader no lo devuelve.
+**Estados de dominio:** oferta `OPEN`, `SELECTED_PENDING_CONFIRMATION`, `CONFIRMED`, `EXPIRED`; opción `HELD`, `SELECTED`, `CONFIRMED`, `RELEASED`. Cada estado lleva etiqueta textual y explicación de la siguiente acción. Un hold o una opción seleccionada no implica señal económica ni pago. El enlace recién emitido se presenta como dato sensible de una sola aparición con copiar y confirmación; no se conserva en historial visual si el loader no lo devuelve.
 
 ### 6.8 Galería privada — `/app/owner/gallery`
 
@@ -230,7 +269,7 @@ Móvil usa una tarjeta por imagen con miniatura 4:3 y acciones en menú o grupos
 
 **Objetivo:** permitir entender las próximas citas confirmadas propias con una mirada.
 
-**Contenido mínimo:** saludo, “Solo lectura”, citas futuras ordenadas, cliente, resumen, horario localizado con zona, zona corporal y tamaño cuando existan, cierre de sesión.
+**Contenido mínimo:** saludo, “Solo lectura”, citas futuras ordenadas, cliente, resumen, horario localizado con zona, zona corporal y tamaño cuando existan, cierre de sesión. No muestra conversación, contacto, referencias, notas, consentimiento, máquina, agujas, pigmentos, cronómetro, precios ni controles operativos de cabina.
 
 **Composición:** por defecto agrupar visualmente por día sin alterar el orden del loader. Destacar la próxima cita, no usar calendario mensual. Sin citas: mensaje tranquilo y no una alarma. La interfaz no ofrece edición, acceso al cliente completo ni navegación OWNER.
 
@@ -505,7 +544,7 @@ Y cada control nombra la acción y la imagen afectada
 ### Escenario: reflow y zoom
 
 ```gherkin
-Dado cualquiera de las once pantallas
+Dado cualquiera de las doce pantallas
 Cuando se visualiza a 320 CSS px o con zoom al 200 por ciento
 Entonces no se pierde contenido ni funcionalidad
 Y no aparece scroll bidimensional salvo en un componente tabular justificado
@@ -518,6 +557,16 @@ Dado un escenario visual con datos simulados
 Cuando se construye la aplicación de producción
 Entonces el escenario no crea una ruta ni un endpoint accesible
 Y no incluye credenciales, PII ni respuestas reales de proveedores
+```
+
+### Escenario: una referencia visual no amplía el MVP
+
+```gherkin
+Dado que una referencia visual contiene una capacidad fuera del MVP
+Cuando se diseña o implementa una pantalla, fixture o historia
+Entonces esa capacidad no aparece como navegación, control, dato, estado ni promesa
+Y la composición conserva únicamente patrones compatibles con los contratos vigentes
+Y cualquier ampliación exige antes una decisión ACCEPTED en la spec canónica
 ```
 
 ## 14. Slices paralelizables
@@ -534,6 +583,8 @@ Los slices comparten primero tokens, shell y patrones de estado. Después pueden
 8. **Galería:** ingestión, curación, ciclo de publicación y recuperación.
 9. **Agenda ARTIST:** próxima cita, grupos por día y empty.
 10. **Endurecimiento transversal:** responsive, offline visual, a11y, copy, pruebas visuales y comparación con integración.
+
+Ningún slice incluye pagos, operación de cabina, inventario, IA, WhatsApp, campañas o datos clínicos. Si una maqueta los muestra, se eliminan antes de crear fixtures o criterios de aceptación.
 
 Dependencias: 2–9 dependen de 1; 5 y 6 comparten patrones pero no necesitan bloquearse; 7 puede avanzar con fixtures mientras 5/6 conectan backend; 10 empieza desde el primer slice y cierra después de todos.
 
@@ -552,6 +603,7 @@ Una pantalla o slice visual está terminado cuando:
 - los fixtures son sintéticos, tipados, no entran en el bundle/rutas de producción y no contienen secretos ni PII;
 - existe evidencia revisable: capturas o historias por viewport/estado, checklist a11y y verificación contra la ruta integrada;
 - el diff no altera accidentalmente loaders, actions, contratos, permisos ni cambios preexistentes.
+- toda referencia visual usada queda trazada como patrón conservado, adaptación contractual o capacidad excluida, sin ampliar el MVP por imitación.
 
 ## 16. Decisiones abiertas y dudas de revisión
 
