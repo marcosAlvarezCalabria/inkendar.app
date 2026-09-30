@@ -39,6 +39,13 @@ describe("mobile-first layout contract", () => {
     expect(tabletRules).toMatch(/\.rail[\s\S]*display:\s*grid/u);
   });
 
+  it("keeps OWNER panel areas in one column before enhancing to a readable grid", () => {
+    expect(styles).toMatch(/\.owner-nav\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/su);
+    expect(styles).toMatch(/\.owner-area-card\s*\{[^}]*min-width:\s*0/su);
+    expect(styles).toMatch(/@media \(min-width:\s*40rem\)[\s\S]*\.owner-nav\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/u);
+    expect(styles).toMatch(/@media \(min-width:\s*72rem\)[\s\S]*\.owner-nav\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/u);
+  });
+
   it("turns conversations into a phone list-or-detail flow and tablet master-detail", () => {
     expect(conversations).toContain('className="conversation-layout"');
     expect(conversations).toMatch(/className="[^"]*conversation-inbox[^"]*"/u);
