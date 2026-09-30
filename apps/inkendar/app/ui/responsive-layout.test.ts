@@ -85,4 +85,12 @@ describe("mobile-first layout contract", () => {
     expect(styles).toMatch(/\.menu-sheet\s*\{[^}]*padding-top:\s*max\([^;]*env\(safe-area-inset-top\)/su);
     expect(calendars).toMatch(/<Form[^>]*className="record-actions"[^>]*>[\s\S]*Aprobar y confirmar[\s\S]*Rechazar/u);
   });
+
+  it("uses native per-artist disclosure with touch-sized summaries and wrap-safe calendar output", () => {
+    expect(calendars).toContain('<details className="shell-panel calendar-disclosure"');
+    expect(styles).toMatch(/\.calendar-disclosure\s*>\s*summary\s*\{[^}]*min-height:\s*44px/su);
+    expect(styles).toMatch(/\.calendar-disclosure-body\s*\{[^}]*min-width:\s*0/su);
+    expect(styles).toMatch(/\.sensitive-link\s*\{[^}]*overflow-wrap:\s*anywhere/su);
+    expect(styles).toMatch(/\.slot-list\s+li\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/su);
+  });
 });
