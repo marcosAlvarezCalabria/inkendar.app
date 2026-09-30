@@ -56,13 +56,23 @@ describe("mobile-first layout contract", () => {
     expect(styles).toMatch(/@media \(min-width:\s*72rem\)[\s\S]*\.owner-nav\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/u);
   });
 
-  it("turns conversations into a phone list-or-detail flow and tablet master-detail", () => {
+  it("keeps conversations list-or-detail until desktop can fit two 320px panels", () => {
     expect(conversations).toContain('className="conversation-layout"');
     expect(conversations).toMatch(/className="[^"]*conversation-inbox[^"]*"/u);
     expect(conversations).toMatch(/className="[^"]*conversation-detail[^"]*"/u);
     expect(conversations).toMatch(/Volver a conversaciones/u);
     expect(styles).toMatch(/\.conversation-layout\[data-has-selection="true"\]\s+\.conversation-inbox\s*\{[^}]*display:\s*none/su);
-    expect(styles).toMatch(/@media \(min-width:\s*48rem\)[\s\S]*\.conversation-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0, [^)]+\)\s+minmax\(0, [^)]+\)/u);
+    const conversationStart = styles.indexOf(".conversation-layout {");
+    const recordsStart = styles.indexOf(".records {", conversationStart);
+    const conversationRules = styles.slice(conversationStart, recordsStart);
+    expect(conversationRules).not.toContain("@media (min-width: 48rem)");
+    expect(conversationRules).toMatch(/@media \(min-width:\s*64rem\)[\s\S]*\.conversation-layout\s*\{[^}]*grid-template-columns:\s*minmax\(20rem, [^)]+\)\s+minmax\(20rem, [^)]+\)/u);
+    expect(conversationRules).toMatch(/@media \(min-width:\s*64rem\)[\s\S]*\.conversation-back\s*\{[^}]*display:\s*none/u);
+  });
+
+  it("keeps the selected conversation heading below the sticky mobile topbar", () => {
+    expect(styles).toMatch(/\.conversation-detail-head\s*\{[^}]*position:\s*sticky[^}]*top:\s*calc\(44px \+ var\(--space-4\) \+ env\(safe-area-inset-top\)\)/su);
+    expect(styles).toMatch(/@media \(min-width:\s*48rem\)[\s\S]*\.conversation-detail-head\s*\{[^}]*top:\s*0/su);
   });
 
   it("keeps public choice controls stacked and finger-sized on narrow screens", () => {
