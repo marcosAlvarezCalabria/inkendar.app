@@ -80,7 +80,11 @@ export class AesGcmGoogleTokenProtector implements GoogleTokenProtectorPort {
 }
 
 export class GoogleCalendarHttpAdapter implements GoogleCalendarProviderPort {
-  constructor(private readonly config: GoogleCalendarConfig, private readonly fetcher: Fetcher = fetch) {}
+  private readonly fetcher: Fetcher;
+
+  constructor(private readonly config: GoogleCalendarConfig, fetcher: Fetcher = fetch) {
+    this.fetcher = (input, init) => fetcher(input, init);
+  }
 
   createAuthorizationUrl(state: string): string {
     const url = new URL(AUTHORIZATION_ENDPOINT);

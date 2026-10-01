@@ -76,6 +76,30 @@ describe("Google Calendar infrastructure", () => {
     expect(body.get("grant_type")).toBe("authorization_code");
   });
 
+  it("invokes the injected fetcher without binding the adapter as its receiver", async () => {
+    const responses = [
+      Response.json({ refresh_token: "synthetic-refresh-token", scope }),
+      Response.json({ access_token: "synthetic-access-token" }),
+      Response.json({ items: [] }),
+      new Response(null, { status: 200 }),
+    ];
+    const fetcher = vi.fn(async function strictFetcher(this: unknown) {
+      if (this !== undefined) throw new TypeError("Illegal invocation");
+      const response = responses.shift();
+      if (!response) throw new Error("Unexpected request");
+      return response;
+    });
+    const adapter = new GoogleCalendarHttpAdapter(config, fetcher);
+
+    await expect(adapter.exchangeCode("synthetic-authorization-code")).resolves.toEqual({
+      refreshToken: "synthetic-refresh-token",
+      grantedScopes: [scope],
+    });
+    await expect(adapter.listCalendars("synthetic-refresh-token")).resolves.toEqual([]);
+    await expect(adapter.revokeToken("synthetic-refresh-token")).resolves.toBeUndefined();
+    expect(fetcher).toHaveBeenCalledTimes(4);
+  });
+
   it.each([
     ["invalid_request", "invalid_request"],
     ["invalid_client", "invalid_client"],
