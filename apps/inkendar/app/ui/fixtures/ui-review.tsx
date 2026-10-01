@@ -11,8 +11,10 @@ import { Field, SubmitButton } from "../forms.js";
 import { ArtistShell, OwnerShell, PublicLinkShell } from "../shells.js";
 import { OwnerOffersView } from "../../routes/owner-offers.js";
 import { OwnerGalleryView } from "../../routes/owner-gallery.js";
+import { ArtistShellView } from "../../routes/artist.js";
 import { LoginForm } from "../../routes/login.js";
 import { OwnerTeamView } from "../../routes/owner-team.js";
+import { artistAgendaFixtureScenarios } from "./artist-agenda.fixtures.js";
 import { authPermissionsFixtureScenarios } from "./auth-permissions.fixtures.js";
 import { ownerGalleryFixtureScenarios } from "./owner-gallery.fixtures.js";
 import { ownerOfferFixtureScenarios } from "./owner-offers.fixtures.js";
@@ -66,7 +68,14 @@ export function renderUiReviewScenarios(assets: ReviewAssets) {
       html: `<!doctype html><html lang="es"><head>${reviewHead(assets)}<title>${scenario.id} | Inkendar</title></head><body style="width:${viewportWidths[scenario.viewport]}px">${renderToStaticMarkup(view)}</body></html>`,
     };
   });
-  return [...foundationScenarios, ...bookingScenarios, ...galleryScenarios, ...authPermissionsScenarios];
+  const artistAgendaScenarios = artistAgendaFixtureScenarios.map((scenario) => ({
+    id: scenario.id,
+    description: scenario.description,
+    viewport: scenario.viewport,
+    width: viewportWidths[scenario.viewport],
+    html: `<!doctype html><html lang="es"><head>${reviewHead(assets)}<title>${scenario.id} | Inkendar</title></head><body style="width:${viewportWidths[scenario.viewport]}px">${renderToStaticMarkup(<At pathname="/app/artist"><ArtistShellView {...scenario.view} /></At>)}</body></html>`,
+  }));
+  return [...foundationScenarios, ...bookingScenarios, ...galleryScenarios, ...authPermissionsScenarios, ...artistAgendaScenarios];
 }
 
 export function renderUiReviewDocument(assets: ReviewAssets): string {
