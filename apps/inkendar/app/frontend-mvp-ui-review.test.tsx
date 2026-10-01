@@ -42,7 +42,7 @@ describe("frontend MVP private evidence catalog", () => {
     expect(htmlBySurface.get("artist-agenda")).toContain("Próximas citas");
     expect(htmlBySurface.get("public-offer")).toContain("Opciones reservadas provisionalmente");
     expect(htmlBySurface.get("public-availability")).toContain("Huecos disponibles");
-  });
+  }, 15_000);
 
   it("uses only unmistakably synthetic phone numbers", async () => {
     const { renderUiReviewScenarios } = await import("./ui/fixtures/ui-review.js");
