@@ -90,10 +90,11 @@ export function CalendarManagement({data,result,pending=null}:Readonly<{data:Omi
       <h2 id="artist-calendar-title">Calendario por artista</h2>
       {data.connectionStatus!=="ACTIVE"?<EmptyState title="Asignaciones no disponibles">Las asignaciones aparecerán cuando Google Calendar esté conectado y autorizado.</EmptyState>:data.artists.length===0?<EmptyState title="Sin artistas que configurar">Todavía no hay artistas en el estudio. Este estado no significa que Google Calendar esté desconectado.</EmptyState>:data.artists.map(artist=>{
         const current=data.calendars.find(calendar=>calendar.id===artist.calendarId);
+        const assignmentUnavailable=artist.calendarId!==null&&(!current||!isWritableCalendar(current));
         const assignmentPending=pending?.kind==="assignment"&&pending.targetId===artist.id;
         return <Form method="post" className="shell-panel record-form calendar-assignment" key={artist.id}>
           <input type="hidden" name="intent" value="assign"/><input type="hidden" name="artistProfileId" value={artist.id}/>
-          <div className="record-head"><h3>{artist.displayName}</h3><StatusBadge tone={artist.calendarId?(current&&!isWritableCalendar(current)?"warning":"success"):"neutral"}>{artist.calendarId?(current&&!isWritableCalendar(current)?"Asignación incompatible":"Calendario asignado"):"Sin calendario"}</StatusBadge></div>
+          <div className="record-head"><h3>{artist.displayName}</h3><StatusBadge tone={artist.calendarId?(assignmentUnavailable?"warning":"success"):"neutral"}>{artist.calendarId?(assignmentUnavailable?(current?"Asignación incompatible":"Asignación no disponible"):"Calendario asignado"):"Sin calendario"}</StatusBadge></div>
           <p className="record-context">{assignmentDescription(artist,current)}</p>
           <label>Calendario operativo<select name="calendarId" defaultValue={artist.calendarId??""}>
             <option value="">Desasignar</option>

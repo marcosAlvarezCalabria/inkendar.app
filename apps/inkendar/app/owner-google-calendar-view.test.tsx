@@ -40,6 +40,19 @@ describe("owner Calendar management view", () => {
     expect(html).toContain("Conexión guardada; pendiente de verificación operativa");
   });
 
+  it("warns when a saved assignment no longer appears in Google CalendarList", () => {
+    const html = renderToStaticMarkup(<CalendarManagement data={{
+      connectionStatus: "ACTIVE",
+      calendars: [{ id: "other@example.test", summary: "Otra agenda", timeZone: "Europe/Madrid", accessRole: "owner", primary: false }],
+      artists: [{ id: "50000000-0000-4000-8000-000000000001", displayName: "Ana", calendarId: "missing@example.test" }],
+    }} result={null} />);
+
+    expect(html).toContain('data-tone="warning"');
+    expect(html).toContain("Asignación no disponible");
+    expect(html).toContain("La asignación guardada no aparece en la lista actual de Google");
+    expect(html).not.toContain("Calendario asignado");
+  });
+
   it.each([
     ["NOT_CONNECTED" as const, "Sin conexión", "Conectar Google Calendar"],
     ["ACTIVE" as const, "Conectado", "Reconectar"],
