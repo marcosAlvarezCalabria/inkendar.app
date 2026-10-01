@@ -1,7 +1,11 @@
-import { Form, useActionData } from "react-router";
+import { useCallback, useState } from "react";
+import { Form, useActionData, useNavigation } from "react-router";
 import type { Route } from "./+types/login";
 
 import { authHandlers } from "../auth.server.js";
+import { SubmitButton } from "../ui/forms.js";
+
+export type LoginActionResult = Readonly<{ error?: string }>;
 
 export function meta(): Route.MetaDescriptors {
   return [{ title: "Acceso | Inkendar" }];
@@ -20,7 +24,21 @@ export function headers() {
 }
 
 export default function Login() {
-  const actionData = useActionData<{ error?: string }>();
+  const actionData = useActionData<LoginActionResult>();
+  const navigation = useNavigation();
+  const submission = loginPendingSubmission(navigation.state, navigation.formData);
+  return <LoginForm actionResult={actionData} pending={submission !== null} submittedEmail={submission?.email} />;
+}
+
+export function LoginForm({ actionResult, pending = false, submittedEmail }: Readonly<{
+  actionResult?: LoginActionResult | undefined;
+  pending?: boolean;
+  submittedEmail?: string | undefined;
+}>) {
+  const [email, setEmail] = useState(submittedEmail ?? "");
+  const clearPasswordAfterAction = useCallback((password: HTMLInputElement | null) => {
+    if (actionResult?.error && password) password.value = "";
+  }, [actionResult]);
   return (
     <main className="auth-page">
       <section className="auth-card" aria-labelledby="login-title">
@@ -30,16 +48,31 @@ export default function Login() {
         <Form method="post" className="auth-form">
           <label>
             Email
-            <input name="email" type="email" autoComplete="username" required />
+            <input
+              name="email"
+              type="email"
+              autoComplete="username"
+              required
+              autoFocus
+              disabled={pending}
+              value={submittedEmail ?? email}
+              onChange={(event) => setEmail(event.currentTarget.value)}
+            />
           </label>
           <label>
             Contraseña
-            <input name="password" type="password" autoComplete="current-password" required />
+            <input ref={clearPasswordAfterAction} name="password" type="password" autoComplete="current-password" required disabled={pending} />
           </label>
-          {actionData?.error ? <p className="form-error" role="alert">{actionData.error}</p> : null}
-          <button type="submit">Entrar</button>
+          {actionResult?.error ? <p className="form-error" role="alert">{actionResult.error}</p> : null}
+          <SubmitButton pending={pending} pendingLabel="Entrando…">Entrar</SubmitButton>
         </Form>
       </section>
     </main>
   );
+}
+
+export function loginPendingSubmission(state: string, formData: FormData | undefined): Readonly<{ email: string }> | null {
+  if (state !== "submitting" || !formData) return null;
+  const email = formData.get("email");
+  return { email: typeof email === "string" ? email : "" };
 }

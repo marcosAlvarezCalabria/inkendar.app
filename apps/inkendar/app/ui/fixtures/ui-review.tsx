@@ -11,6 +11,9 @@ import { Field, SubmitButton } from "../forms.js";
 import { ArtistShell, OwnerShell, PublicLinkShell } from "../shells.js";
 import { OwnerOffersView } from "../../routes/owner-offers.js";
 import { OwnerGalleryView } from "../../routes/owner-gallery.js";
+import { LoginForm } from "../../routes/login.js";
+import { OwnerTeamView } from "../../routes/owner-team.js";
+import { authPermissionsFixtureScenarios } from "./auth-permissions.fixtures.js";
 import { ownerGalleryFixtureScenarios } from "./owner-gallery.fixtures.js";
 import { ownerOfferFixtureScenarios } from "./owner-offers.fixtures.js";
 import type { UiFoundationView } from "./ui-foundation.fixtures.js";
@@ -47,7 +50,23 @@ export function renderUiReviewScenarios(assets: ReviewAssets) {
     width: viewportWidths[scenario.viewport],
     html: `<!doctype html><html lang="es"><head>${reviewHead(assets)}<title>${scenario.id} | Inkendar</title></head><body style="width:${viewportWidths[scenario.viewport]}px">${renderToStaticMarkup(<At pathname="/app/owner/gallery"><OwnerGalleryView {...scenario.view} /></At>)}</body></html>`,
   }));
-  return [...foundationScenarios, ...bookingScenarios, ...galleryScenarios];
+  const authPermissionsScenarios = authPermissionsFixtureScenarios.map((scenario) => {
+    const view = scenario.view.kind === "login"
+      ? <At pathname="/login"><LoginForm
+          pending={scenario.view.pending}
+          {...(scenario.view.actionResult ? { actionResult: scenario.view.actionResult } : {})}
+          {...(scenario.view.submittedEmail ? { submittedEmail: scenario.view.submittedEmail } : {})}
+        /></At>
+      : <At pathname="/app/owner/team"><OwnerTeamView data={scenario.view.data} pending={scenario.view.pending} /></At>;
+    return {
+      id: scenario.id,
+      description: scenario.description,
+      viewport: scenario.viewport,
+      width: viewportWidths[scenario.viewport],
+      html: `<!doctype html><html lang="es"><head>${reviewHead(assets)}<title>${scenario.id} | Inkendar</title></head><body style="width:${viewportWidths[scenario.viewport]}px">${renderToStaticMarkup(view)}</body></html>`,
+    };
+  });
+  return [...foundationScenarios, ...bookingScenarios, ...galleryScenarios, ...authPermissionsScenarios];
 }
 
 export function renderUiReviewDocument(assets: ReviewAssets): string {

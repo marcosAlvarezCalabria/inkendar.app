@@ -4,11 +4,17 @@ import type { Route } from "./+types/owner-team";
 
 import { ownerAccessHandlers } from "../owner-access.server.js";
 import { StatusPage } from "../ui/feedback.js";
+import { SubmitButton } from "../ui/forms.js";
 import { OwnerShell } from "../ui/shells.js";
 
 export type OwnerTeamData = Readonly<{
   members: readonly StudioMember[];
   result: "suspended" | "restored" | null;
+}>;
+
+export type OwnerTeamPending = Readonly<{
+  membershipId: string;
+  intent: "SUSPEND" | "RESTORE";
 }>;
 
 export function meta(): Route.MetaDescriptors {
@@ -32,10 +38,20 @@ export async function action({ request }: Route.ActionArgs) {
 export default function OwnerTeam() {
   const actionData = useActionData() as { error?: string } | undefined;
   const navigation = useNavigation();
-  return <OwnerTeamView data={useLoaderData() as OwnerTeamData} error={actionData?.error} busy={navigation.state === "submitting"} />;
+  return (
+    <OwnerTeamView
+      data={useLoaderData() as OwnerTeamData}
+      error={actionData?.error}
+      pending={ownerTeamPendingSubmission(navigation.state, navigation.formData)}
+    />
+  );
 }
 
-export function OwnerTeamView({ data: { members, result }, error, busy = false }: { data: OwnerTeamData; error?: string | undefined; busy?: boolean }) {
+export function OwnerTeamView({ data: { members, result }, error, pending = null }: Readonly<{
+  data: OwnerTeamData;
+  error?: string | undefined;
+  pending?: OwnerTeamPending | null;
+}>) {
   return (
     <OwnerShell title="Equipo y accesos" description="Gestiona el acceso de los artistas de tu estudio.">
       {result ? (
@@ -46,29 +62,45 @@ export function OwnerTeamView({ data: { members, result }, error, busy = false }
       {error ? <p className="form-error" role="alert">{error}</p> : null}
       <section className="records" aria-labelledby="team-members-title">
         <h2 id="team-members-title">Miembros del estudio</h2>
-        {members.length === 0 ? <p>No hay miembros disponibles.</p> : members.map((member) => (
-          <article className="shell-panel" key={member.id}>
-            <h3>{member.displayName}</h3>
-            <p>{member.role === "OWNER" ? "Responsable" : "Artista"} · {member.status === "ACTIVE" ? "Activo" : "Suspendido"}</p>
-            {member.role === "ARTIST" ? (
-              <>
-                <p>{member.status === "ACTIVE"
-                  ? "Suspender impide entrar en Inkendar. Sus citas, casos e historial se conservan."
-                  : "Restaurar permite volver a entrar con la misma cuenta."}</p>
-                <Form method="post">
-                  <input type="hidden" name="intent" value={member.status === "ACTIVE" ? "SUSPEND" : "RESTORE"} />
-                  <input type="hidden" name="membershipId" value={member.id} />
-                  <button type="submit" className={member.status === "ACTIVE" ? "secondary" : undefined} disabled={busy}>
-                    {member.status === "ACTIVE" ? "Suspender acceso" : "Restaurar acceso"}
-                  </button>
-                </Form>
-              </>
-            ) : null}
-          </article>
-        ))}
+        {members.length === 0 ? <p>No hay miembros disponibles.</p> : members.map((member) => {
+          const intent = member.status === "ACTIVE" ? "SUSPEND" : "RESTORE";
+          const isPending = pending?.membershipId === member.id && pending.intent === intent;
+          return (
+            <article className="shell-panel" key={member.id}>
+              <h3>{member.displayName}</h3>
+              <p>{member.role === "OWNER" ? "Responsable" : "Artista"} · {member.status === "ACTIVE" ? "Activo" : "Suspendido"}</p>
+              {member.role === "ARTIST" ? (
+                <>
+                  <p>{member.status === "ACTIVE"
+                    ? "Suspender impide entrar en Inkendar. Sus citas, casos e historial se conservan."
+                    : "Restaurar permite volver a entrar con la misma cuenta."}</p>
+                  <Form method="post">
+                    <input type="hidden" name="intent" value={intent} />
+                    <input type="hidden" name="membershipId" value={member.id} />
+                    <SubmitButton
+                      className={member.status === "ACTIVE" ? "secondary" : undefined}
+                      pending={isPending}
+                      pendingLabel={member.status === "ACTIVE" ? "Suspendiendo…" : "Restaurando…"}
+                    >
+                      {member.status === "ACTIVE" ? "Suspender acceso" : "Restaurar acceso"}
+                    </SubmitButton>
+                  </Form>
+                </>
+              ) : null}
+            </article>
+          );
+        })}
       </section>
     </OwnerShell>
   );
+}
+
+export function ownerTeamPendingSubmission(state: string, formData: FormData | undefined): OwnerTeamPending | null {
+  if (state !== "submitting" || !formData) return null;
+  const membershipId = formData.get("membershipId");
+  const intent = formData.get("intent");
+  if (typeof membershipId !== "string" || (intent !== "SUSPEND" && intent !== "RESTORE")) return null;
+  return { membershipId, intent };
 }
 
 export function ErrorBoundary() {
