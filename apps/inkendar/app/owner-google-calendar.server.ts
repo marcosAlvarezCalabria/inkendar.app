@@ -1,12 +1,12 @@
 import {
   GoogleCalendarConnectionUnavailableError,
   GoogleCalendarNotAssignableError,
-  GoogleOAuthCompletionFailedError,
   GoogleOAuthAttemptInvalidError,
   GoogleOAuthGrantIncompleteError,
   InvalidGoogleCalendarInputError,
   createGoogleCalendarService,
-  type GoogleOAuthCompletionFailurePhase,
+  readGoogleOAuthCompletionFailure,
+  type GoogleOAuthCompletionFailureDetails,
 } from "@inkendar/application";
 import {
   AesGcmGoogleTokenProtector,
@@ -26,10 +26,12 @@ type Dependencies = Readonly<{
   authorize(request: Request): Promise<Response | AuthorizedRequestAccess>;
   createService(access: AuthorizedAccess): OwnerGoogleCalendarService;
   now(): Date;
-  reportCallbackFailure?(event: "google_calendar_oauth_callback_failed", details: Readonly<{ phase: GoogleOAuthCallbackFailurePhase }>): void;
+  reportCallbackFailure?(event: "google_calendar_oauth_callback_failed", details: GoogleOAuthCallbackFailureDetails): void;
 }>;
 
-type GoogleOAuthCallbackFailurePhase = "configuration" | GoogleOAuthCompletionFailurePhase | "unknown";
+type GoogleOAuthCallbackFailureDetails =
+  | GoogleOAuthCompletionFailureDetails
+  | Readonly<{ phase: "configuration" | "unknown" }>;
 
 const defaults: Dependencies = {
   authorize: (request) => authHandlers.requireRole(request, "OWNER"),
@@ -99,7 +101,7 @@ export function createOwnerGoogleCalendarHandlers(dependencies: Dependencies = d
       try {
         service = dependencies.createService(authorization.access);
       } catch {
-        reportCallbackFailure(dependencies, "configuration");
+        reportCallbackFailure(dependencies, { phase: "configuration" });
         return localRedirect("failed", headers);
       }
       try {
@@ -112,7 +114,7 @@ export function createOwnerGoogleCalendarHandlers(dependencies: Dependencies = d
       } catch (error) {
         if (error instanceof GoogleOAuthAttemptInvalidError || error instanceof InvalidGoogleCalendarInputError) return localRedirect("invalid-state", headers);
         if (error instanceof GoogleOAuthGrantIncompleteError) return localRedirect("reconnect-required", headers);
-        reportCallbackFailure(dependencies, callbackFailurePhase(error));
+        reportCallbackFailure(dependencies, callbackFailureDetails(error));
         return localRedirect("failed", headers);
       }
     },
@@ -153,14 +155,13 @@ function actionError(error: unknown, headers: Headers): Response {
   return Response.json({ error: "No se pudo completar la operación." }, { status: 500, headers });
 }
 
-function callbackFailurePhase(error: unknown): GoogleOAuthCallbackFailurePhase {
-  if (error instanceof GoogleOAuthCompletionFailedError) return error.phase;
-  return "unknown";
+function callbackFailureDetails(error: unknown): GoogleOAuthCallbackFailureDetails {
+  return readGoogleOAuthCompletionFailure(error) ?? { phase: "unknown" };
 }
 
-function reportCallbackFailure(dependencies: Dependencies, phase: GoogleOAuthCallbackFailurePhase): void {
+function reportCallbackFailure(dependencies: Dependencies, details: GoogleOAuthCallbackFailureDetails): void {
   try {
-    (dependencies.reportCallbackFailure ?? defaults.reportCallbackFailure)?.("google_calendar_oauth_callback_failed", { phase });
+    (dependencies.reportCallbackFailure ?? defaults.reportCallbackFailure)?.("google_calendar_oauth_callback_failed", details);
   } catch {
     // Diagnostics must never change the callback redirect contract.
   }

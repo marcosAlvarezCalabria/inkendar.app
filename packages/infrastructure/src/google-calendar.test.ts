@@ -7,6 +7,7 @@ import {
   GoogleCalendarCredentialInvalidError,
   loadGoogleCalendarConfig,
 } from "./google-calendar.js";
+import { GoogleOAuthProviderExchangeError } from "@inkendar/application";
 
 const config = {
   clientId: "synthetic-client.apps.googleusercontent.com",
@@ -73,6 +74,114 @@ describe("Google Calendar infrastructure", () => {
     const body = vi.mocked(fetcher).mock.calls[0]?.[1]?.body as URLSearchParams;
     expect(body.get("client_secret")).toBe(config.clientSecret);
     expect(body.get("grant_type")).toBe("authorization_code");
+  });
+
+  it("invokes the injected fetcher without binding the adapter as its receiver", async () => {
+    const responses = [
+      Response.json({ refresh_token: "synthetic-refresh-token", scope }),
+      Response.json({ access_token: "synthetic-access-token" }),
+      Response.json({ items: [] }),
+      new Response(null, { status: 200 }),
+    ];
+    const fetcher = vi.fn(async function strictFetcher(this: unknown) {
+      if (this !== undefined) throw new TypeError("Illegal invocation");
+      const response = responses.shift();
+      if (!response) throw new Error("Unexpected request");
+      return response;
+    });
+    const adapter = new GoogleCalendarHttpAdapter(config, fetcher);
+
+    await expect(adapter.exchangeCode("synthetic-authorization-code")).resolves.toEqual({
+      refreshToken: "synthetic-refresh-token",
+      grantedScopes: [scope],
+    });
+    await expect(adapter.listCalendars("synthetic-refresh-token")).resolves.toEqual([]);
+    await expect(adapter.revokeToken("synthetic-refresh-token")).resolves.toBeUndefined();
+    expect(fetcher).toHaveBeenCalledTimes(4);
+  });
+
+  it.each([
+    ["invalid_request", "invalid_request"],
+    ["invalid_client", "invalid_client"],
+    ["invalid_grant", "invalid_grant"],
+    ["redirect_uri_mismatch", "redirect_uri_mismatch"],
+    ["unauthorized_client", "unauthorized_client"],
+    ["unsupported_grant_type", "unsupported_grant_type"],
+    ["temporarily_unavailable", "other"],
+  ] as const)("classifies token exchange provider error %s without retaining provider details", async (providerError, category) => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({
+      error: providerError,
+      error_description: "synthetic sensitive provider description",
+      access_token: "synthetic-access-token",
+      refresh_token: "synthetic-refresh-token",
+    }), { status: 400, headers: { "Content-Type": "application/json" } }));
+    const adapter = new GoogleCalendarHttpAdapter(config, fetcher);
+
+    const caught = await adapter.exchangeCode("synthetic-authorization-code").catch((error: unknown) => error);
+
+    expect(caught).toBeInstanceOf(GoogleOAuthProviderExchangeError);
+    expect(caught).toMatchObject({
+      details: category === "other"
+        ? { exchangeStage: "provider-error-other", providerError: "other", httpStatus: 400 }
+        : { exchangeStage: "provider-error", providerError: category, httpStatus: 400 },
+      message: "Google OAuth provider exchange failed",
+    });
+    const serialized = JSON.stringify(caught);
+    expect(serialized).not.toContain("synthetic");
+    expect(serialized).not.toContain("temporarily_unavailable");
+  });
+
+  it("classifies a Workers fetch rejection as network without retaining the error", async () => {
+    const adapter = new GoogleCalendarHttpAdapter(config, vi.fn(async () => { throw new Error("synthetic runtime network detail"); }));
+
+    const caught = await adapter.exchangeCode("synthetic-authorization-code").catch((error: unknown) => error);
+
+    expect(caught).toBeInstanceOf(GoogleOAuthProviderExchangeError);
+    expect(caught).toMatchObject({ details: { exchangeStage: "network" } });
+    expect(JSON.stringify(caught)).not.toContain("synthetic");
+  });
+
+  it("classifies a non-JSON token response using only a validated error status", async () => {
+    const adapter = new GoogleCalendarHttpAdapter(config, vi.fn(async () => new Response("synthetic gateway body", {
+      status: 502,
+      headers: { "Content-Type": "text/html; synthetic=provider-detail" },
+    })));
+
+    const caught = await adapter.exchangeCode("synthetic-authorization-code").catch((error: unknown) => error);
+
+    expect(caught).toMatchObject({ details: { exchangeStage: "non-json-response", httpStatus: 502 } });
+    const serialized = JSON.stringify(caught);
+    expect(serialized).not.toContain("gateway");
+    expect(serialized).not.toContain("text/html");
+    expect(serialized).not.toContain("provider-detail");
+  });
+
+  it.each([
+    ["invalid JSON syntax", "{synthetic-invalid-json"],
+    ["non-object JSON payload", JSON.stringify(["synthetic-provider-payload"])],
+  ])("classifies %s without retaining the token response body", async (_name, body) => {
+    const adapter = new GoogleCalendarHttpAdapter(config, vi.fn(async () => new Response(body, {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    })));
+
+    const caught = await adapter.exchangeCode("synthetic-authorization-code").catch((error: unknown) => error);
+
+    expect(caught).toMatchObject({ details: { exchangeStage: "malformed-json-payload", httpStatus: 503 } });
+    expect(JSON.stringify(caught)).not.toContain("synthetic");
+  });
+
+  it("classifies a malformed successful token payload without retaining its fields", async () => {
+    const adapter = new GoogleCalendarHttpAdapter(config, vi.fn(async () => Response.json({
+      refresh_token: { synthetic: "refresh-token-detail" },
+      scope,
+      access_token: "synthetic-access-token",
+    })));
+
+    const caught = await adapter.exchangeCode("synthetic-authorization-code").catch((error: unknown) => error);
+
+    expect(caught).toMatchObject({ details: { exchangeStage: "malformed-success-response" } });
+    expect(JSON.stringify(caught)).not.toContain("synthetic");
   });
 
   it("refreshes server-side and lists only minimal calendar metadata across pages", async () => {
