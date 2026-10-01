@@ -28,18 +28,19 @@ export type CalendarPending = Readonly<{ kind:"connection"|"assignment"|"availab
 export function meta(): Route.MetaDescriptors { return [{ title: "Google Calendar | Inkendar" }]; }
 export function headers() { return { "Cache-Control": "private, no-store" }; }
 export async function loader({ request }: Route.LoaderArgs) {
-  const response = await ownerGoogleCalendarHandlers.loader(request);
-  routeResponseOrThrow(response);
+  const response = routeResponseOrThrow(await ownerGoogleCalendarHandlers.loader(request));
+  if (isRedirectResponse(response)) return response;
   const management = await response.json() as Omit<CalendarView, "availabilityByArtist" | "freeChoice">;
   const availabilityUrl = new URL(request.url);
   availabilityUrl.searchParams.delete("artistProfileId");
   for (const artist of management.artists) availabilityUrl.searchParams.append("artistProfileId", artist.id);
-  const availabilityResponse = await ownerAvailabilityHandlers.loader(new Request(availabilityUrl, { headers: request.headers }));
-  routeResponseOrThrow(availabilityResponse);
+  const availabilityResponse = routeResponseOrThrow(await ownerAvailabilityHandlers.loader(new Request(availabilityUrl, { headers: request.headers })));
+  if (isRedirectResponse(availabilityResponse)) return availabilityResponse;
   const availability = await availabilityResponse.json() as Pick<CalendarView, "availabilityByArtist">;
   let freeChoice: FreeChoiceProjection = { status: "unavailable" };
   try {
     const freeChoiceResponse = await ownerFreeChoiceAvailabilityHandlers.loader(request);
+    if (isRedirectResponse(freeChoiceResponse)) return freeChoiceResponse;
     if (freeChoiceResponse.ok) {
       freeChoice = { status: "available", data: await freeChoiceResponse.json() as FreeChoiceOwnerManagement };
     }
@@ -48,6 +49,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
   return Response.json({ ...management, ...availability, freeChoice }, { headers: response.headers });
 }
+function isRedirectResponse(response: Response): boolean { return response.status >= 300 && response.status < 400; }
 export async function action({ request }: Route.ActionArgs) { const params=new URL(request.url).searchParams; return params.get("freeChoiceDecision") === "1" ? ownerFreeChoiceDecisionHandlers.action(request) : params.get("freeChoice") === "1" ? ownerFreeChoiceAvailabilityHandlers.action(request) : params.get("availability") === "1" ? ownerAvailabilityHandlers.action(request) : ownerGoogleCalendarHandlers.action(request); }
 
 export default function OwnerCalendars() {

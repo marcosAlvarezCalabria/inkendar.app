@@ -20,7 +20,58 @@ const routes = [{
   ErrorBoundary,
 }];
 
+const redirectHeaders = {
+  Location: "/login",
+  "Set-Cookie": "inkendar_session=; Max-Age=0; Path=/; HttpOnly",
+  "Cache-Control": "private, no-store",
+} as const;
+
+function expectPreservedRedirect(result: Response | unknown): asserts result is Response {
+  expect(result).toBeInstanceOf(Response);
+  if (!(result instanceof Response)) throw new Error("Expected redirect response");
+  expect(result.status).toBe(302);
+  expect(result.headers.get("Location")).toBe("/login");
+  expect(result.headers.get("Set-Cookie")).toBe(redirectHeaders["Set-Cookie"]);
+  expect(result.headers.get("Cache-Control")).toBe(redirectHeaders["Cache-Control"]);
+}
+
 describe("owner Google Calendar route", () => {
+  it("preserves a management redirect and does not execute dependent loaders", async () => {
+    const availabilityCalls = availability.loader.mock.calls.length;
+    const freeChoiceCalls = freeChoice.loader.mock.calls.length;
+    handler.loader.mockResolvedValueOnce(new Response(null, { status: 302, headers: redirectHeaders }));
+    const { query } = createStaticHandler(routes);
+
+    const result = await query(new Request("https://app.inkendar.es/app/owner/calendars"));
+
+    expectPreservedRedirect(result);
+    expect(availability.loader).toHaveBeenCalledTimes(availabilityCalls);
+    expect(freeChoice.loader).toHaveBeenCalledTimes(freeChoiceCalls);
+  });
+
+  it("preserves an availability redirect and does not execute free-choice", async () => {
+    const freeChoiceCalls = freeChoice.loader.mock.calls.length;
+    handler.loader.mockResolvedValueOnce(Response.json({ connectionStatus: "ACTIVE", calendars: [], artists: [] }));
+    availability.loader.mockResolvedValueOnce(new Response(null, { status: 302, headers: redirectHeaders }));
+    const { query } = createStaticHandler(routes);
+
+    const result = await query(new Request("https://app.inkendar.es/app/owner/calendars"));
+
+    expectPreservedRedirect(result);
+    expect(freeChoice.loader).toHaveBeenCalledTimes(freeChoiceCalls);
+  });
+
+  it("preserves a free-choice redirect after its prerequisites succeed", async () => {
+    handler.loader.mockResolvedValueOnce(Response.json({ connectionStatus: "ACTIVE", calendars: [], artists: [] }));
+    availability.loader.mockResolvedValueOnce(Response.json({ availabilityByArtist: {} }));
+    freeChoice.loader.mockResolvedValueOnce(new Response(null, { status: 302, headers: redirectHeaders }));
+    const { query } = createStaticHandler(routes);
+
+    const result = await query(new Request("https://app.inkendar.es/app/owner/calendars"));
+
+    expectPreservedRedirect(result);
+  });
+
   it("routes a transient 503 to a safe boundary instead of treating it as calendar data", async () => {
     handler.loader.mockResolvedValueOnce(Response.json(
       { error: "Google Calendar no está disponible temporalmente." },
