@@ -42,33 +42,61 @@ export function ErrorBoundary() {
 }
 
 export function ArtistAgenda({ appointments }: Readonly<{ appointments: readonly ArtistAgendaItem[] }>) {
+  const dayGroups = groupAppointmentsByLocalDay(appointments);
+
   return (
     <section className="shell-panel" aria-labelledby="artist-agenda-title">
       <h2 id="artist-agenda-title">Próximas citas</h2>
       {appointments.length === 0 ? (
         <EmptyState title="No tienes próximas citas confirmadas.">Cuando el estudio confirme una cita contigo aparecerá aquí.</EmptyState>
       ) : (
-        <ol className="appointment-list">
-          {appointments.map((appointment) => (
-            <li className="appointment-card" key={`${appointment.startUtc}-${appointment.endUtc}-${appointment.caseSummary}`}>
-              <h3>{appointment.customerDisplayName}</h3>
-              <p>{appointment.caseSummary}</p>
-              <dl className="appointment-details">
-                <div>
-                  <dt>Horario</dt>
-                  <dd>
-                    <time dateTime={appointment.startUtc}>{formatDateTime(appointment.startUtc, appointment.timeZone)}</time>
-                    {" – "}
-                    <time dateTime={appointment.endUtc}>{formatDateTime(appointment.endUtc, appointment.timeZone)}</time>
-                    {` (${appointment.timeZone})`}
-                  </dd>
-                </div>
-                {appointment.bodyArea ? <div><dt>Zona del cuerpo</dt><dd>{appointment.bodyArea}</dd></div> : null}
-                {appointment.size ? <div><dt>Tamaño</dt><dd>{appointment.size}</dd></div> : null}
-              </dl>
-            </li>
-          ))}
-        </ol>
+        <div className="appointment-days">
+          {dayGroups.map((group, groupIndex) => {
+            const headingId = `artist-agenda-day-${groupIndex}`;
+            return (
+              <section className="appointment-day" aria-labelledby={headingId} key={`${group.dateTime}-${groupIndex}`}>
+                <h3 className="appointment-day-heading" id={headingId}>
+                  <time dateTime={group.dateTime}>{group.label}</time>
+                </h3>
+                <ol className="appointment-list">
+                  {group.appointments.map(({ appointment, position }) => {
+                    const endsOnAnotherDay = localDay(appointment.endUtc, appointment.timeZone).dateTime !== group.dateTime;
+                    return (
+                      <li
+                        className="appointment-card"
+                        data-next={position === 0 ? "true" : undefined}
+                        key={`${appointment.startUtc}-${appointment.endUtc}-${position}`}
+                      >
+                        {position === 0 ? <p className="appointment-kicker"><strong>Próxima cita</strong></p> : null}
+                        <h4>{appointment.customerDisplayName}</h4>
+                        <p className="appointment-summary">{appointment.caseSummary}</p>
+                        <dl className="appointment-details">
+                          <div>
+                            <dt>Horario</dt>
+                            <dd className="appointment-time">
+                              <span>
+                                <time dateTime={appointment.startUtc}>{formatTime(appointment.startUtc, appointment.timeZone)}</time>
+                                {" – "}
+                                <time dateTime={appointment.endUtc}>
+                                  {endsOnAnotherDay
+                                    ? formatDateTime(appointment.endUtc, appointment.timeZone)
+                                    : formatTime(appointment.endUtc, appointment.timeZone)}
+                                </time>
+                              </span>
+                              <span className="appointment-timezone">Zona horaria: {appointment.timeZone}</span>
+                            </dd>
+                          </div>
+                          {appointment.bodyArea ? <div><dt>Zona del cuerpo</dt><dd>{appointment.bodyArea}</dd></div> : null}
+                          {appointment.size ? <div><dt>Tamaño</dt><dd>{appointment.size}</dd></div> : null}
+                        </dl>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </section>
+            );
+          })}
+        </div>
       )}
     </section>
   );
@@ -88,4 +116,64 @@ function formatDateTime(value: string, timeZone: string): string {
     timeStyle: "short",
     timeZone,
   }).format(new Date(value));
+}
+
+function formatTime(value: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("es-ES", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone,
+  }).format(new Date(value));
+}
+
+type AppointmentDayGroup = Readonly<{
+  dateTime: string;
+  label: string;
+  appointments: readonly Readonly<{ appointment: ArtistAgendaItem; position: number }>[];
+}>;
+
+function groupAppointmentsByLocalDay(appointments: readonly ArtistAgendaItem[]): readonly AppointmentDayGroup[] {
+  const groups: Array<{
+    dateTime: string;
+    label: string;
+    appointments: Array<{ appointment: ArtistAgendaItem; position: number }>;
+  }> = [];
+
+  appointments.forEach((appointment, position) => {
+    const day = localDay(appointment.startUtc, appointment.timeZone);
+    const current = groups.at(-1);
+    if (!current || current.dateTime !== day.dateTime) {
+      groups.push({ ...day, appointments: [{ appointment, position }] });
+      return;
+    }
+    current.appointments.push({ appointment, position });
+  });
+
+  return groups;
+}
+
+function localDay(value: string, timeZone: string): Readonly<{ dateTime: string; label: string }> {
+  const date = new Date(value);
+  const keyParts = new Intl.DateTimeFormat("es-ES-u-ca-gregory-nu-latn", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone,
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) => keyParts.find((candidate) => candidate.type === type)?.value;
+  const year = part("year");
+  const month = part("month");
+  const day = part("day");
+  if (!year || !month || !day) throw new RangeError("No se pudo resolver el día local de la cita.");
+
+  return {
+    dateTime: `${year}-${month}-${day}`,
+    label: new Intl.DateTimeFormat("es-ES", {
+      day: "numeric",
+      month: "long",
+      weekday: "long",
+      year: "numeric",
+      timeZone,
+    }).format(date),
+  };
 }
