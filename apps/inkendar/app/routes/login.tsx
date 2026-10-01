@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Form, useActionData, useNavigation } from "react-router";
 import type { Route } from "./+types/login";
 
 import { authHandlers } from "../auth.server.js";
 import { SubmitButton } from "../ui/forms.js";
+
+export type LoginActionResult = Readonly<{ error?: string }>;
 
 export function meta(): Route.MetaDescriptors {
   return [{ title: "Acceso | Inkendar" }];
@@ -22,18 +24,21 @@ export function headers() {
 }
 
 export default function Login() {
-  const actionData = useActionData<{ error?: string }>();
+  const actionData = useActionData<LoginActionResult>();
   const navigation = useNavigation();
   const submission = loginPendingSubmission(navigation.state, navigation.formData);
-  return <LoginForm error={actionData?.error} pending={submission !== null} submittedEmail={submission?.email} />;
+  return <LoginForm actionResult={actionData} pending={submission !== null} submittedEmail={submission?.email} />;
 }
 
-export function LoginForm({ error, pending = false, submittedEmail }: Readonly<{
-  error?: string | undefined;
+export function LoginForm({ actionResult, pending = false, submittedEmail }: Readonly<{
+  actionResult?: LoginActionResult | undefined;
   pending?: boolean;
   submittedEmail?: string | undefined;
 }>) {
   const [email, setEmail] = useState(submittedEmail ?? "");
+  const clearPasswordAfterAction = useCallback((password: HTMLInputElement | null) => {
+    if (actionResult?.error && password) password.value = "";
+  }, [actionResult]);
   return (
     <main className="auth-page">
       <section className="auth-card" aria-labelledby="login-title">
@@ -56,9 +61,9 @@ export function LoginForm({ error, pending = false, submittedEmail }: Readonly<{
           </label>
           <label>
             Contraseña
-            <input name="password" type="password" autoComplete="current-password" required disabled={pending} />
+            <input ref={clearPasswordAfterAction} name="password" type="password" autoComplete="current-password" required disabled={pending} />
           </label>
-          {error ? <p className="form-error" role="alert">{error}</p> : null}
+          {actionResult?.error ? <p className="form-error" role="alert">{actionResult.error}</p> : null}
           <SubmitButton pending={pending} pendingLabel="Entrando…">Entrar</SubmitButton>
         </Form>
       </section>

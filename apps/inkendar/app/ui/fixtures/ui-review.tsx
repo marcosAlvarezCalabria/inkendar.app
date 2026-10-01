@@ -54,7 +54,7 @@ export function renderUiReviewScenarios(assets: ReviewAssets) {
     const view = scenario.view.kind === "login"
       ? <At pathname="/login"><LoginForm
           pending={scenario.view.pending}
-          {...(scenario.view.error ? { error: scenario.view.error } : {})}
+          {...(scenario.view.actionResult ? { actionResult: scenario.view.actionResult } : {})}
           {...(scenario.view.submittedEmail ? { submittedEmail: scenario.view.submittedEmail } : {})}
         /></At>
       : <At pathname="/app/owner/team"><OwnerTeamView data={scenario.view.data} pending={scenario.view.pending} /></At>;

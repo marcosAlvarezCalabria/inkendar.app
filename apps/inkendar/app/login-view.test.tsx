@@ -64,18 +64,30 @@ describe("login presentation", () => {
     const email = container.querySelector<HTMLInputElement>('input[name="email"]');
     const password = container.querySelector<HTMLInputElement>('input[name="password"]');
     if (!email || !password) throw new Error("Missing login controls");
+    const setInputValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
 
     await act(async () => {
-      const setInputValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
       setInputValue?.call(email, "artist@example.invalid");
       email.dispatchEvent(new Event("input", { bubbles: true }));
       setInputValue?.call(password, "ephemeral-secret");
       password.dispatchEvent(new Event("input", { bubbles: true }));
     });
-    await act(async () => root?.render(<LoginForm error="No se pudo iniciar sesión." />));
+    await act(async () => root?.render(<LoginForm actionResult={{ error: "No se pudo iniciar sesión." }} />));
 
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("No se pudo iniciar sesión.");
     expect((container.querySelector('input[name="email"]') as HTMLInputElement).value).toBe("artist@example.invalid");
+    expect((container.querySelector('input[name="password"]') as HTMLInputElement).value).toBe("");
     expect(container.querySelector('input[name="password"]')?.hasAttribute("value")).toBe(false);
+
+    const passwordAfterFirstFailure = container.querySelector<HTMLInputElement>('input[name="password"]');
+    if (!passwordAfterFirstFailure) throw new Error("Missing password after first failure");
+    await act(async () => {
+      setInputValue?.call(passwordAfterFirstFailure, "another-ephemeral-secret");
+      passwordAfterFirstFailure.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => root?.render(<LoginForm actionResult={{ error: "No se pudo iniciar sesión." }} />));
+
+    expect((container.querySelector('input[name="email"]') as HTMLInputElement).value).toBe("artist@example.invalid");
+    expect((container.querySelector('input[name="password"]') as HTMLInputElement).value).toBe("");
   });
 });

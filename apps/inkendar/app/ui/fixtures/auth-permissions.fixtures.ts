@@ -1,11 +1,12 @@
 import type { OwnerTeamData, OwnerTeamPending } from "../../routes/owner-team.js";
+import type { LoginActionResult } from "../../routes/login.js";
 
 type Viewport = "compact" | "mobile" | "tablet" | "desktop";
 
 export type AuthPermissionsFixtureView = Readonly<
   | {
     kind: "login";
-    error?: string;
+    actionResult?: LoginActionResult;
     pending: boolean;
     submittedEmail?: string;
   }
@@ -47,7 +48,7 @@ export const authPermissionsFixtureScenarios = viewports.flatMap((viewport, inde
         kind: "login",
         pending: loginPending,
         submittedEmail: "artista.frontdesk@example.invalid",
-        ...(loginPending ? {} : { error: "No se pudo iniciar sesión. Revisa tus datos e inténtalo de nuevo." }),
+        ...(loginPending ? {} : { actionResult: { error: "No se pudo iniciar sesión. Revisa tus datos e inténtalo de nuevo." } }),
       },
     },
     {
