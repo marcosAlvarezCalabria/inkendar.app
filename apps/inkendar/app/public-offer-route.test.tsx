@@ -108,4 +108,18 @@ describe("public booking offer route", () => {
     expect(html).not.toContain(token);
     expect(html).not.toContain("provider detail");
   });
+
+  it("distinguishes a temporary provider failure without reflecting details", async () => {
+    handler.loader.mockResolvedValueOnce(new Response("provider detail", { status: 503 }));
+    const { query, dataRoutes } = createStaticHandler(routes);
+    const token = "C".repeat(43);
+    const result = await query(new Request(`https://app.inkendar.es/offers/${token}`));
+    if (result instanceof Response) throw new Error("Expected static handler context");
+    const html = renderToStaticMarkup(<StaticRouterProvider router={createStaticRouter(dataRoutes, result)} context={result} />);
+    expect(result.statusCode).toBe(503);
+    expect(html).toContain("No podemos consultar la oferta ahora");
+    expect(html).toContain("Temporal");
+    expect(html).not.toContain(token);
+    expect(html).not.toContain("provider detail");
+  });
 });
