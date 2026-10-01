@@ -117,9 +117,12 @@ describe("Google Calendar connection service", () => {
   });
 
   it.each([
+    "invalid_request",
     "invalid_client",
     "invalid_grant",
     "redirect_uri_mismatch",
+    "unauthorized_client",
+    "unsupported_grant_type",
     "other",
   ] as const)("preserves only the allowlisted provider exchange category %s", async (category) => {
     const deps = dependencies();

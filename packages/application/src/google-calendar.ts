@@ -63,7 +63,14 @@ export class GoogleOAuthGrantIncompleteError extends Error {
   readonly code = "GOOGLE_OAUTH_GRANT_INCOMPLETE";
   constructor() { super("Google OAuth grant is incomplete"); this.name = "GoogleOAuthGrantIncompleteError"; }
 }
-export type GoogleOAuthProviderErrorCategory = "invalid_client" | "invalid_grant" | "redirect_uri_mismatch" | "other";
+export type GoogleOAuthProviderErrorCategory =
+  | "invalid_request"
+  | "invalid_client"
+  | "invalid_grant"
+  | "redirect_uri_mismatch"
+  | "unauthorized_client"
+  | "unsupported_grant_type"
+  | "other";
 export class GoogleOAuthProviderExchangeError extends Error {
   readonly code = "GOOGLE_OAUTH_PROVIDER_EXCHANGE_FAILED";
   constructor(readonly category: GoogleOAuthProviderErrorCategory) {

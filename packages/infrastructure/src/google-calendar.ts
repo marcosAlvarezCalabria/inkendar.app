@@ -169,7 +169,14 @@ async function json(response: Response, purpose?: "authorization-code" | "refres
   return payload;
 }
 function providerErrorCategory(value: unknown): GoogleOAuthProviderErrorCategory {
-  if (value === "invalid_client" || value === "invalid_grant" || value === "redirect_uri_mismatch") return value;
+  if (
+    value === "invalid_request"
+    || value === "invalid_client"
+    || value === "invalid_grant"
+    || value === "redirect_uri_mismatch"
+    || value === "unauthorized_client"
+    || value === "unsupported_grant_type"
+  ) return value;
   return "other";
 }
 function calendar(value: unknown): GoogleCalendar {

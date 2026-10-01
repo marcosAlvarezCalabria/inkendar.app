@@ -77,9 +77,12 @@ describe("Google Calendar infrastructure", () => {
   });
 
   it.each([
+    ["invalid_request", "invalid_request"],
     ["invalid_client", "invalid_client"],
     ["invalid_grant", "invalid_grant"],
     ["redirect_uri_mismatch", "redirect_uri_mismatch"],
+    ["unauthorized_client", "unauthorized_client"],
+    ["unsupported_grant_type", "unsupported_grant_type"],
     ["temporarily_unavailable", "other"],
   ] as const)("classifies token exchange provider error %s without retaining provider details", async (providerError, category) => {
     const fetcher = vi.fn(async () => new Response(JSON.stringify({

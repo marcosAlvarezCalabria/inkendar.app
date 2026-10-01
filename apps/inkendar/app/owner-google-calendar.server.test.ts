@@ -115,9 +115,12 @@ describe("owner Google Calendar handlers", () => {
   });
 
   it.each([
+    "invalid_request",
     "invalid_client",
     "invalid_grant",
     "redirect_uri_mismatch",
+    "unauthorized_client",
+    "unsupported_grant_type",
     "other",
   ] as const)("reports only the allowlisted provider exchange category %s", async (providerError) => {
     const current = service();
