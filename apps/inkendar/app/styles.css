@@ -1800,11 +1800,70 @@ textarea[aria-invalid="true"] {
 }
 
 .public-sheet {
-  gap: var(--space-4);
+  gap: var(--space-5);
+  overflow-wrap: anywhere;
 }
 
 .public-sheet h1 {
   color: var(--paper-text);
+}
+
+.public-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px dashed var(--paper-control);
+}
+
+.public-heading h1 {
+  flex: 1 1 14rem;
+  min-width: 0;
+  text-wrap: balance;
+}
+
+.public-summary,
+.public-state-copy {
+  max-width: 65ch;
+}
+
+.public-state-copy {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.public-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-3) 0;
+  border-top: 1px dashed var(--paper-control);
+  border-bottom: 1px dashed var(--paper-control);
+}
+
+.public-meta > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.public-meta dt {
+  color: var(--paper-muted);
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  font-stretch: 80%;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.public-meta dd {
+  min-width: 0;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .public-sheet ol {
@@ -1831,6 +1890,40 @@ textarea[aria-invalid="true"] {
   gap: var(--space-3);
 }
 
+.slot-time {
+  min-width: 0;
+  margin: 0;
+  color: var(--paper-text);
+  font-size: var(--step-0);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.slot-time time {
+  white-space: normal;
+}
+
+.public-retry-form {
+  display: grid;
+}
+
+.public-footnote {
+  color: var(--paper-muted);
+  font-size: var(--step--1);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .public-sheet ol > li form :is(button, .button) {
   width: 100%;
   max-width: 100%;
@@ -1839,6 +1932,20 @@ textarea[aria-invalid="true"] {
 .public-foot p {
   color: var(--text-muted);
   font-size: var(--step--1);
+}
+
+@media (min-width: 40rem) {
+  .public-sheet ol > li form {
+    grid-template-columns: minmax(0, 1fr) minmax(10rem, auto);
+  }
+
+  .public-sheet ol > li form :is(button, .button) {
+    width: auto;
+  }
+
+  .public-retry-form {
+    justify-content: start;
+  }
 }
 
 /* ---------- Review harness only (development) ---------- */

@@ -17,4 +17,8 @@ describe("public free-choice route",()=>{
   [{state:"REJECTED"},["no fue aceptada"],["2026-09-21","Ana"]],
   [{state:"EXPIRED"},["ha caducado"],["2026-09-21","Ana"]],
  ])("renders a minimal terminal state without slots or private context",async(data,visible,hidden)=>{const html=await render(data);for(const value of visible)expect(html).toContain(value);for(const value of hidden)expect(html).not.toContain(value);expect(html).not.toMatch(/<form|Solicitar este hueco|customer|caseId|studioId|calendarId/iu);});
+ it.each([
+  [404,"Este enlace no está disponible","No disponible"],
+  [503,"No podemos consultar los huecos ahora","Temporal"],
+ ])("distinguishes safe unavailable status %s without leaking details",async(status,title,badge)=>{const token="B".repeat(43);handler.loader.mockResolvedValueOnce(new Response("provider secret detail",{status}));const {query,dataRoutes}=createStaticHandler(routes),result=await query(new Request(`https://app.inkendar.es/availability/${token}`));if(result instanceof Response)throw new Error("Expected context");const html=renderToStaticMarkup(<StaticRouterProvider router={createStaticRouter(dataRoutes,result)} context={result}/>);expect(result.statusCode).toBe(status);expect(html).toContain(title);expect(html).toContain(badge);expect(html).not.toContain(token);expect(html).not.toContain("provider secret detail");});
 });
