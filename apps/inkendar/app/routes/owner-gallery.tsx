@@ -120,13 +120,18 @@ function GalleryMetadataFields({ artists, initialTarget, initialArtistId }: Read
   initialArtistId: string;
 }>) {
   const [target, setTarget] = useState<GalleryTarget>(initialTarget);
+  const [artistId, setArtistId] = useState(initialArtistId);
   const artistHintId = useId();
   const portfolio = target === "ARTIST_PORTFOLIO";
+  const updateTarget = (nextTarget: GalleryTarget) => {
+    setTarget(nextTarget);
+    if (nextTarget === "GALLERY") setArtistId("");
+  };
   return (
     <>
       <label>
         Destino
-        <select name="target" value={target} onChange={(event) => setTarget(event.currentTarget.value as GalleryTarget)} required>
+        <select name="target" value={target} onChange={(event) => updateTarget(event.currentTarget.value as GalleryTarget)} required>
           <option value="GALLERY">Galería general</option>
           <option value="ARTIST_PORTFOLIO">Portfolio de artista</option>
         </select>
@@ -135,15 +140,15 @@ function GalleryMetadataFields({ artists, initialTarget, initialArtistId }: Read
         Artista
         <select
           name="artistProfileId"
-          defaultValue={initialArtistId}
-          disabled={!portfolio}
+          value={artistId}
+          onChange={(event) => setArtistId(event.currentTarget.value)}
           required={portfolio}
-          aria-describedby={portfolio ? undefined : artistHintId}
+          aria-describedby={artistHintId}
         >
           <option value="">{portfolio ? "Selecciona un artista" : "No aplica a la galería general"}</option>
           {artists.map((artist) => <option key={artist.id} value={artist.id}>{artist.displayName}</option>)}
         </select>
-        {!portfolio ? <span className="field-hint" id={artistHintId}>El artista solo es obligatorio para un portfolio.</span> : null}
+        <span className="field-hint" id={artistHintId}>Selecciona un artista únicamente para un portfolio. Inkendar valida la combinación al guardar.</span>
       </label>
     </>
   );
@@ -190,7 +195,7 @@ function GalleryItem({ draft, artists, pending }: Readonly<{
   return (
     <li className="shell-panel gallery-draft-card">
       <div className="gallery-thumbnail-frame">
-        <img className="gallery-thumbnail" src={draft.thumbnailSrc} alt={draft.altText} width={draft.width} height={draft.height} />
+        <img className="gallery-thumbnail" src={draft.thumbnailSrc} alt={draft.altText} width={draft.width} height={draft.height} loading="lazy" decoding="async" />
       </div>
       <div className="gallery-card-head">
         <h3>{draft.altText}</h3>

@@ -40,6 +40,15 @@ describe("OwnerGalleryView", () => {
     const html = render();
 
     expect(html.match(/class="gallery-thumbnail"/gu)).toHaveLength(4);
+    const staticView = document.createElement("div");
+    staticView.innerHTML = html;
+    for (const thumbnail of staticView.querySelectorAll<HTMLImageElement>("img.gallery-thumbnail")) {
+      expect(thumbnail.loading).toBe("lazy");
+      expect(thumbnail.decoding).toBe("async");
+      expect(thumbnail.width).toBeGreaterThan(0);
+      expect(thumbnail.height).toBeGreaterThan(0);
+      expect(thumbnail.alt).not.toBe("");
+    }
     expect(html).toContain('alt="Boceto vertical de una peonía con hojas largas sobre fondo claro"');
     expect(html).toContain("Galería general");
     expect(html).toContain("Portfolio de Luz Artista");
@@ -65,11 +74,19 @@ describe("OwnerGalleryView", () => {
     for (const name of namedActions) expect(html).toContain(`aria-label="${name}"`);
   });
 
-  it("requires an artist only for portfolio targets in the rendered state", () => {
+  it("keeps the artist field submittable in static markup and requires it for initial portfolio targets", () => {
     const html = render();
+    const staticView = document.createElement("div");
+    staticView.innerHTML = html;
+    const uploadArtist = staticView.querySelector<HTMLSelectElement>('#gallery-upload select[name="artistProfileId"]');
+    const portfolioArtist = [...staticView.querySelectorAll<HTMLSelectElement>('select[name="artistProfileId"]')]
+      .find((select) => select.required);
 
-    expect(html).toMatch(/name="artistProfileId"[^>]*required/u);
-    expect(html).toMatch(/name="artistProfileId"[^>]*disabled/u);
+    expect(uploadArtist).not.toBeNull();
+    expect(uploadArtist?.disabled).toBe(false);
+    expect(uploadArtist?.required).toBe(false);
+    expect(uploadArtist?.querySelector('option[value="50000000-0000-4000-8000-000000000001"]')).not.toBeNull();
+    expect(portfolioArtist?.disabled).toBe(false);
   });
 
   it("updates the artist requirement when the upload destination changes", async () => {
@@ -82,7 +99,7 @@ describe("OwnerGalleryView", () => {
     const target = upload.querySelector('select[name="target"]') as HTMLSelectElement;
     const artist = upload.querySelector('select[name="artistProfileId"]') as HTMLSelectElement;
 
-    expect(artist.disabled).toBe(true);
+    expect(artist.disabled).toBe(false);
     expect(artist.required).toBe(false);
     await act(async () => {
       target.value = "ARTIST_PORTFOLIO";
@@ -90,6 +107,15 @@ describe("OwnerGalleryView", () => {
     });
     expect(artist.disabled).toBe(false);
     expect(artist.required).toBe(true);
+    await act(async () => {
+      artist.value = "50000000-0000-4000-8000-000000000001";
+      artist.dispatchEvent(new Event("change", { bubbles: true }));
+      target.value = "GALLERY";
+      target.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(artist.disabled).toBe(false);
+    expect(artist.required).toBe(false);
+    expect(artist.value).toBe("");
     await act(async () => root.unmount());
     container.remove();
   });
