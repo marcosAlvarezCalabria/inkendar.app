@@ -13,6 +13,14 @@ const userId = "10000000-0000-4000-8000-000000000001";
 const access: AuthorizedAccess = { displayName: "Owner", role: "OWNER", studioId, userId };
 const authorize = async () => ({ access, headers: new Headers({ "Set-Cookie": "session=rotated" }) });
 
+class ForeignGoogleOAuthCompletionFailedError extends Error {
+  readonly code = "GOOGLE_OAUTH_COMPLETION_FAILED";
+  readonly providerDescription = "synthetic sensitive provider description";
+  constructor(readonly phase: string, readonly providerError?: string) {
+    super("foreign OAuth completion failure");
+  }
+}
+
 function service(): OwnerGoogleCalendarService {
   return {
     beginConnection: vi.fn(async () => "https://accounts.google.com/o/oauth2/v2/auth?state=opaque"),
@@ -141,6 +149,29 @@ describe("owner Google Calendar handlers", () => {
       providerError,
     });
     const diagnostic = JSON.stringify(reportCallbackFailure.mock.calls);
+    expect(diagnostic).not.toContain("synthetic-authorization-code");
+    expect(diagnostic).not.toContain("synthetic-oauth-state");
+  });
+
+  it.each([
+    [new ForeignGoogleOAuthCompletionFailedError("provider-exchange", "invalid_grant"), { phase: "provider-exchange", providerError: "invalid_grant" }],
+    [new ForeignGoogleOAuthCompletionFailedError("provider-exchange", "temporarily_unavailable"), { phase: "provider-exchange", providerError: "other" }],
+    [new ForeignGoogleOAuthCompletionFailedError("token-protection", "invalid_grant"), { phase: "token-protection" }],
+    [Object.assign(new Error("synthetic sensitive provider description"), { code: "UNRELATED_COMPLETION_FAILURE", phase: "provider-exchange", providerError: "invalid_grant" }), { phase: "unknown" }],
+    [Object.assign(new Error("synthetic sensitive provider description"), { code: "GOOGLE_OAUTH_COMPLETION_FAILED", phase: "provider-sensitive-phase", providerError: "invalid_grant" }), { phase: "unknown" }],
+  ] as const)("recognizes a safe completion failure from another runtime copy", async (failure, expectedDetails) => {
+    const current = service();
+    vi.mocked(current.completeConnection).mockRejectedValueOnce(failure);
+    const reportCallbackFailure = vi.fn();
+    const handlers = createOwnerGoogleCalendarHandlers({ authorize, createService: () => current, now: () => new Date(), reportCallbackFailure });
+
+    const response = await handlers.callback(new Request("https://app.inkendar.es/auth/google/callback?state=synthetic-oauth-state-with-at-least-32-chars&code=synthetic-authorization-code"));
+
+    expect(response.headers.get("Location")).toBe("/app/owner/calendars?result=failed");
+    expect(reportCallbackFailure).toHaveBeenCalledWith("google_calendar_oauth_callback_failed", expectedDetails);
+    const diagnostic = JSON.stringify(reportCallbackFailure.mock.calls);
+    expect(diagnostic).not.toContain("synthetic sensitive provider description");
+    expect(diagnostic).not.toContain("temporarily_unavailable");
     expect(diagnostic).not.toContain("synthetic-authorization-code");
     expect(diagnostic).not.toContain("synthetic-oauth-state");
   });

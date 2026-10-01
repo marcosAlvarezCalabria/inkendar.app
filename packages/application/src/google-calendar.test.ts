@@ -22,6 +22,14 @@ const now = new Date("2026-09-14T10:00:00.000Z");
 const state = "synthetic-oauth-state-with-at-least-32-chars";
 const requiredScope = "https://www.googleapis.com/auth/calendar.calendarlist.readonly";
 
+class ForeignGoogleOAuthProviderExchangeError extends Error {
+  readonly code = "GOOGLE_OAUTH_PROVIDER_EXCHANGE_FAILED";
+  readonly providerDescription = "synthetic sensitive provider description";
+  constructor(readonly category: string) {
+    super("foreign provider exchange failure");
+  }
+}
+
 function dependencies() {
   const repository: GoogleCalendarRepositoryPort = {
     createAttempt: vi.fn(async () => undefined),
@@ -134,6 +142,38 @@ describe("Google Calendar connection service", () => {
     expect(caught).toBeInstanceOf(GoogleOAuthCompletionFailedError);
     expect(caught).toMatchObject({ phase: "provider-exchange", providerError: category, message: "Google OAuth completion failed" });
     expect(JSON.stringify(caught)).not.toContain("synthetic-authorization-code");
+  });
+
+  it.each([
+    ["invalid_grant", "invalid_grant"],
+    ["temporarily_unavailable", "other"],
+  ] as const)("recognizes provider exchange errors from another runtime copy and maps %s safely", async (foreignCategory, expectedCategory) => {
+    const deps = dependencies();
+    vi.mocked(deps.provider.exchangeCode).mockRejectedValueOnce(new ForeignGoogleOAuthProviderExchangeError(foreignCategory));
+    const service = createGoogleCalendarService(deps);
+
+    const caught = await service.completeConnection(studioId, userId, state, "synthetic-authorization-code", now).catch((error: unknown) => error);
+
+    expect(caught).toBeInstanceOf(GoogleOAuthCompletionFailedError);
+    expect(caught).toMatchObject({ phase: "provider-exchange", providerError: expectedCategory });
+    const diagnostic = JSON.stringify(caught);
+    expect(diagnostic).not.toContain("synthetic sensitive provider description");
+    expect(diagnostic).not.toContain("temporarily_unavailable");
+    expect(diagnostic).not.toContain("synthetic-authorization-code");
+  });
+
+  it("rejects a cross-runtime lookalike without the exact provider error code", async () => {
+    const deps = dependencies();
+    vi.mocked(deps.provider.exchangeCode).mockRejectedValueOnce(Object.assign(new Error("synthetic sensitive provider description"), {
+      code: "UNRELATED_PROVIDER_FAILURE",
+      category: "invalid_grant",
+    }));
+    const service = createGoogleCalendarService(deps);
+
+    const caught = await service.completeConnection(studioId, userId, state, "synthetic-authorization-code", now).catch((error: unknown) => error);
+
+    expect(caught).toMatchObject({ phase: "provider-exchange", providerError: "other" });
+    expect(JSON.stringify(caught)).not.toContain("synthetic");
   });
 
   it("lists minimal metadata and only assigns a writable calendar to an own-studio artist", async () => {

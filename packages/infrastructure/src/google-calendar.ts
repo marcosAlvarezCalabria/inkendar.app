@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
-import { GOOGLE_CALENDAR_EVENTS_SCOPE, GOOGLE_CALENDAR_LIST_SCOPE, GOOGLE_FREE_BUSY_SCOPE, GoogleCalendarCredentialInvalidError, GoogleOAuthProviderExchangeError, type GoogleCalendar, type GoogleCalendarAccessRole, type GoogleCalendarProviderPort, type GoogleOAuthProviderErrorCategory, type GoogleOAuthSecurityPort, type GoogleTokenProtectorPort } from "@inkendar/application";
+import { GOOGLE_CALENDAR_EVENTS_SCOPE, GOOGLE_CALENDAR_LIST_SCOPE, GOOGLE_FREE_BUSY_SCOPE, GoogleCalendarCredentialInvalidError, GoogleOAuthProviderExchangeError, isGoogleOAuthProviderErrorCategory, type GoogleCalendar, type GoogleCalendarAccessRole, type GoogleCalendarProviderPort, type GoogleOAuthProviderErrorCategory, type GoogleOAuthSecurityPort, type GoogleTokenProtectorPort } from "@inkendar/application";
 
 export { GoogleCalendarCredentialInvalidError } from "@inkendar/application";
 
@@ -169,15 +169,7 @@ async function json(response: Response, purpose?: "authorization-code" | "refres
   return payload;
 }
 function providerErrorCategory(value: unknown): GoogleOAuthProviderErrorCategory {
-  if (
-    value === "invalid_request"
-    || value === "invalid_client"
-    || value === "invalid_grant"
-    || value === "redirect_uri_mismatch"
-    || value === "unauthorized_client"
-    || value === "unsupported_grant_type"
-  ) return value;
-  return "other";
+  return isGoogleOAuthProviderErrorCategory(value) ? value : "other";
 }
 function calendar(value: unknown): GoogleCalendar {
   const row = object(value);
