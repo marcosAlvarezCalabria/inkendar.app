@@ -9,6 +9,8 @@ import { createMemoryRouter, RouterProvider } from "react-router";
 import { EmptyState, LoadingState, Notice, StatusBadge, StatusPage } from "../feedback.js";
 import { Field, SubmitButton } from "../forms.js";
 import { ArtistShell, OwnerShell, PublicLinkShell } from "../shells.js";
+import { OwnerOffersView } from "../../routes/owner-offers.js";
+import { ownerOfferFixtureScenarios } from "./owner-offers.fixtures.js";
 import type { UiFoundationView } from "./ui-foundation.fixtures.js";
 import { uiFoundationScenarios } from "./ui-foundation.fixtures.js";
 
@@ -22,19 +24,27 @@ function reviewHead({ stylesheetHref, fontStylesheetHref }: ReviewAssets): strin
 
 /** One standalone document per scenario, for per-viewport screenshots. */
 export function renderUiReviewScenarios(assets: ReviewAssets) {
-  return uiFoundationScenarios.map((scenario) => ({
+  const foundationScenarios = uiFoundationScenarios.map((scenario) => ({
     id: scenario.id,
+    description: scenario.description,
+    viewport: scenario.viewport,
     width: viewportWidths[scenario.viewport],
     html: `<!doctype html><html lang="es"><head>${reviewHead(assets)}<title>${scenario.id} | Inkendar</title></head><body>${renderToStaticMarkup(renderView(scenario.view))}</body></html>`,
   }));
+  const bookingScenarios = ownerOfferFixtureScenarios.map((scenario) => ({
+    id: scenario.id,
+    description: scenario.description,
+    viewport: scenario.viewport,
+    width: viewportWidths[scenario.viewport],
+    html: `<!doctype html><html lang="es"><head>${reviewHead(assets)}<title>${scenario.id} | Inkendar</title></head><body>${renderToStaticMarkup(<At pathname="/app/owner/offers"><OwnerOffersView data={scenario.view} actionResult={scenario.actionResult} /></At>)}</body></html>`,
+  }));
+  return [...foundationScenarios, ...bookingScenarios];
 }
 
 export function renderUiReviewDocument(assets: ReviewAssets): string {
   const head = reviewHead(assets);
-  const frames = renderUiReviewScenarios(assets).map(({ id, width, html: inner }) => {
-    const scenario = uiFoundationScenarios.find((item) => item.id === id);
-    if (!scenario) throw new Error(`Unknown scenario ${id}`);
-    return `<section class="review-case" id="${scenario.id}"><h2>${scenario.description}</h2><p>${scenario.viewport} · ${width}px · <code>${scenario.id}</code></p><iframe title="${scenario.description}" width="${width}" height="${scenario.viewport === "desktop" ? 720 : 760}" srcdoc="${escapeAttribute(inner)}"></iframe></section>`;
+  const frames = renderUiReviewScenarios(assets).map(({ id, description, viewport, width, html: inner }) => {
+    return `<section class="review-case" id="${id}"><h2>${description}</h2><p>${viewport} · ${width}px · <code>${id}</code></p><iframe title="${description}" width="${width}" height="${viewport === "desktop" ? 720 : 760}" srcdoc="${escapeAttribute(inner)}"></iframe></section>`;
   });
 
   return `<!doctype html><html lang="es"><head>${head}<title>Fundación visual | Inkendar</title><style>
