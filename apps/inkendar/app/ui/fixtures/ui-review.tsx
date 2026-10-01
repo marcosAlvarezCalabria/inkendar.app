@@ -10,6 +10,8 @@ import { EmptyState, LoadingState, Notice, StatusBadge, StatusPage } from "../fe
 import { Field, SubmitButton } from "../forms.js";
 import { ArtistShell, OwnerShell, PublicLinkShell } from "../shells.js";
 import { OwnerOffersView } from "../../routes/owner-offers.js";
+import { OwnerGalleryView } from "../../routes/owner-gallery.js";
+import { ownerGalleryFixtureScenarios } from "./owner-gallery.fixtures.js";
 import { ownerOfferFixtureScenarios } from "./owner-offers.fixtures.js";
 import type { UiFoundationView } from "./ui-foundation.fixtures.js";
 import { uiFoundationScenarios } from "./ui-foundation.fixtures.js";
@@ -29,16 +31,23 @@ export function renderUiReviewScenarios(assets: ReviewAssets) {
     description: scenario.description,
     viewport: scenario.viewport,
     width: viewportWidths[scenario.viewport],
-    html: `<!doctype html><html lang="es"><head>${reviewHead(assets)}<title>${scenario.id} | Inkendar</title></head><body>${renderToStaticMarkup(renderView(scenario.view))}</body></html>`,
+    html: `<!doctype html><html lang="es"><head>${reviewHead(assets)}<title>${scenario.id} | Inkendar</title></head><body style="width:${viewportWidths[scenario.viewport]}px">${renderToStaticMarkup(renderView(scenario.view))}</body></html>`,
   }));
   const bookingScenarios = ownerOfferFixtureScenarios.map((scenario) => ({
     id: scenario.id,
     description: scenario.description,
     viewport: scenario.viewport,
     width: viewportWidths[scenario.viewport],
-    html: `<!doctype html><html lang="es"><head>${reviewHead(assets)}<title>${scenario.id} | Inkendar</title></head><body>${renderToStaticMarkup(<At pathname="/app/owner/offers"><OwnerOffersView data={scenario.view} actionResult={scenario.actionResult} /></At>)}</body></html>`,
+    html: `<!doctype html><html lang="es"><head>${reviewHead(assets)}<title>${scenario.id} | Inkendar</title></head><body style="width:${viewportWidths[scenario.viewport]}px">${renderToStaticMarkup(<At pathname="/app/owner/offers"><OwnerOffersView data={scenario.view} actionResult={scenario.actionResult} /></At>)}</body></html>`,
   }));
-  return [...foundationScenarios, ...bookingScenarios];
+  const galleryScenarios = ownerGalleryFixtureScenarios.map((scenario) => ({
+    id: scenario.id,
+    description: scenario.description,
+    viewport: scenario.viewport,
+    width: viewportWidths[scenario.viewport],
+    html: `<!doctype html><html lang="es"><head>${reviewHead(assets)}<title>${scenario.id} | Inkendar</title></head><body style="width:${viewportWidths[scenario.viewport]}px">${renderToStaticMarkup(<At pathname="/app/owner/gallery"><OwnerGalleryView {...scenario.view} /></At>)}</body></html>`,
+  }));
+  return [...foundationScenarios, ...bookingScenarios, ...galleryScenarios];
 }
 
 export function renderUiReviewDocument(assets: ReviewAssets): string {
