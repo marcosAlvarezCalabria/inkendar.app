@@ -616,6 +616,135 @@ textarea[aria-invalid="true"] {
   overflow-wrap: anywhere;
 }
 
+/* Booking OWNER keeps configuration compact and every offer readable at 320px. */
+.booking-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.sensitive-access .record-head h2 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.sensitive-link-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.sensitive-link-control button {
+  width: 100%;
+}
+
+.copy-feedback:empty {
+  display: none;
+}
+
+.offer-list-panel > .section-header {
+  align-items: start;
+}
+
+.offer-list-panel > .section-header > div {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.offer-list-panel > .section-header h2 {
+  padding-bottom: var(--space-3);
+  border-bottom: 1px dashed var(--paper-control);
+  font-size: var(--step-1);
+  font-stretch: 78%;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.offer-entry {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.offer-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: var(--space-3);
+  min-width: 0;
+  margin: 0;
+}
+
+.offer-meta > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.offer-meta dt {
+  color: var(--paper-muted);
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  font-stretch: 80%;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.offer-meta dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.offer-options {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.offer-options li {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3) 0;
+  border-top: 1px dashed var(--paper-control);
+}
+
+.offer-options li:first-child {
+  border-top: 0;
+}
+
+.offer-options time,
+.offer-next-step {
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.offer-access-action {
+  justify-self: start;
+}
+
+@media (min-width: 40rem) {
+  .sensitive-link-control {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .sensitive-link-control button {
+    width: auto;
+  }
+}
+
+@media (min-width: 64rem) {
+  .booking-workspace {
+    grid-template-columns: minmax(16rem, 0.72fr) minmax(20rem, 1.6fr);
+  }
+}
+
 .section-intro {
   max-width: 68ch;
   color: var(--text-muted);
@@ -1458,6 +1587,10 @@ textarea[aria-invalid="true"] {
 .records > h2,
 .records > .section-header h2 {
   color: var(--text);
+}
+
+.offer-list-panel > .section-header h2 {
+  color: var(--paper-text);
 }
 
 .section-header {
