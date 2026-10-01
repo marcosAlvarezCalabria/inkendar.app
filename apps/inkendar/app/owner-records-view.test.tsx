@@ -12,7 +12,7 @@ const customers = [
     studioId: "studio-one",
     name: "Noa Cliente Sintética",
     email: "noa@example.invalid",
-    phone: "+34600000000",
+    phone: "+999000000001",
     status: "ACTIVE",
   },
   {
