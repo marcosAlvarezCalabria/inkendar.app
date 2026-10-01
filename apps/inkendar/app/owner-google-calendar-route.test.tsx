@@ -55,6 +55,31 @@ describe("owner Google Calendar route", () => {
     const html = renderToStaticMarkup(<StaticRouterProvider router={createStaticRouter(dataRoutes, result)} context={result} />);
     expect(html).toContain("Google Calendar no está conectado");
   });
+
+  it.each([
+    ["non-OK response", () => freeChoice.loader.mockResolvedValueOnce(Response.json({ error: "temporary" }, { status: 503 }))],
+    ["exception", () => freeChoice.loader.mockRejectedValueOnce(new Error("temporary"))],
+  ] as const)("keeps Calendar usable but marks free-choice requests unavailable after a %s", async (_label, failFreeChoice) => {
+    const artist = { id: "50000000-0000-4000-8000-000000000001", displayName: "Ana", calendarId: "artist@test" };
+    handler.loader.mockResolvedValueOnce(Response.json({ connectionStatus: "ACTIVE", calendars: [], artists: [artist] }));
+    availability.loader.mockResolvedValueOnce(Response.json({ availabilityByArtist: { [artist.id]: null } }));
+    failFreeChoice();
+    const { query, dataRoutes } = createStaticHandler(routes);
+
+    const result = await query(new Request("https://app.inkendar.es/app/owner/calendars"));
+
+    if (result instanceof Response) throw new Error("Expected static handler context");
+    expect(result.statusCode).toBe(200);
+    expect(result.errors).toBeNull();
+    const html = renderToStaticMarkup(<StaticRouterProvider router={createStaticRouter(dataRoutes, result)} context={result} />);
+    expect(html).toContain("Solicitudes temporalmente no disponibles");
+    expect(html).toContain("Google Calendar");
+    expect(html).toContain("Guardar disponibilidad");
+    expect(html).toContain("Previsualizar huecos");
+    expect(html).not.toContain("No hay solicitudes pendientes");
+    expect(html).not.toContain('action="?freeChoice=1"');
+    expect(html).not.toContain("temporary");
+  });
 });
 
 it("combines saved availability into the real route render",async()=>{const artist={id:"50000000-0000-4000-8000-000000000001",displayName:"Ana",calendarId:"artist@test"};handler.loader.mockResolvedValueOnce(Response.json({connectionStatus:"ACTIVE",calendars:[],artists:[artist]}));availability.loader.mockResolvedValueOnce(Response.json({availabilityByArtist:{[artist.id]:{timeZone:"Pacific/Kiritimati",windows:[{weekday:6,start:"09:15",end:"12:45"}],slotIncrementMinutes:45,bufferBeforeMinutes:20,bufferAfterMinutes:25}}}));const {query,dataRoutes}=createStaticHandler(routes);const result=await query(new Request("https://app.inkendar.es/app/owner/calendars"));if(result instanceof Response)throw new Error("Expected context");const html=renderToStaticMarkup(<StaticRouterProvider router={createStaticRouter(dataRoutes,result)} context={result}/>);expect(availability.loader).toHaveBeenCalledOnce();expect(html).toContain('value="Pacific/Kiritimati"');expect(html).toContain("6,09:15,12:45");expect(html).toContain('value="45"');});

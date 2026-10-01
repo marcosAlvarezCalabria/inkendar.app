@@ -1,10 +1,11 @@
 import { useId, useState } from "react";
-import { Form, useActionData, useLoaderData, useNavigation } from "react-router";
+import { Form, isRouteErrorResponse, useActionData, useLoaderData, useNavigation, useRouteError } from "react-router";
 
 import type { GalleryDiscardedRow, GalleryDraftView } from "@inkendar/application";
 import { ownerGalleryHandlers } from "../owner-gallery.server.js";
+import { routeResponseOrThrow } from "../route-response.server.js";
 import { cloudflareContext } from "../cloudflare-context.js";
-import { EmptyState, Notice, StatusBadge, type Tone } from "../ui/feedback.js";
+import { AccessDeniedPage, EmptyState, Notice, StatusBadge, StatusPage, type Tone } from "../ui/feedback.js";
 import { SubmitButton } from "../ui/forms.js";
 import { OwnerShell } from "../ui/shells.js";
 import type { Route } from "./+types/owner-gallery";
@@ -27,7 +28,10 @@ type GalleryTarget = OwnerGalleryItem["target"];
 
 export function meta(): Route.MetaDescriptors { return [{ title: "Galería privada | Inkendar" }]; }
 export function headers() { return { "Cache-Control": "private, no-store", "Referrer-Policy": "same-origin", "X-Content-Type-Options": "nosniff" }; }
-export async function loader({ request }: Route.LoaderArgs) { return ownerGalleryHandlers.loader(request); }
+export async function loader({ request }: Route.LoaderArgs) {
+  const response = await ownerGalleryHandlers.loader(request);
+  return routeResponseOrThrow(response);
+}
 export async function action({ request, context }: Route.ActionArgs) { return ownerGalleryHandlers.action(request, context.get(cloudflareContext).env); }
 
 export default function OwnerGallery() {
@@ -376,4 +380,10 @@ export function galleryPendingSubmission(state: string, formData: FormData | und
     && (intent === "UPDATE" || intent === "MOVE_UP" || intent === "MOVE_DOWN" || intent === "DISCARD" || intent === "PUBLISH" || intent === "RETIRE" || intent === "RESTORE")
   ) return { intent, handle };
   return null;
+}
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+  if (isRouteErrorResponse(error) && error.status === 403) return <AccessDeniedPage />;
+  return <StatusPage tone="warning" title="Galería no disponible">No se pudo cargar el contenido privado de la galería.</StatusPage>;
 }

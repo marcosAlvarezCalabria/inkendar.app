@@ -1,9 +1,10 @@
-import { Form, Link, useActionData, useLoaderData, useNavigation } from "react-router";
+import { Form, isRouteErrorResponse, Link, useActionData, useLoaderData, useNavigation, useRouteError } from "react-router";
 import type { ArtistOption, Customer, TattooCase } from "@inkendar/application";
 import type { Route } from "./+types/owner-cases";
 
 import { ownerCustomerCasesHandlers } from "../owner-customer-cases.server.js";
-import { EmptyState, Notice, StatusBadge } from "../ui/feedback.js";
+import { routeResponseOrThrow } from "../route-response.server.js";
+import { AccessDeniedPage, EmptyState, Notice, StatusBadge, StatusPage } from "../ui/feedback.js";
 import { SubmitButton } from "../ui/forms.js";
 import { OwnerShell } from "../ui/shells.js";
 
@@ -16,7 +17,10 @@ type PendingSubmission = Readonly<
 
 export function meta(): Route.MetaDescriptors { return [{ title: "Casos de tatuaje | Inkendar" }]; }
 export function headers() { return { "Cache-Control": "private, no-store" }; }
-export async function loader({ request }: Route.LoaderArgs) { return ownerCustomerCasesHandlers.casesLoader(request); }
+export async function loader({ request }: Route.LoaderArgs) {
+  const response = await ownerCustomerCasesHandlers.casesLoader(request);
+  return routeResponseOrThrow(response);
+}
 export async function action({ request }: Route.ActionArgs) { return ownerCustomerCasesHandlers.caseAction(request); }
 
 export default function OwnerCases() {
@@ -116,4 +120,10 @@ function getPendingSubmission(state: string, formData: FormData | undefined): Pe
   if (intent === "create") return { intent };
   const id = formData.get("id");
   return intent === "update" && typeof id === "string" ? { intent, id } : undefined;
+}
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+  if (isRouteErrorResponse(error) && error.status === 403) return <AccessDeniedPage />;
+  return <StatusPage tone="warning" title="Casos no disponibles">No se pudieron cargar los casos del estudio.</StatusPage>;
 }
