@@ -1679,21 +1679,125 @@ textarea[aria-invalid="true"] {
 
 .gallery-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.gallery-grid img {
+.gallery-section > .section-header > div {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.gallery-draft-card {
+  align-content: start;
+  overflow: hidden;
+}
+
+.gallery-thumbnail-frame {
+  display: grid;
+  place-items: center;
   width: 100%;
-  height: auto;
   aspect-ratio: 4 / 3;
+  overflow: hidden;
   border: 1px solid var(--paper-line);
   border-radius: var(--radius-md);
-  object-fit: cover;
   background: var(--paper-sunk);
+}
+
+.gallery-grid .gallery-thumbnail {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.gallery-card-head {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.gallery-card-head h3 {
+  overflow-wrap: anywhere;
+}
+
+.gallery-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-3) 0;
+  border-top: 1px dashed var(--paper-control);
+  border-bottom: 1px dashed var(--paper-control);
+}
+
+.gallery-meta > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.gallery-meta dt {
+  color: var(--paper-muted);
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  font-stretch: 80%;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.gallery-meta dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.gallery-lifecycle-copy,
+.gallery-draft-actions {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.shell-panel .gallery-state-title {
+  color: var(--paper-text);
+  font-weight: 750;
+}
+
+.gallery-draft-actions {
+  padding-top: var(--space-4);
+  border-top: 1px dashed var(--paper-control);
+}
+
+.gallery-lifecycle-form {
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--paper-control);
+}
+
+.gallery-discarded-list {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gallery-discarded-item {
+  align-content: start;
+}
+
+@media (min-width: 48rem) {
+  .gallery-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 80rem) {
+  .gallery-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .appointment-list {
