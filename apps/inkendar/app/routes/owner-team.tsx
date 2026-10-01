@@ -1,9 +1,10 @@
-import { Form, Link, useActionData, useLoaderData, useNavigation, useRouteError } from "react-router";
+import { Form, isRouteErrorResponse, Link, useActionData, useLoaderData, useNavigation, useRouteError } from "react-router";
 import type { StudioMember } from "@inkendar/application";
 import type { Route } from "./+types/owner-team";
 
 import { ownerAccessHandlers } from "../owner-access.server.js";
-import { StatusPage } from "../ui/feedback.js";
+import { routeResponseOrThrow } from "../route-response.server.js";
+import { AccessDeniedPage, StatusPage } from "../ui/feedback.js";
 import { SubmitButton } from "../ui/forms.js";
 import { OwnerShell } from "../ui/shells.js";
 
@@ -27,8 +28,7 @@ export function headers() {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const response = await ownerAccessHandlers.loader(request);
-  if (response.status >= 400) throw new Response(null, { status: response.status, headers: response.headers });
-  return response;
+  return routeResponseOrThrow(response);
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -104,7 +104,8 @@ export function ownerTeamPendingSubmission(state: string, formData: FormData | u
 }
 
 export function ErrorBoundary() {
-  useRouteError();
+  const error = useRouteError();
+  if (isRouteErrorResponse(error) && error.status === 403) return <AccessDeniedPage />;
   return <StatusPage tone="warning" title="Equipo no disponible" action={<Link className="button" to="/app/owner/team">Reintentar</Link>}>
     No se pudieron cargar los accesos. Inténtalo de nuevo más tarde.
   </StatusPage>;

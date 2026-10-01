@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Form, Link, useActionData, useLoaderData, useNavigation, useRouteError } from "react-router";
+import { Form, isRouteErrorResponse, Link, useActionData, useLoaderData, useNavigation, useRouteError } from "react-router";
 import type { ConversationMessage, ConversationPage, ConversationThread, Customer, TattooCase } from "@inkendar/application";
 
 import { ownerConversationsHandlers } from "../owner-conversations.server.js";
-import { EmptyState, Notice, StatusBadge, StatusPage, type Tone } from "../ui/feedback.js";
+import { routeResponseOrThrow } from "../route-response.server.js";
+import { AccessDeniedPage, EmptyState, Notice, StatusBadge, StatusPage, type Tone } from "../ui/feedback.js";
 import { SubmitButton } from "../ui/forms.js";
 import { OwnerShell } from "../ui/shells.js";
 import type { Route } from "./+types/owner-conversations";
@@ -14,7 +15,10 @@ export type ConversationPendingSubmission = Readonly<{ intent: "link" | "reply";
 
 export function meta(): Route.MetaDescriptors { return [{ title: "Conversaciones | Inkendar" }]; }
 export function headers() { return { "Cache-Control": "private, no-store" }; }
-export async function loader({ request }: Route.LoaderArgs) { return ownerConversationsHandlers.loader(request); }
+export async function loader({ request }: Route.LoaderArgs) {
+  const response = await ownerConversationsHandlers.loader(request);
+  return routeResponseOrThrow(response);
+}
 export async function action({ request }: Route.ActionArgs) { return ownerConversationsHandlers.action(request); }
 
 export default function OwnerConversations() {
@@ -126,7 +130,8 @@ export function ConversationUnavailablePage() {
   return <StatusPage tone="warning" title="Conversaciones no disponibles" action={<a className="button" href="/app/owner/conversations">Reintentar carga</a>}>La bandeja del estudio no puede cargarse temporalmente. Tus conversaciones no se han borrado.</StatusPage>;
 }
 export function ErrorBoundary() {
-  useRouteError();
+  const error = useRouteError();
+  if (isRouteErrorResponse(error) && error.status === 403) return <AccessDeniedPage />;
   return <ConversationUnavailablePage />;
 }
 

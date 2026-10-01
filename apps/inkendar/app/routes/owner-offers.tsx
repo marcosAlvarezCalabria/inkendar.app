@@ -1,24 +1,18 @@
 import { useRef, useState } from "react";
-import { Form, Link, useActionData, useLoaderData, useNavigation, useRouteError } from "react-router";
-import { EmptyState, Notice, StatusBadge, StatusPage, type Tone } from "../ui/feedback.js";
+import { Form, isRouteErrorResponse, Link, useActionData, useLoaderData, useNavigation, useRouteError } from "react-router";
+import { AccessDeniedPage, EmptyState, Notice, StatusBadge, StatusPage, type Tone } from "../ui/feedback.js";
 import { Field, SubmitButton } from "../ui/forms.js";
 import { OwnerShell } from "../ui/shells.js";
 import type { BookingOfferManagement, BookingOfferStatus, BookingOptionStatus } from "@inkendar/application";
 import type { Route } from "./+types/owner-offers";
 import { ownerBookingOfferHandlers } from "../owner-booking-offers.server.js";
+import { routeResponseOrThrow } from "../route-response.server.js";
 
 export function meta(): Route.MetaDescriptors { return [{ title: "Ofertas de fechas | Inkendar" }]; }
 export function headers() { return { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" }; }
 export async function loader({ request }: Route.LoaderArgs) {
   const response = await ownerBookingOfferHandlers.loader(request);
-  if (response.status >= 400) {
-    throw new Response(null, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: response.headers,
-    });
-  }
-  return response;
+  return routeResponseOrThrow(response);
 }
 export async function action({ request }: Route.ActionArgs) { return ownerBookingOfferHandlers.action(request); }
 
@@ -165,7 +159,8 @@ export function SensitiveAccessLink({ accessUrl, expiresAt }: Readonly<{ accessU
 }
 
 export function ErrorBoundary() {
-  useRouteError();
+  const error = useRouteError();
+  if (isRouteErrorResponse(error) && error.status === 403) return <AccessDeniedPage />;
   return <StatusPage tone="warning" title="Ofertas no disponibles" action={<Link className="button" to="/app/owner/offers">Reintentar</Link>}>
     No se pudieron cargar las ofertas. Inténtalo de nuevo más tarde.
   </StatusPage>;

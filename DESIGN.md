@@ -1,8 +1,8 @@
 # Sistema visual de la PWA Inkendar
 
-_Estado: fundación visual (slice 1 de `docs/design/product-ui-spec.md`), pendiente de revisión_
+_Estado: frontend del MVP completado tras los PR #63–#71 y el [PR #72](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/72); pendiente de integración de ese PR y de los gates operativos separados_
 
-_Última actualización: 2026-09-25_
+_Última actualización: 2026-10-01_
 
 La especificación de UX/UI es la fuente de verdad de pantallas, estados y criterios. Este documento solo fija las reglas visuales duraderas que la implementan. Los valores viven en `apps/inkendar/app/styles.css`.
 
@@ -42,3 +42,13 @@ Una orden de trabajo del estudio: hojas de papel frío sobre una mesa de tinta. 
 - Tarjetas anidadas: dentro de una hoja, los registros se separan con reglas discontinuas.
 - Bordes laterales de color en avisos o tarjetas.
 - Color como único portador de estado.
+
+## Evidencia de cierre del frontend MVP
+
+- Las doce vistas canónicas reutilizan sus composiciones reales en el harness privado `pnpm run ui:review`; no existe ruta, endpoint ni import de fixtures desde producción.
+- El catálogo conserva evidencia sintética revisable a 320, 375, 768 y 1280 px para acceso; panel, conversaciones, clientes, casos, calendario, ofertas, galería y equipo OWNER; agenda ARTIST; oferta pública y elección libre.
+- Las regresiones de ruta verifican que un `Response` no-OK se lanza al boundary en vez de consumirse como datos. Un 403 presenta exactamente “Acceso denegado”, sin datos, navegación alternativa ni cambio de rol.
+- Calendario modela la carga de solicitudes de elección libre como `available` o `unavailable`: si falla esa fuente, el resto seguro de la pantalla permanece operativo, se ocultan decisiones y casos emitibles y nunca se afirma que la lista esté vacía.
+- Los fixtures usan datos inequívocamente sintéticos (`example.invalid`, numeración no enrutable `+999`) y quedan cubiertos por pruebas de catálogo y frontera de producción.
+
+Esta evidencia cierra el alcance frontend de la especificación visual. No demuestra smoke live, navegación al fallback estático del service worker, uso con personas reales, disponibilidad de proveedores, despliegue de producción ni los gates de Google, Chatwoot, Storage/Images, notificaciones o piloto; esos estados continúan gobernados por la especificación vendible y la arquitectura.

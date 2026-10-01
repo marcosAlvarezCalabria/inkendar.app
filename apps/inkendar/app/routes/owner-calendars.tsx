@@ -1,5 +1,5 @@
 import { Form, isRouteErrorResponse, Link, useActionData, useLoaderData, useNavigation, useRouteError, useSearchParams } from "react-router";
-import { EmptyState, Notice, StatusBadge, StatusPage } from "../ui/feedback.js";
+import { AccessDeniedPage, EmptyState, Notice, StatusBadge, StatusPage } from "../ui/feedback.js";
 import { OwnerShell } from "../ui/shells.js";
 import type { ArtistCalendarAssignment, FreeChoiceOwnerManagement, GoogleCalendar, GoogleConnectionStatus } from "@inkendar/application";
 import type { AvailabilityRules } from "@inkendar/domain";
@@ -9,13 +9,18 @@ import { ownerAvailabilityHandlers } from "../owner-availability.server.js";
 
 import { ownerFreeChoiceAvailabilityHandlers } from "../free-choice-availability.server.js";
 import { ownerFreeChoiceDecisionHandlers } from "../free-choice-owner-decision.server.js";
+import { routeResponseOrThrow } from "../route-response.server.js";
 export type CalendarView = Readonly<{
   connectionStatus: GoogleConnectionStatus | "NOT_CONNECTED";
   calendars: readonly GoogleCalendar[];
   artists: readonly ArtistCalendarAssignment[];
   availabilityByArtist: Readonly<Record<string, AvailabilityRules | null>>;
-  freeChoice: FreeChoiceOwnerManagement;
+  freeChoice: FreeChoiceProjection;
 }>;
+export type FreeChoiceProjection = Readonly<
+  | { status: "available"; data: FreeChoiceOwnerManagement }
+  | { status: "unavailable" }
+>;
 type AvailabilitySlotView = Readonly<{ startUtc:string; endUtc:string; startLocal:string; endLocal:string }>;
 export type CalendarActionData = Readonly<{ error?:string; saved?:boolean; slots?:readonly AvailabilitySlotView[]; accessUrl?:string; expiresAt?:string }>;
 export type CalendarPending = Readonly<{ kind:"connection"|"assignment"|"availability"|"preview"|"issue"|"decision"; targetId?:string|undefined; intent?:string|undefined }>;
@@ -23,24 +28,28 @@ export type CalendarPending = Readonly<{ kind:"connection"|"assignment"|"availab
 export function meta(): Route.MetaDescriptors { return [{ title: "Google Calendar | Inkendar" }]; }
 export function headers() { return { "Cache-Control": "private, no-store" }; }
 export async function loader({ request }: Route.LoaderArgs) {
-  const response = await ownerGoogleCalendarHandlers.loader(request);
-  if (response.status >= 400) throw response;
+  const response = routeResponseOrThrow(await ownerGoogleCalendarHandlers.loader(request));
+  if (isRedirectResponse(response)) return response;
   const management = await response.json() as Omit<CalendarView, "availabilityByArtist" | "freeChoice">;
   const availabilityUrl = new URL(request.url);
   availabilityUrl.searchParams.delete("artistProfileId");
   for (const artist of management.artists) availabilityUrl.searchParams.append("artistProfileId", artist.id);
-  const availabilityResponse = await ownerAvailabilityHandlers.loader(new Request(availabilityUrl, { headers: request.headers }));
-  if (availabilityResponse.status >= 400) throw availabilityResponse;
+  const availabilityResponse = routeResponseOrThrow(await ownerAvailabilityHandlers.loader(new Request(availabilityUrl, { headers: request.headers })));
+  if (isRedirectResponse(availabilityResponse)) return availabilityResponse;
   const availability = await availabilityResponse.json() as Pick<CalendarView, "availabilityByArtist">;
-  let freeChoice: FreeChoiceOwnerManagement = { cases: [], pendingRequests: [] };
+  let freeChoice: FreeChoiceProjection = { status: "unavailable" };
   try {
     const freeChoiceResponse = await ownerFreeChoiceAvailabilityHandlers.loader(request);
-    if (freeChoiceResponse.ok) freeChoice = await freeChoiceResponse.json() as FreeChoiceOwnerManagement;
+    if (isRedirectResponse(freeChoiceResponse)) return freeChoiceResponse;
+    if (freeChoiceResponse.ok) {
+      freeChoice = { status: "available", data: await freeChoiceResponse.json() as FreeChoiceOwnerManagement };
+    }
   } catch {
     // The additive panel must not make existing calendar management unavailable.
   }
   return Response.json({ ...management, ...availability, freeChoice }, { headers: response.headers });
 }
+function isRedirectResponse(response: Response): boolean { return response.status >= 300 && response.status < 400; }
 export async function action({ request }: Route.ActionArgs) { const params=new URL(request.url).searchParams; return params.get("freeChoiceDecision") === "1" ? ownerFreeChoiceDecisionHandlers.action(request) : params.get("freeChoice") === "1" ? ownerFreeChoiceAvailabilityHandlers.action(request) : params.get("availability") === "1" ? ownerAvailabilityHandlers.action(request) : ownerGoogleCalendarHandlers.action(request); }
 
 export default function OwnerCalendars() {
@@ -58,13 +67,32 @@ export default function OwnerCalendars() {
 export function CalendarWorkspace({data,result,actionData,pending}:Readonly<{data:CalendarView;result:string|null;actionData:CalendarActionData|undefined;pending:CalendarPending|null}>) {
   return <>
     <CalendarManagement data={data} result={result} pending={pending} />
-    <FreeChoiceDecisionList requests={data.freeChoice.pendingRequests} pending={pending} />
-    <AvailabilityManagement artists={data.artists} availabilityByArtist={data.availabilityByArtist} freeChoice={data.freeChoice} actionData={actionData} pending={pending} />
+    {data.freeChoice.status === "available"
+      ? <FreeChoiceDecisionList requests={data.freeChoice.data.pendingRequests} pending={pending} />
+      : <FreeChoiceUnavailable />}
+    <AvailabilityManagement
+      artists={data.artists}
+      availabilityByArtist={data.availabilityByArtist}
+      {...(data.freeChoice.status === "available" ? { freeChoice: data.freeChoice.data } : {})}
+      freeChoiceUnavailable={data.freeChoice.status === "unavailable"}
+      actionData={actionData}
+      pending={pending}
+    />
   </>;
+}
+
+function FreeChoiceUnavailable() {
+  return <section className="records" aria-labelledby="free-choice-decisions">
+    <h2 id="free-choice-decisions">Decidir solicitudes de elección libre</h2>
+    <Notice tone="warning" title="Solicitudes temporalmente no disponibles">
+      No podemos comprobar ahora si hay solicitudes pendientes. El resto de Calendario sigue disponible.
+    </Notice>
+  </section>;
 }
 
 export function ErrorBoundary() {
   const error = useRouteError();
+  if (isRouteErrorResponse(error) && error.status === 403) return <AccessDeniedPage />;
   const unavailable = isRouteErrorResponse(error) && error.status === 503;
   return <StatusPage tone="warning" title="Google Calendar no disponible" action={<Link to="/app/owner">Volver al panel</Link>}>
     {unavailable ? "Inténtalo de nuevo más tarde." : "No se pudo cargar la configuración de calendarios."}
@@ -150,7 +178,7 @@ export function FreeChoiceDecisionList({requests,pending=null}:Readonly<{request
     })}
   </section>;
 }
-export function AvailabilityManagement({artists,availabilityByArtist,freeChoice={cases:[],pendingRequests:[]},actionData,pending=null}:Readonly<{artists:readonly ArtistCalendarAssignment[];availabilityByArtist:Readonly<Record<string,AvailabilityRules|null>>;freeChoice?:FreeChoiceOwnerManagement;actionData:CalendarActionData|undefined;pending?:CalendarPending|null}>) {
+export function AvailabilityManagement({artists,availabilityByArtist,freeChoice={cases:[],pendingRequests:[]},freeChoiceUnavailable=false,actionData,pending=null}:Readonly<{artists:readonly ArtistCalendarAssignment[];availabilityByArtist:Readonly<Record<string,AvailabilityRules|null>>;freeChoice?:FreeChoiceOwnerManagement;freeChoiceUnavailable?:boolean;actionData:CalendarActionData|undefined;pending?:CalendarPending|null}>) {
   return <section className="records calendar-availability" aria-labelledby="availability-title">
     <div className="section-header"><h2 id="availability-title">Disponibilidad y enlaces por artista</h2><StatusBadge tone="info">Configuración técnica</StatusBadge></div>
     <p className="section-intro">Abre un artista cada vez. Las ventanas se interpretan en su zona IANA; los rangos de consulta y caducidad se introducen en UTC. Previsualizar no confirma una cita.</p>
@@ -172,8 +200,9 @@ export function AvailabilityManagement({artists,availabilityByArtist,freeChoice=
           </section>
           <section className="calendar-form-section" aria-labelledby={`issue-${artist.id}`}>
             <h3 id={`issue-${artist.id}`}>Emitir enlace de elección libre</h3><p>El enlace queda ligado a un caso abierto. Los huecos elegidos requieren decisión del estudio.</p>
-            <Form method="post" action="?freeChoice=1" className="record-form"><input type="hidden" name="artistProfileId" value={artist.id}/><label>Caso abierto asignado<select name="tattooCaseId" required><option value="">Selecciona un caso</option>{assignedCases.map(item=><option key={item.id} value={item.id}>{item.summary}</option>)}</select></label><label>Rango desde (UTC)<input name="rangeStart" type="datetime-local" required/></label><label>Rango hasta (UTC)<input name="rangeEnd" type="datetime-local" required/></label><label>Duración (min)<input name="durationMinutes" type="number" min="15" max="480" defaultValue="60"/></label><label>Enlace válido hasta (UTC)<input name="expiresAt" type="datetime-local" required/></label><button type="submit" disabled={assignedCases.length===0||isPendingFor(pending,"issue",artist.id)}>{isPendingFor(pending,"issue",artist.id)?"Emitiendo enlace…":"Emitir o rotar enlace del caso"}</button></Form>
-            {assignedCases.length===0?<p className="meta-line">No hay un caso abierto asignado a este artista; por eso no se puede emitir un enlace.</p>:null}
+            {freeChoiceUnavailable
+              ? <Notice tone="warning" title="Emisión temporalmente no disponible">No podemos cargar los casos emitibles ahora. La emisión queda desactivada hasta recuperar esa información.</Notice>
+              : <><Form method="post" action="?freeChoice=1" className="record-form"><input type="hidden" name="artistProfileId" value={artist.id}/><label>Caso abierto asignado<select name="tattooCaseId" required><option value="">Selecciona un caso</option>{assignedCases.map(item=><option key={item.id} value={item.id}>{item.summary}</option>)}</select></label><label>Rango desde (UTC)<input name="rangeStart" type="datetime-local" required/></label><label>Rango hasta (UTC)<input name="rangeEnd" type="datetime-local" required/></label><label>Duración (min)<input name="durationMinutes" type="number" min="15" max="480" defaultValue="60"/></label><label>Enlace válido hasta (UTC)<input name="expiresAt" type="datetime-local" required/></label><button type="submit" disabled={assignedCases.length===0||isPendingFor(pending,"issue",artist.id)}>{isPendingFor(pending,"issue",artist.id)?"Emitiendo enlace…":"Emitir o rotar enlace del caso"}</button></Form>{assignedCases.length===0?<p className="meta-line">No hay un caso abierto asignado a este artista; por eso no se puede emitir un enlace.</p>:null}</>}
           </section>
         </div>
       </details>;

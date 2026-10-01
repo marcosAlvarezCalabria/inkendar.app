@@ -20,7 +20,58 @@ const routes = [{
   ErrorBoundary,
 }];
 
+const redirectHeaders = {
+  Location: "/login",
+  "Set-Cookie": "inkendar_session=; Max-Age=0; Path=/; HttpOnly",
+  "Cache-Control": "private, no-store",
+} as const;
+
+function expectPreservedRedirect(result: Response | unknown): asserts result is Response {
+  expect(result).toBeInstanceOf(Response);
+  if (!(result instanceof Response)) throw new Error("Expected redirect response");
+  expect(result.status).toBe(302);
+  expect(result.headers.get("Location")).toBe("/login");
+  expect(result.headers.get("Set-Cookie")).toBe(redirectHeaders["Set-Cookie"]);
+  expect(result.headers.get("Cache-Control")).toBe(redirectHeaders["Cache-Control"]);
+}
+
 describe("owner Google Calendar route", () => {
+  it("preserves a management redirect and does not execute dependent loaders", async () => {
+    const availabilityCalls = availability.loader.mock.calls.length;
+    const freeChoiceCalls = freeChoice.loader.mock.calls.length;
+    handler.loader.mockResolvedValueOnce(new Response(null, { status: 302, headers: redirectHeaders }));
+    const { query } = createStaticHandler(routes);
+
+    const result = await query(new Request("https://app.inkendar.es/app/owner/calendars"));
+
+    expectPreservedRedirect(result);
+    expect(availability.loader).toHaveBeenCalledTimes(availabilityCalls);
+    expect(freeChoice.loader).toHaveBeenCalledTimes(freeChoiceCalls);
+  });
+
+  it("preserves an availability redirect and does not execute free-choice", async () => {
+    const freeChoiceCalls = freeChoice.loader.mock.calls.length;
+    handler.loader.mockResolvedValueOnce(Response.json({ connectionStatus: "ACTIVE", calendars: [], artists: [] }));
+    availability.loader.mockResolvedValueOnce(new Response(null, { status: 302, headers: redirectHeaders }));
+    const { query } = createStaticHandler(routes);
+
+    const result = await query(new Request("https://app.inkendar.es/app/owner/calendars"));
+
+    expectPreservedRedirect(result);
+    expect(freeChoice.loader).toHaveBeenCalledTimes(freeChoiceCalls);
+  });
+
+  it("preserves a free-choice redirect after its prerequisites succeed", async () => {
+    handler.loader.mockResolvedValueOnce(Response.json({ connectionStatus: "ACTIVE", calendars: [], artists: [] }));
+    availability.loader.mockResolvedValueOnce(Response.json({ availabilityByArtist: {} }));
+    freeChoice.loader.mockResolvedValueOnce(new Response(null, { status: 302, headers: redirectHeaders }));
+    const { query } = createStaticHandler(routes);
+
+    const result = await query(new Request("https://app.inkendar.es/app/owner/calendars"));
+
+    expectPreservedRedirect(result);
+  });
+
   it("routes a transient 503 to a safe boundary instead of treating it as calendar data", async () => {
     handler.loader.mockResolvedValueOnce(Response.json(
       { error: "Google Calendar no está disponible temporalmente." },
@@ -54,6 +105,31 @@ describe("owner Google Calendar route", () => {
     expect(result.errors).toBeNull();
     const html = renderToStaticMarkup(<StaticRouterProvider router={createStaticRouter(dataRoutes, result)} context={result} />);
     expect(html).toContain("Google Calendar no está conectado");
+  });
+
+  it.each([
+    ["non-OK response", () => freeChoice.loader.mockResolvedValueOnce(Response.json({ error: "temporary" }, { status: 503 }))],
+    ["exception", () => freeChoice.loader.mockRejectedValueOnce(new Error("temporary"))],
+  ] as const)("keeps Calendar usable but marks free-choice requests unavailable after a %s", async (_label, failFreeChoice) => {
+    const artist = { id: "50000000-0000-4000-8000-000000000001", displayName: "Ana", calendarId: "artist@test" };
+    handler.loader.mockResolvedValueOnce(Response.json({ connectionStatus: "ACTIVE", calendars: [], artists: [artist] }));
+    availability.loader.mockResolvedValueOnce(Response.json({ availabilityByArtist: { [artist.id]: null } }));
+    failFreeChoice();
+    const { query, dataRoutes } = createStaticHandler(routes);
+
+    const result = await query(new Request("https://app.inkendar.es/app/owner/calendars"));
+
+    if (result instanceof Response) throw new Error("Expected static handler context");
+    expect(result.statusCode).toBe(200);
+    expect(result.errors).toBeNull();
+    const html = renderToStaticMarkup(<StaticRouterProvider router={createStaticRouter(dataRoutes, result)} context={result} />);
+    expect(html).toContain("Solicitudes temporalmente no disponibles");
+    expect(html).toContain("Google Calendar");
+    expect(html).toContain("Guardar disponibilidad");
+    expect(html).toContain("Previsualizar huecos");
+    expect(html).not.toContain("No hay solicitudes pendientes");
+    expect(html).not.toContain('action="?freeChoice=1"');
+    expect(html).not.toContain("temporary");
   });
 });
 

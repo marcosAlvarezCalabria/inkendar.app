@@ -91,7 +91,7 @@ it("renders persisted artist rules instead of defaults for a lossless resave",()
 it("renders pending requests once and before progressive availability", () => {
   const artist = { id: "50000000-0000-4000-8000-000000000001", displayName: "Ana", calendarId: "artist@example.test" };
   const request = { id: "93000000-0000-4000-8000-000000000001", status: "PENDING_OWNER_APPROVAL" as const, customerName: "Cliente Sintético", caseSummary: "Caso lunar", artistDisplayName: "Ana", startUtc: "2026-09-21T23:30:00.000Z", endUtc: "2026-09-22T00:30:00.000Z", expiresAt: "2026-09-21T20:00:00.000Z" };
-  const view = { connectionStatus: "ACTIVE", calendars: [], artists: [artist], availabilityByArtist: { [artist.id]: null }, freeChoice: { cases: [], pendingRequests: [request, request] } } satisfies CalendarView;
+  const view = { connectionStatus: "ACTIVE", calendars: [], artists: [artist], availabilityByArtist: { [artist.id]: null }, freeChoice: { status: "available", data: { cases: [], pendingRequests: [request, request] } } } satisfies CalendarView;
   const html = renderToStaticMarkup(<CalendarWorkspace data={view} result={null} actionData={undefined} pending={null} />);
 
   expect(html.indexOf("Decidir solicitudes de elección libre")).toBeLessThan(html.indexOf("Disponibilidad y enlaces por artista"));

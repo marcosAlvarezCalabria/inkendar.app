@@ -2,7 +2,8 @@ import { data, isRouteErrorResponse, Link, useLoaderData, useRouteError } from "
 import type { Route } from "./+types/owner";
 
 import { authHandlers } from "../auth.server.js";
-import { StatusPage } from "../ui/feedback.js";
+import { routeResponseOrThrow } from "../route-response.server.js";
+import { AccessDeniedPage, StatusPage } from "../ui/feedback.js";
 import { OwnerShell } from "../ui/shells.js";
 
 const ownerAreas = [
@@ -56,7 +57,7 @@ export function meta(): Route.MetaDescriptors {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const access = await authHandlers.requireRole(request, "OWNER");
-  if (access instanceof Response) return access;
+  if (access instanceof Response) return routeResponseOrThrow(access);
   return data({ displayName: access.access.displayName }, { headers: access.headers });
 }
 
@@ -66,6 +67,10 @@ export function headers() {
 
 export default function OwnerPanel() {
   const { displayName } = useLoaderData<typeof loader>();
+  return <OwnerPanelView displayName={displayName} />;
+}
+
+export function OwnerPanelView({ displayName }: Readonly<{ displayName: string }>) {
   return (
     <OwnerShell
       title={`Hola, ${displayName}`}
@@ -91,9 +96,6 @@ export default function OwnerPanel() {
 
 export function ErrorBoundary() {
   const error = useRouteError();
-  return isRouteErrorResponse(error) && error.status === 403 ? <Denied /> : <Denied />;
-}
-
-function Denied() {
-  return <StatusPage tone="danger" title="Acceso denegado">Tu cuenta no tiene acceso a esta área.</StatusPage>;
+  if (isRouteErrorResponse(error) && error.status === 403) return <AccessDeniedPage />;
+  return <StatusPage tone="warning" title="Panel no disponible">No se pudo cargar el panel del estudio.</StatusPage>;
 }

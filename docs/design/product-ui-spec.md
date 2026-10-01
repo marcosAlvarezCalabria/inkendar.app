@@ -1,10 +1,10 @@
 # Especificación de diseño de producto — PWA Inkendar
 
-_Estado: especificación autoritativa de UX/UI; fundación y endurecimiento mobile-first integrados, resto incremental_
+_Estado: especificación autoritativa de UX/UI; frontend del MVP completado tras los PR #63–#71 y el [PR #72](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/72)_
 
-_Última actualización: 2026-09-30_
+_Última actualización: 2026-10-01_
 
-_Evidencia vigente:_ los PR #45–#48 integraron esta especificación, la fundación visual, la corrección mobile-first y el fallo seguro de Ofertas. El 2026-09-26 staging pasó revisión OWNER a 320 CSS px y una comprobación posterior en teléfono físico. El [PR #50](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/50) integró el shell offline y su guard de mutaciones; `validate` y `database` pasaron en el [run post-merge 36238090450](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36238090450). En staging, un smoke automatizado a 320 CSS px verificó el aviso offline, el bloqueo con preservación, la reconexión y la allowlist pública; la navegación al fallback estático sigue pendiente de un harness que no omita el service worker.
+_Evidencia vigente:_ los PR #45–#50 fijaron la especificación, la fundación visual, el endurecimiento mobile-first, el fallo seguro de Ofertas y el shell offline. Los PR #63–#71 implementaron las doce superficies canónicas por slices. El [PR #72](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/72) corrige la verdad de fallos de rutas OWNER, distingue indisponibilidad de solicitudes en Calendario y completa el catálogo privado con las doce vistas reales y datos sintéticos. La suite de rutas/componentes y `pnpm run check` son la evidencia de frontend; no sustituyen los gates live, de proveedor, fallback estático, despliegue o validación con personas reales que permanecen pendientes en sus fuentes autoritativas.
 
 _Frontera visual vigente:_ la revisión del prototipo Stitch “Inkendar Studio OS” del 2026-09-30 se usa únicamente como referencia de composición e identidad. No amplía el alcance, los roles, los datos ni los contratos del MVP.
 
@@ -343,7 +343,7 @@ Los breakpoints se eligen por ruptura del contenido, con referencias iniciales d
 - tablas solo para datos genuinamente tabulares, con alternativa accesible a overflow;
 - densidad mayor sin bajar tamaño de texto ni objetivo táctil.
 
-No se soporta una versión distinta por dispositivo: las once pantallas comparten semántica y capacidades.
+No se soporta una versión distinta por dispositivo: las doce pantallas comparten semántica y capacidades.
 
 ## 9. Accesibilidad
 
@@ -590,6 +590,8 @@ Dependencias: 2–9 dependen de 1; 5 y 6 comparten patrones pero no necesitan bl
 
 ## 15. Definition of done visual
 
+_Estado a 2026-10-01:_ el frontend del MVP satisface esta Definition of Done mediante los PR #63–#71 y el [PR #72](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/72), sujeto a la revisión de integración y CI. Este cierre se limita al frontend y no cambia ningún gate operativo de la spec vendible.
+
 Una pantalla o slice visual está terminado cuando:
 
 - respeta la spec canónica y no añade capacidades, endpoints ni estados;
@@ -604,6 +606,24 @@ Una pantalla o slice visual está terminado cuando:
 - existe evidencia revisable: capturas o historias por viewport/estado, checklist a11y y verificación contra la ruta integrada;
 - el diff no altera accidentalmente loaders, actions, contratos, permisos ni cambios preexistentes.
 - toda referencia visual usada queda trazada como patrón conservado, adaptación contractual o capacidad excluida, sin ampliar el MVP por imitación.
+
+### Matriz durable de evidencia
+
+| Superficies reales | Estados representativos en harness o pruebas de ruta | Viewports de evidencia |
+|---|---|---|
+| Acceso; Panel; Conversaciones; Clientes; Casos | poblado, empty, pending, error y permiso según aplique | 320, 375, 768 y 1280 px distribuidos en el catálogo |
+| Calendario; Ofertas; Galería; Equipo | dominio, pending, empty, error, permiso y fuente parcial `unavailable` según aplique | 320, 375, 768 y 1280 px distribuidos en el catálogo |
+| Agenda ARTIST; oferta pública; elección libre pública | poblado, empty y estados de dominio pendientes/terminales según el contrato vigente | 320, 375, 768 y 1280 px distribuidos en el catálogo |
+
+El harness importa las vistas puras reales y fixtures tipados, se ejecuta solo mediante `pnpm run ui:review` y no entra en rutas ni bundles de producción. Las pruebas con `createStaticHandler` complementan el catálogo para 403/500 y otros estados que no necesitan duplicarse como una matriz visual masiva.
+
+### Gates que este cierre no satisface
+
+- smoke live adicional, incluidos proveedores y datos reales autorizados;
+- navegación y reintento del fallback estático del service worker;
+- disponibilidad o validación live de Google, Chatwoot, Storage/Images y notificaciones;
+- despliegue de producción y sus comprobaciones posteriores;
+- pruebas con owners, artistas o clientes reales y evidencia de usabilidad/piloto.
 
 ## 16. Decisiones abiertas y dudas de revisión
 

@@ -1,9 +1,10 @@
-import { Form, useActionData, useLoaderData, useNavigation } from "react-router";
+import { Form, isRouteErrorResponse, useActionData, useLoaderData, useNavigation, useRouteError } from "react-router";
 import type { Customer } from "@inkendar/application";
 import type { Route } from "./+types/owner-customers";
 
 import { ownerCustomerCasesHandlers } from "../owner-customer-cases.server.js";
-import { EmptyState, Notice, StatusBadge } from "../ui/feedback.js";
+import { routeResponseOrThrow } from "../route-response.server.js";
+import { AccessDeniedPage, EmptyState, Notice, StatusBadge, StatusPage } from "../ui/feedback.js";
 import { SubmitButton } from "../ui/forms.js";
 import { OwnerShell } from "../ui/shells.js";
 
@@ -14,7 +15,10 @@ type PendingSubmission = Readonly<
 
 export function meta(): Route.MetaDescriptors { return [{ title: "Clientes | Inkendar" }]; }
 export function headers() { return { "Cache-Control": "private, no-store" }; }
-export async function loader({ request }: Route.LoaderArgs) { return ownerCustomerCasesHandlers.customersLoader(request); }
+export async function loader({ request }: Route.LoaderArgs) {
+  const response = await ownerCustomerCasesHandlers.customersLoader(request);
+  return routeResponseOrThrow(response);
+}
 export async function action({ request }: Route.ActionArgs) { return ownerCustomerCasesHandlers.customerAction(request); }
 
 export default function OwnerCustomers() {
@@ -39,7 +43,7 @@ export function OwnerCustomersView({ customers, error, pending }: Readonly<{
             <input type="hidden" name="intent" value="create" />
             <label>Nombre <input name="name" required maxLength={120} autoComplete="name" /></label>
             <label>Email <input name="email" type="email" maxLength={254} autoComplete="email" /></label>
-            <label>Teléfono internacional <input name="phone" type="tel" placeholder="+34600123456" autoComplete="tel" /></label>
+            <label>Teléfono internacional <input name="phone" type="tel" placeholder="+999000000000" autoComplete="tel" /></label>
             <SubmitButton pending={pending?.intent === "create"} pendingLabel="Creando cliente…">Crear cliente</SubmitButton>
           </Form>
         </section>
@@ -84,4 +88,10 @@ function getPendingSubmission(state: string, formData: FormData | undefined): Pe
   if (intent === "create") return { intent };
   const id = formData.get("id");
   return intent === "update" && typeof id === "string" ? { intent, id } : undefined;
+}
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+  if (isRouteErrorResponse(error) && error.status === 403) return <AccessDeniedPage />;
+  return <StatusPage tone="warning" title="Clientes no disponibles">No se pudo cargar el directorio de clientes.</StatusPage>;
 }

@@ -14,14 +14,37 @@ import { OwnerGalleryView } from "../../routes/owner-gallery.js";
 import { ArtistShellView } from "../../routes/artist.js";
 import { LoginForm } from "../../routes/login.js";
 import { OwnerTeamView } from "../../routes/owner-team.js";
+import { OwnerPanelView } from "../../routes/owner.js";
+import { OwnerConversationsView } from "../../routes/owner-conversations.js";
+import { OwnerCustomersView } from "../../routes/owner-customers.js";
+import { OwnerCasesView } from "../../routes/owner-cases.js";
+import { CalendarWorkspace } from "../../routes/owner-calendars.js";
+import { PublicOfferView } from "../../routes/public-offer.js";
+import { PublicAvailabilityView } from "../../routes/public-availability.js";
 import { artistAgendaFixtureScenarios } from "./artist-agenda.fixtures.js";
 import { authPermissionsFixtureScenarios } from "./auth-permissions.fixtures.js";
+import { reviewCustomers, reviewOwnerCalendar, reviewOwnerCases, reviewOwnerConversations } from "./frontend-mvp.fixtures.js";
 import { ownerGalleryFixtureScenarios } from "./owner-gallery.fixtures.js";
 import { ownerOfferFixtureScenarios } from "./owner-offers.fixtures.js";
+import { openAvailabilityAtDayBoundary, openOfferAtDayBoundary } from "./public-booking.js";
 import type { UiFoundationView } from "./ui-foundation.fixtures.js";
 import { uiFoundationScenarios } from "./ui-foundation.fixtures.js";
 
 export const viewportWidths = { compact: 320, mobile: 375, tablet: 768, desktop: 1280 } as const;
+export const uiReviewSurfaceCatalog = [
+  "login",
+  "owner-panel",
+  "owner-conversations",
+  "owner-customers",
+  "owner-cases",
+  "owner-calendars",
+  "owner-offers",
+  "owner-gallery",
+  "owner-team",
+  "artist-agenda",
+  "public-offer",
+  "public-availability",
+] as const;
 
 type ReviewAssets = Readonly<{ stylesheetHref: string; fontStylesheetHref: string }>;
 
@@ -32,6 +55,7 @@ function reviewHead({ stylesheetHref, fontStylesheetHref }: ReviewAssets): strin
 /** One standalone document per scenario, for per-viewport screenshots. */
 export function renderUiReviewScenarios(assets: ReviewAssets) {
   const foundationScenarios = uiFoundationScenarios.map((scenario) => ({
+    surface: "foundation",
     id: scenario.id,
     description: scenario.description,
     viewport: scenario.viewport,
@@ -39,6 +63,7 @@ export function renderUiReviewScenarios(assets: ReviewAssets) {
     html: `<!doctype html><html lang="es"><head>${reviewHead(assets)}<title>${scenario.id} | Inkendar</title></head><body style="width:${viewportWidths[scenario.viewport]}px">${renderToStaticMarkup(renderView(scenario.view))}</body></html>`,
   }));
   const bookingScenarios = ownerOfferFixtureScenarios.map((scenario) => ({
+    surface: "owner-offers",
     id: scenario.id,
     description: scenario.description,
     viewport: scenario.viewport,
@@ -46,6 +71,7 @@ export function renderUiReviewScenarios(assets: ReviewAssets) {
     html: `<!doctype html><html lang="es"><head>${reviewHead(assets)}<title>${scenario.id} | Inkendar</title></head><body style="width:${viewportWidths[scenario.viewport]}px">${renderToStaticMarkup(<At pathname="/app/owner/offers"><OwnerOffersView data={scenario.view} actionResult={scenario.actionResult} /></At>)}</body></html>`,
   }));
   const galleryScenarios = ownerGalleryFixtureScenarios.map((scenario) => ({
+    surface: "owner-gallery",
     id: scenario.id,
     description: scenario.description,
     viewport: scenario.viewport,
@@ -61,6 +87,7 @@ export function renderUiReviewScenarios(assets: ReviewAssets) {
         /></At>
       : <At pathname="/app/owner/team"><OwnerTeamView data={scenario.view.data} pending={scenario.view.pending} /></At>;
     return {
+      surface: scenario.view.kind === "login" ? "login" : "owner-team",
       id: scenario.id,
       description: scenario.description,
       viewport: scenario.viewport,
@@ -69,13 +96,48 @@ export function renderUiReviewScenarios(assets: ReviewAssets) {
     };
   });
   const artistAgendaScenarios = artistAgendaFixtureScenarios.map((scenario) => ({
+    surface: "artist-agenda",
     id: scenario.id,
     description: scenario.description,
     viewport: scenario.viewport,
     width: viewportWidths[scenario.viewport],
     html: `<!doctype html><html lang="es"><head>${reviewHead(assets)}<title>${scenario.id} | Inkendar</title></head><body style="width:${viewportWidths[scenario.viewport]}px">${renderToStaticMarkup(<At pathname="/app/artist"><ArtistShellView {...scenario.view} /></At>)}</body></html>`,
   }));
-  return [...foundationScenarios, ...bookingScenarios, ...galleryScenarios, ...authPermissionsScenarios, ...artistAgendaScenarios];
+  const coreScenarios = [
+    {
+      surface: "owner-panel", id: "owner-panel-compact", description: "Panel OWNER real a 320 px", viewport: "compact", width: viewportWidths.compact,
+      html: reviewDocument(assets, "owner-panel-compact", viewportWidths.compact, <At pathname="/app/owner"><OwnerPanelView displayName="Mara Owner Sintética" /></At>),
+    },
+    {
+      surface: "owner-conversations", id: "owner-conversations-desktop", description: "Conversaciones OWNER pobladas", viewport: "desktop", width: viewportWidths.desktop,
+      html: reviewDocument(assets, "owner-conversations-desktop", viewportWidths.desktop, <At pathname="/app/owner/conversations"><OwnerConversationsView data={reviewOwnerConversations} /></At>),
+    },
+    {
+      surface: "owner-customers", id: "owner-customers-mobile", description: "Clientes OWNER poblados", viewport: "mobile", width: viewportWidths.mobile,
+      html: reviewDocument(assets, "owner-customers-mobile", viewportWidths.mobile, <At pathname="/app/owner/customers"><OwnerCustomersView customers={reviewCustomers} /></At>),
+    },
+    {
+      surface: "owner-cases", id: "owner-cases-tablet", description: "Casos OWNER poblados", viewport: "tablet", width: viewportWidths.tablet,
+      html: reviewDocument(assets, "owner-cases-tablet", viewportWidths.tablet, <At pathname="/app/owner/cases"><OwnerCasesView data={reviewOwnerCases} /></At>),
+    },
+    {
+      surface: "owner-calendars", id: "owner-calendars-desktop", description: "Calendario OWNER con solicitud pendiente", viewport: "desktop", width: viewportWidths.desktop,
+      html: reviewDocument(assets, "owner-calendars-desktop", viewportWidths.desktop, <At pathname="/app/owner/calendars"><OwnerShell title="Google Calendar"><CalendarWorkspace data={reviewOwnerCalendar} result={null} actionData={undefined} pending={null} /></OwnerShell></At>),
+    },
+    {
+      surface: "public-offer", id: "public-offer-compact", description: "Oferta pública abierta", viewport: "compact", width: viewportWidths.compact,
+      html: reviewDocument(assets, "public-offer-compact", viewportWidths.compact, <At pathname="/offers/synthetic"><PublicLinkShell><PublicOfferView data={openOfferAtDayBoundary} /></PublicLinkShell></At>),
+    },
+    {
+      surface: "public-availability", id: "public-availability-mobile", description: "Elección libre pública abierta", viewport: "mobile", width: viewportWidths.mobile,
+      html: reviewDocument(assets, "public-availability-mobile", viewportWidths.mobile, <At pathname="/availability/synthetic"><PublicLinkShell><PublicAvailabilityView data={openAvailabilityAtDayBoundary} /></PublicLinkShell></At>),
+    },
+  ] as const;
+  return [...foundationScenarios, ...coreScenarios, ...bookingScenarios, ...galleryScenarios, ...authPermissionsScenarios, ...artistAgendaScenarios];
+}
+
+function reviewDocument(assets: ReviewAssets, id: string, width: number, view: ReactElement): string {
+  return `<!doctype html><html lang="es"><head>${reviewHead(assets)}<title>${id} | Inkendar</title></head><body style="width:${width}px">${renderToStaticMarkup(view)}</body></html>`;
 }
 
 export function renderUiReviewDocument(assets: ReviewAssets): string {
@@ -166,7 +228,7 @@ function SampleWorkArea() {
         <form className="record-form" method="post" action="#">
           <label>Nombre <input name="name" autoComplete="off" /></label>
           <label>Email <input name="email" type="email" placeholder="nombre@example.invalid" /></label>
-          <label>Teléfono internacional <input name="phone" type="tel" placeholder="+34600000000" /></label>
+          <label>Teléfono internacional <input name="phone" type="tel" placeholder="+999000000000" /></label>
           <button type="submit">Crear cliente</button>
         </form>
       </section>
@@ -174,7 +236,7 @@ function SampleWorkArea() {
         <h2 id="sample-list">Clientes del estudio</h2>
         <article className="shell-panel">
           <div className="record-head"><h3>Noa Cliente Sintética</h3><StatusBadge tone="success">Activo</StatusBadge></div>
-          <p className="meta-line">noa@example.invalid · +34 600 000 000</p>
+          <p className="meta-line">noa@example.invalid · +999 000 000 001</p>
         </article>
         <article className="shell-panel" data-archived="">
           <div className="record-head"><h3>Iker Cliente Archivado</h3><StatusBadge tone="neutral">Archivado</StatusBadge></div>

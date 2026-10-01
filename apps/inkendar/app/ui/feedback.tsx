@@ -88,6 +88,11 @@ export function StatusPage({ tone, title, children, action }: Readonly<{
   );
 }
 
+/** Permission state is intentionally data-free and offers no role-switch navigation. */
+export function AccessDeniedPage() {
+  return <StatusPage tone="danger" title="Acceso denegado">Tu cuenta no tiene acceso a esta área.</StatusPage>;
+}
+
 export function BrandMark() {
   return (
     <svg className="brand-mark" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
