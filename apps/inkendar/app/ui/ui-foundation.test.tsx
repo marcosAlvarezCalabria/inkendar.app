@@ -264,15 +264,19 @@ describe("presentation fixtures", () => {
   });
 
   it("use only synthetic, non-deliverable contact data", async () => {
+    const { authPermissionsFixtureScenarios } = await import("./fixtures/auth-permissions.fixtures.js");
     const { uiFoundationScenarios } = await import("./fixtures/ui-foundation.fixtures.js");
-    const serialized = JSON.stringify(uiFoundationScenarios);
+    const serialized = JSON.stringify([...uiFoundationScenarios, ...authPermissionsFixtureScenarios]);
 
     expect(uiFoundationScenarios.length).toBeGreaterThan(0);
     for (const email of serialized.match(/[\w.+-]+@[\w.-]+/gu) ?? []) expect(email).toMatch(/@example\.invalid$/u);
-    for (const scenario of uiFoundationScenarios) expect(["compact", "mobile", "tablet", "desktop"]).toContain(scenario.viewport);
+    for (const scenario of [...uiFoundationScenarios, ...authPermissionsFixtureScenarios]) {
+      expect(["compact", "mobile", "tablet", "desktop"]).toContain(scenario.viewport);
+    }
   });
 
   it("render every scenario in the review document with the shared stylesheet", async () => {
+    const { authPermissionsFixtureScenarios } = await import("./fixtures/auth-permissions.fixtures.js");
     const { uiFoundationScenarios } = await import("./fixtures/ui-foundation.fixtures.js");
     const { renderUiReviewDocument, viewportWidths } = await import("./fixtures/ui-review.js");
     const html = renderUiReviewDocument({ stylesheetHref: "styles.css", fontStylesheetHref: "font.css" });
@@ -282,6 +286,7 @@ describe("presentation fixtures", () => {
     expect(html).toContain('<html lang="es"');
     expect(html).toContain('href="styles.css"');
     for (const scenario of uiFoundationScenarios) expect(html).toContain(`id="${scenario.id}"`);
+    for (const scenario of authPermissionsFixtureScenarios) expect(html).toContain(`id="${scenario.id}"`);
     expect(html).toContain("Entorno de desarrollo");
   });
 });
