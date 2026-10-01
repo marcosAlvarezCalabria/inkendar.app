@@ -7,6 +7,7 @@ import {
   GoogleOAuthCompletionFailedError,
   GoogleOAuthAttemptInvalidError,
   GoogleOAuthGrantIncompleteError,
+  GoogleOAuthProviderExchangeError,
   createGoogleCalendarService,
   type GoogleCalendarProviderPort,
   type GoogleCalendarRepositoryPort,
@@ -113,6 +114,23 @@ describe("Google Calendar connection service", () => {
     expect(caught).toBeInstanceOf(GoogleOAuthCompletionFailedError);
     expect(caught).toMatchObject({ phase, message: "Google OAuth completion failed" });
     expect(JSON.stringify(caught)).not.toContain("synthetic");
+  });
+
+  it.each([
+    "invalid_client",
+    "invalid_grant",
+    "redirect_uri_mismatch",
+    "other",
+  ] as const)("preserves only the allowlisted provider exchange category %s", async (category) => {
+    const deps = dependencies();
+    vi.mocked(deps.provider.exchangeCode).mockRejectedValueOnce(new GoogleOAuthProviderExchangeError(category));
+    const service = createGoogleCalendarService(deps);
+
+    const caught = await service.completeConnection(studioId, userId, state, "synthetic-authorization-code", now).catch((error: unknown) => error);
+
+    expect(caught).toBeInstanceOf(GoogleOAuthCompletionFailedError);
+    expect(caught).toMatchObject({ phase: "provider-exchange", providerError: category, message: "Google OAuth completion failed" });
+    expect(JSON.stringify(caught)).not.toContain("synthetic-authorization-code");
   });
 
   it("lists minimal metadata and only assigns a writable calendar to an own-studio artist", async () => {

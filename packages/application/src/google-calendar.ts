@@ -63,6 +63,14 @@ export class GoogleOAuthGrantIncompleteError extends Error {
   readonly code = "GOOGLE_OAUTH_GRANT_INCOMPLETE";
   constructor() { super("Google OAuth grant is incomplete"); this.name = "GoogleOAuthGrantIncompleteError"; }
 }
+export type GoogleOAuthProviderErrorCategory = "invalid_client" | "invalid_grant" | "redirect_uri_mismatch" | "other";
+export class GoogleOAuthProviderExchangeError extends Error {
+  readonly code = "GOOGLE_OAUTH_PROVIDER_EXCHANGE_FAILED";
+  constructor(readonly category: GoogleOAuthProviderErrorCategory) {
+    super("Google OAuth provider exchange failed");
+    this.name = "GoogleOAuthProviderExchangeError";
+  }
+}
 export type GoogleOAuthCompletionFailurePhase =
   | "attempt-consumption"
   | "provider-exchange"
@@ -70,7 +78,10 @@ export type GoogleOAuthCompletionFailurePhase =
   | "connection-persistence";
 export class GoogleOAuthCompletionFailedError extends Error {
   readonly code = "GOOGLE_OAUTH_COMPLETION_FAILED";
-  constructor(readonly phase: GoogleOAuthCompletionFailurePhase) {
+  constructor(
+    readonly phase: GoogleOAuthCompletionFailurePhase,
+    readonly providerError?: GoogleOAuthProviderErrorCategory,
+  ) {
     super("Google OAuth completion failed");
     this.name = "GoogleOAuthCompletionFailedError";
   }
@@ -154,8 +165,9 @@ export function createGoogleCalendarService(dependencies: Dependencies) {
       let grant: Readonly<{ refreshToken: string | null; grantedScopes: readonly string[] }>;
       try {
         grant = await dependencies.provider.exchangeCode(code);
-      } catch {
-        throw new GoogleOAuthCompletionFailedError("provider-exchange");
+      } catch (error) {
+        const providerError = error instanceof GoogleOAuthProviderExchangeError ? error.category : "other";
+        throw new GoogleOAuthCompletionFailedError("provider-exchange", providerError);
       }
       const scopes = [...new Set(grant.grantedScopes)].sort();
       if (!grant.refreshToken || !scopes.includes(GOOGLE_CALENDAR_LIST_SCOPE)) throw new GoogleOAuthGrantIncompleteError();

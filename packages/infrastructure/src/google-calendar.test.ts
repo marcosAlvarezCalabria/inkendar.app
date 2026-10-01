@@ -7,6 +7,7 @@ import {
   GoogleCalendarCredentialInvalidError,
   loadGoogleCalendarConfig,
 } from "./google-calendar.js";
+import { GoogleOAuthProviderExchangeError } from "@inkendar/application";
 
 const config = {
   clientId: "synthetic-client.apps.googleusercontent.com",
@@ -73,6 +74,29 @@ describe("Google Calendar infrastructure", () => {
     const body = vi.mocked(fetcher).mock.calls[0]?.[1]?.body as URLSearchParams;
     expect(body.get("client_secret")).toBe(config.clientSecret);
     expect(body.get("grant_type")).toBe("authorization_code");
+  });
+
+  it.each([
+    ["invalid_client", "invalid_client"],
+    ["invalid_grant", "invalid_grant"],
+    ["redirect_uri_mismatch", "redirect_uri_mismatch"],
+    ["temporarily_unavailable", "other"],
+  ] as const)("classifies token exchange provider error %s without retaining provider details", async (providerError, category) => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({
+      error: providerError,
+      error_description: "synthetic sensitive provider description",
+      access_token: "synthetic-access-token",
+      refresh_token: "synthetic-refresh-token",
+    }), { status: 400, headers: { "Content-Type": "application/json" } }));
+    const adapter = new GoogleCalendarHttpAdapter(config, fetcher);
+
+    const caught = await adapter.exchangeCode("synthetic-authorization-code").catch((error: unknown) => error);
+
+    expect(caught).toBeInstanceOf(GoogleOAuthProviderExchangeError);
+    expect(caught).toMatchObject({ category, message: "Google OAuth provider exchange failed" });
+    const serialized = JSON.stringify(caught);
+    expect(serialized).not.toContain("synthetic");
+    expect(serialized).not.toContain("temporarily_unavailable");
   });
 
   it("refreshes server-side and lists only minimal calendar metadata across pages", async () => {

@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
-import { GOOGLE_CALENDAR_EVENTS_SCOPE, GOOGLE_CALENDAR_LIST_SCOPE, GOOGLE_FREE_BUSY_SCOPE, GoogleCalendarCredentialInvalidError, type GoogleCalendar, type GoogleCalendarAccessRole, type GoogleCalendarProviderPort, type GoogleOAuthSecurityPort, type GoogleTokenProtectorPort } from "@inkendar/application";
+import { GOOGLE_CALENDAR_EVENTS_SCOPE, GOOGLE_CALENDAR_LIST_SCOPE, GOOGLE_FREE_BUSY_SCOPE, GoogleCalendarCredentialInvalidError, GoogleOAuthProviderExchangeError, type GoogleCalendar, type GoogleCalendarAccessRole, type GoogleCalendarProviderPort, type GoogleOAuthProviderErrorCategory, type GoogleOAuthSecurityPort, type GoogleTokenProtectorPort } from "@inkendar/application";
 
 export { GoogleCalendarCredentialInvalidError } from "@inkendar/application";
 
@@ -104,7 +104,7 @@ export class GoogleCalendarHttpAdapter implements GoogleCalendarProviderPort {
       code,
       redirect_uri: this.config.redirectUri,
       grant_type: "authorization_code",
-    }));
+    }), "authorization-code");
     return { refreshToken: nullableString(value.refresh_token), grantedScopes: scopes(value.scope) };
   }
 
@@ -114,7 +114,7 @@ export class GoogleCalendarHttpAdapter implements GoogleCalendarProviderPort {
       client_secret: this.config.clientSecret,
       refresh_token: refreshToken,
       grant_type: "refresh_token",
-    }), true);
+    }), "refresh-token");
     const accessToken = string(token.access_token);
     const calendars: GoogleCalendar[] = [];
     let pageToken: string | null = null;
@@ -142,17 +142,17 @@ export class GoogleCalendarHttpAdapter implements GoogleCalendarProviderPort {
     if (!response.ok) throw new GoogleCalendarInfrastructureError();
   }
 
-  private async postToken(body: URLSearchParams, invalidGrantMeansCredentialInvalid = false): Promise<Record<string, unknown>> {
+  private async postToken(body: URLSearchParams, purpose: "authorization-code" | "refresh-token"): Promise<Record<string, unknown>> {
     const response = await this.fetcher(TOKEN_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
       body,
     });
-    return json(response, invalidGrantMeansCredentialInvalid);
+    return json(response, purpose);
   }
 }
 
-async function json(response: Response, invalidGrantMeansCredentialInvalid = false): Promise<Record<string, unknown>> {
+async function json(response: Response, purpose?: "authorization-code" | "refresh-token"): Promise<Record<string, unknown>> {
   let value: unknown;
   try {
     value = await response.json();
@@ -162,10 +162,15 @@ async function json(response: Response, invalidGrantMeansCredentialInvalid = fal
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new GoogleCalendarInfrastructureError();
   const payload = value as Record<string, unknown>;
   if (!response.ok) {
-    if (invalidGrantMeansCredentialInvalid && payload.error === "invalid_grant") throw new GoogleCalendarCredentialInvalidError();
+    if (purpose === "authorization-code") throw new GoogleOAuthProviderExchangeError(providerErrorCategory(payload.error));
+    if (purpose === "refresh-token" && payload.error === "invalid_grant") throw new GoogleCalendarCredentialInvalidError();
     throw new GoogleCalendarInfrastructureError();
   }
   return payload;
+}
+function providerErrorCategory(value: unknown): GoogleOAuthProviderErrorCategory {
+  if (value === "invalid_client" || value === "invalid_grant" || value === "redirect_uri_mismatch") return value;
+  return "other";
 }
 function calendar(value: unknown): GoogleCalendar {
   const row = object(value);
