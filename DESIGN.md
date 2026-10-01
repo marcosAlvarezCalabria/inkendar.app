@@ -1,6 +1,6 @@
 # Sistema visual de la PWA Inkendar
 
-_Estado: frontend del MVP completado tras los PR #63–#71 y `PR de cierre`; pendiente de integración de ese PR y de los gates operativos separados_
+_Estado: frontend del MVP completado tras los PR #63–#71 y el [PR #72](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/72); pendiente de integración de ese PR y de los gates operativos separados_
 
 _Última actualización: 2026-10-01_
 

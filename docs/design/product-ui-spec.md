@@ -1,10 +1,10 @@
 # Especificación de diseño de producto — PWA Inkendar
 
-_Estado: especificación autoritativa de UX/UI; frontend del MVP completado tras los PR #63–#71 y `PR de cierre`_
+_Estado: especificación autoritativa de UX/UI; frontend del MVP completado tras los PR #63–#71 y el [PR #72](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/72)_
 
 _Última actualización: 2026-10-01_
 
-_Evidencia vigente:_ los PR #45–#50 fijaron la especificación, la fundación visual, el endurecimiento mobile-first, el fallo seguro de Ofertas y el shell offline. Los PR #63–#71 implementaron las doce superficies canónicas por slices. `PR de cierre` corrige la verdad de fallos de rutas OWNER, distingue indisponibilidad de solicitudes en Calendario y completa el catálogo privado con las doce vistas reales y datos sintéticos. La suite de rutas/componentes y `pnpm run check` son la evidencia de frontend; no sustituyen los gates live, de proveedor, fallback estático, despliegue o validación con personas reales que permanecen pendientes en sus fuentes autoritativas.
+_Evidencia vigente:_ los PR #45–#50 fijaron la especificación, la fundación visual, el endurecimiento mobile-first, el fallo seguro de Ofertas y el shell offline. Los PR #63–#71 implementaron las doce superficies canónicas por slices. El [PR #72](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/72) corrige la verdad de fallos de rutas OWNER, distingue indisponibilidad de solicitudes en Calendario y completa el catálogo privado con las doce vistas reales y datos sintéticos. La suite de rutas/componentes y `pnpm run check` son la evidencia de frontend; no sustituyen los gates live, de proveedor, fallback estático, despliegue o validación con personas reales que permanecen pendientes en sus fuentes autoritativas.
 
 _Frontera visual vigente:_ la revisión del prototipo Stitch “Inkendar Studio OS” del 2026-09-30 se usa únicamente como referencia de composición e identidad. No amplía el alcance, los roles, los datos ni los contratos del MVP.
 
@@ -590,7 +590,7 @@ Dependencias: 2–9 dependen de 1; 5 y 6 comparten patrones pero no necesitan bl
 
 ## 15. Definition of done visual
 
-_Estado a 2026-10-01:_ el frontend del MVP satisface esta Definition of Done mediante los PR #63–#71 y `PR de cierre`, sujeto a la revisión de integración, CI y sustitución del placeholder por el número real del PR. Este cierre se limita al frontend y no cambia ningún gate operativo de la spec vendible.
+_Estado a 2026-10-01:_ el frontend del MVP satisface esta Definition of Done mediante los PR #63–#71 y el [PR #72](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/72), sujeto a la revisión de integración y CI. Este cierre se limita al frontend y no cambia ningún gate operativo de la spec vendible.
 
 Una pantalla o slice visual está terminado cuando:
 
