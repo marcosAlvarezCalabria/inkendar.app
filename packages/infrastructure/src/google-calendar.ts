@@ -105,7 +105,16 @@ export class GoogleCalendarHttpAdapter implements GoogleCalendarProviderPort {
       redirect_uri: this.config.redirectUri,
       grant_type: "authorization_code",
     }), "authorization-code");
-    return { refreshToken: nullableString(value.refresh_token), grantedScopes: scopes(value.scope) };
+    try {
+      if (value.error !== undefined) throw new Error("malformed success");
+      if (value.refresh_token !== undefined && value.refresh_token !== null && (typeof value.refresh_token !== "string" || !value.refresh_token)) {
+        throw new Error("malformed success");
+      }
+      if (value.scope !== undefined && typeof value.scope !== "string") throw new Error("malformed success");
+      return { refreshToken: nullableString(value.refresh_token), grantedScopes: scopes(value.scope) };
+    } catch {
+      throw new GoogleOAuthProviderExchangeError({ exchangeStage: "malformed-success-response" });
+    }
   }
 
   async listCalendars(refreshToken: string): Promise<readonly GoogleCalendar[]> {
@@ -143,13 +152,63 @@ export class GoogleCalendarHttpAdapter implements GoogleCalendarProviderPort {
   }
 
   private async postToken(body: URLSearchParams, purpose: "authorization-code" | "refresh-token"): Promise<Record<string, unknown>> {
-    const response = await this.fetcher(TOKEN_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
-      body,
-    });
-    return json(response, purpose);
+    let response: Response;
+    try {
+      response = await this.fetcher(TOKEN_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+        body,
+      });
+    } catch {
+      if (purpose === "authorization-code") throw new GoogleOAuthProviderExchangeError({ exchangeStage: "network" });
+      throw new GoogleCalendarInfrastructureError();
+    }
+    return purpose === "authorization-code" ? authorizationCodeJson(response) : json(response, purpose);
   }
+}
+
+async function authorizationCodeJson(response: Response): Promise<Record<string, unknown>> {
+  const status = safeErrorStatus(response.status);
+  if (!isJsonMediaType(response.headers.get("content-type"))) {
+    throw new GoogleOAuthProviderExchangeError(withErrorStatus({ exchangeStage: "non-json-response" }, status));
+  }
+  let value: unknown;
+  try {
+    value = await response.json();
+  } catch {
+    throw new GoogleOAuthProviderExchangeError(withErrorStatus({ exchangeStage: "malformed-json-payload" }, status));
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new GoogleOAuthProviderExchangeError(withErrorStatus({ exchangeStage: "malformed-json-payload" }, status));
+  }
+  const payload = value as Record<string, unknown>;
+  if (!response.ok) {
+    const providerError = providerErrorCategory(payload.error);
+    throw new GoogleOAuthProviderExchangeError(withErrorStatus(
+      providerError === "other"
+        ? { exchangeStage: "provider-error-other", providerError }
+        : { exchangeStage: "provider-error", providerError },
+      status,
+    ));
+  }
+  return payload;
+}
+
+function isJsonMediaType(value: string | null): boolean {
+  if (value === null) return true;
+  const mediaType = value.split(";", 1)[0]?.trim().toLowerCase();
+  return mediaType === "application/json" || mediaType?.endsWith("+json") === true;
+}
+
+function safeErrorStatus(value: number): number | undefined {
+  return Number.isInteger(value) && value >= 400 && value <= 599 ? value : undefined;
+}
+
+function withErrorStatus(
+  details: ConstructorParameters<typeof GoogleOAuthProviderExchangeError>[0],
+  status: number | undefined,
+): ConstructorParameters<typeof GoogleOAuthProviderExchangeError>[0] {
+  return status === undefined ? details : { ...details, httpStatus: status };
 }
 
 async function json(response: Response, purpose?: "authorization-code" | "refresh-token"): Promise<Record<string, unknown>> {
@@ -162,7 +221,6 @@ async function json(response: Response, purpose?: "authorization-code" | "refres
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new GoogleCalendarInfrastructureError();
   const payload = value as Record<string, unknown>;
   if (!response.ok) {
-    if (purpose === "authorization-code") throw new GoogleOAuthProviderExchangeError(providerErrorCategory(payload.error));
     if (purpose === "refresh-token" && payload.error === "invalid_grant") throw new GoogleCalendarCredentialInvalidError();
     throw new GoogleCalendarInfrastructureError();
   }

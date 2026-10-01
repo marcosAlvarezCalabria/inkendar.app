@@ -25,7 +25,7 @@ const requiredScope = "https://www.googleapis.com/auth/calendar.calendarlist.rea
 class ForeignGoogleOAuthProviderExchangeError extends Error {
   readonly code = "GOOGLE_OAUTH_PROVIDER_EXCHANGE_FAILED";
   readonly providerDescription = "synthetic sensitive provider description";
-  constructor(readonly category: string) {
+  constructor(readonly details: unknown) {
     super("foreign provider exchange failure");
   }
 }
@@ -134,31 +134,39 @@ describe("Google Calendar connection service", () => {
     "other",
   ] as const)("preserves only the allowlisted provider exchange category %s", async (category) => {
     const deps = dependencies();
-    vi.mocked(deps.provider.exchangeCode).mockRejectedValueOnce(new GoogleOAuthProviderExchangeError(category));
+    const providerExchange = category === "other"
+      ? { exchangeStage: "provider-error-other" as const, providerError: category, httpStatus: 400 }
+      : { exchangeStage: "provider-error" as const, providerError: category, httpStatus: 400 };
+    vi.mocked(deps.provider.exchangeCode).mockRejectedValueOnce(new GoogleOAuthProviderExchangeError(providerExchange));
     const service = createGoogleCalendarService(deps);
 
     const caught = await service.completeConnection(studioId, userId, state, "synthetic-authorization-code", now).catch((error: unknown) => error);
 
     expect(caught).toBeInstanceOf(GoogleOAuthCompletionFailedError);
-    expect(caught).toMatchObject({ phase: "provider-exchange", providerError: category, message: "Google OAuth completion failed" });
+    expect(caught).toMatchObject({ phase: "provider-exchange", providerExchange, message: "Google OAuth completion failed" });
     expect(JSON.stringify(caught)).not.toContain("synthetic-authorization-code");
   });
 
   it.each([
-    ["invalid_grant", "invalid_grant"],
-    ["temporarily_unavailable", "other"],
-  ] as const)("recognizes provider exchange errors from another runtime copy and maps %s safely", async (foreignCategory, expectedCategory) => {
+    [{ exchangeStage: "network" }, { exchangeStage: "network" }],
+    [{ exchangeStage: "non-json-response", httpStatus: 502, arbitraryStatus: "synthetic" }, { exchangeStage: "non-json-response", httpStatus: 502 }],
+    [{ exchangeStage: "malformed-json-payload", httpStatus: 503 }, { exchangeStage: "malformed-json-payload", httpStatus: 503 }],
+    [{ exchangeStage: "provider-error", providerError: "invalid_grant", httpStatus: 400 }, { exchangeStage: "provider-error", providerError: "invalid_grant", httpStatus: 400 }],
+    [{ exchangeStage: "provider-error", providerError: "temporarily_unavailable", httpStatus: 400 }, { exchangeStage: "provider-error-other", providerError: "other", httpStatus: 400 }],
+    [{ exchangeStage: "malformed-success-response", httpStatus: 200 }, { exchangeStage: "malformed-success-response" }],
+  ] as const)("recognizes provider exchange stage $expected.exchangeStage from another runtime copy", async (foreignDetails, expected) => {
     const deps = dependencies();
-    vi.mocked(deps.provider.exchangeCode).mockRejectedValueOnce(new ForeignGoogleOAuthProviderExchangeError(foreignCategory));
+    vi.mocked(deps.provider.exchangeCode).mockRejectedValueOnce(new ForeignGoogleOAuthProviderExchangeError(foreignDetails));
     const service = createGoogleCalendarService(deps);
 
     const caught = await service.completeConnection(studioId, userId, state, "synthetic-authorization-code", now).catch((error: unknown) => error);
 
     expect(caught).toBeInstanceOf(GoogleOAuthCompletionFailedError);
-    expect(caught).toMatchObject({ phase: "provider-exchange", providerError: expectedCategory });
+    expect(caught).toMatchObject({ phase: "provider-exchange", providerExchange: expected });
     const diagnostic = JSON.stringify(caught);
     expect(diagnostic).not.toContain("synthetic sensitive provider description");
     expect(diagnostic).not.toContain("temporarily_unavailable");
+    expect(diagnostic).not.toContain("arbitraryStatus");
     expect(diagnostic).not.toContain("synthetic-authorization-code");
   });
 
@@ -172,7 +180,7 @@ describe("Google Calendar connection service", () => {
 
     const caught = await service.completeConnection(studioId, userId, state, "synthetic-authorization-code", now).catch((error: unknown) => error);
 
-    expect(caught).toMatchObject({ phase: "provider-exchange", providerError: "other" });
+    expect(caught).toMatchObject({ phase: "provider-exchange", providerExchange: { exchangeStage: "unknown" } });
     expect(JSON.stringify(caught)).not.toContain("synthetic");
   });
 

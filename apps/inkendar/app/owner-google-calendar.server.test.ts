@@ -16,7 +16,7 @@ const authorize = async () => ({ access, headers: new Headers({ "Set-Cookie": "s
 class ForeignGoogleOAuthCompletionFailedError extends Error {
   readonly code = "GOOGLE_OAUTH_COMPLETION_FAILED";
   readonly providerDescription = "synthetic sensitive provider description";
-  constructor(readonly phase: string, readonly providerError?: string) {
+  constructor(readonly phase: string, readonly providerExchange?: unknown) {
     super("foreign OAuth completion failure");
   }
 }
@@ -132,7 +132,10 @@ describe("owner Google Calendar handlers", () => {
     "other",
   ] as const)("reports only the allowlisted provider exchange category %s", async (providerError) => {
     const current = service();
-    vi.mocked(current.completeConnection).mockRejectedValueOnce(new GoogleOAuthCompletionFailedError("provider-exchange", providerError));
+    const providerExchange = providerError === "other"
+      ? { exchangeStage: "provider-error-other" as const, providerError, httpStatus: 400 }
+      : { exchangeStage: "provider-error" as const, providerError, httpStatus: 400 };
+    vi.mocked(current.completeConnection).mockRejectedValueOnce(new GoogleOAuthCompletionFailedError("provider-exchange", providerExchange));
     const reportCallbackFailure = vi.fn();
     const handlers = createOwnerGoogleCalendarHandlers({
       authorize,
@@ -146,7 +149,7 @@ describe("owner Google Calendar handlers", () => {
     expect(response.headers.get("Location")).toBe("/app/owner/calendars?result=failed");
     expect(reportCallbackFailure).toHaveBeenCalledWith("google_calendar_oauth_callback_failed", {
       phase: "provider-exchange",
-      providerError,
+      providerExchange,
     });
     const diagnostic = JSON.stringify(reportCallbackFailure.mock.calls);
     expect(diagnostic).not.toContain("synthetic-authorization-code");
@@ -154,11 +157,13 @@ describe("owner Google Calendar handlers", () => {
   });
 
   it.each([
-    [new ForeignGoogleOAuthCompletionFailedError("provider-exchange", "invalid_grant"), { phase: "provider-exchange", providerError: "invalid_grant" }],
-    [new ForeignGoogleOAuthCompletionFailedError("provider-exchange", "temporarily_unavailable"), { phase: "provider-exchange", providerError: "other" }],
-    [new ForeignGoogleOAuthCompletionFailedError("token-protection", "invalid_grant"), { phase: "token-protection" }],
-    [Object.assign(new Error("synthetic sensitive provider description"), { code: "UNRELATED_COMPLETION_FAILURE", phase: "provider-exchange", providerError: "invalid_grant" }), { phase: "unknown" }],
-    [Object.assign(new Error("synthetic sensitive provider description"), { code: "GOOGLE_OAUTH_COMPLETION_FAILED", phase: "provider-sensitive-phase", providerError: "invalid_grant" }), { phase: "unknown" }],
+    [new ForeignGoogleOAuthCompletionFailedError("provider-exchange", { exchangeStage: "network", source: "synthetic sensitive source" }), { phase: "provider-exchange", providerExchange: { exchangeStage: "network" } }],
+    [new ForeignGoogleOAuthCompletionFailedError("provider-exchange", { exchangeStage: "provider-error", providerError: "invalid_grant", httpStatus: 400 }), { phase: "provider-exchange", providerExchange: { exchangeStage: "provider-error", providerError: "invalid_grant", httpStatus: 400 } }],
+    [new ForeignGoogleOAuthCompletionFailedError("provider-exchange", { exchangeStage: "provider-error", providerError: "temporarily_unavailable", httpStatus: 400 }), { phase: "provider-exchange", providerExchange: { exchangeStage: "provider-error-other", providerError: "other", httpStatus: 400 } }],
+    [new ForeignGoogleOAuthCompletionFailedError("provider-exchange", { exchangeStage: "non-json-response", httpStatus: 600 }), { phase: "provider-exchange", providerExchange: { exchangeStage: "non-json-response" } }],
+    [new ForeignGoogleOAuthCompletionFailedError("token-protection", { exchangeStage: "provider-error", providerError: "invalid_grant" }), { phase: "token-protection" }],
+    [Object.assign(new Error("synthetic sensitive provider description"), { code: "UNRELATED_COMPLETION_FAILURE", phase: "provider-exchange", providerExchange: { exchangeStage: "provider-error", providerError: "invalid_grant" } }), { phase: "unknown" }],
+    [Object.assign(new Error("synthetic sensitive provider description"), { code: "GOOGLE_OAUTH_COMPLETION_FAILED", phase: "provider-sensitive-phase", providerExchange: { exchangeStage: "provider-error", providerError: "invalid_grant" } }), { phase: "unknown" }],
   ] as const)("recognizes a safe completion failure from another runtime copy", async (failure, expectedDetails) => {
     const current = service();
     vi.mocked(current.completeConnection).mockRejectedValueOnce(failure);
@@ -171,6 +176,7 @@ describe("owner Google Calendar handlers", () => {
     expect(reportCallbackFailure).toHaveBeenCalledWith("google_calendar_oauth_callback_failed", expectedDetails);
     const diagnostic = JSON.stringify(reportCallbackFailure.mock.calls);
     expect(diagnostic).not.toContain("synthetic sensitive provider description");
+    expect(diagnostic).not.toContain("synthetic sensitive source");
     expect(diagnostic).not.toContain("temporarily_unavailable");
     expect(diagnostic).not.toContain("synthetic-authorization-code");
     expect(diagnostic).not.toContain("synthetic-oauth-state");

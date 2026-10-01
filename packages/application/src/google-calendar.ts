@@ -71,12 +71,27 @@ export type GoogleOAuthProviderErrorCategory =
   | "unauthorized_client"
   | "unsupported_grant_type"
   | "other";
+export type GoogleOAuthProviderExchangeStage =
+  | "network"
+  | "non-json-response"
+  | "malformed-json-payload"
+  | "provider-error"
+  | "provider-error-other"
+  | "malformed-success-response"
+  | "unknown";
+export type GoogleOAuthProviderExchangeFailureDetails = Readonly<{
+  exchangeStage: GoogleOAuthProviderExchangeStage;
+  providerError?: GoogleOAuthProviderErrorCategory;
+  httpStatus?: number;
+}>;
 const GOOGLE_OAUTH_PROVIDER_EXCHANGE_ERROR_CODE = "GOOGLE_OAUTH_PROVIDER_EXCHANGE_FAILED";
 export class GoogleOAuthProviderExchangeError extends Error {
   readonly code = GOOGLE_OAUTH_PROVIDER_EXCHANGE_ERROR_CODE;
-  constructor(readonly category: GoogleOAuthProviderErrorCategory) {
+  readonly details: GoogleOAuthProviderExchangeFailureDetails;
+  constructor(details: GoogleOAuthProviderExchangeFailureDetails) {
     super("Google OAuth provider exchange failed");
     this.name = "GoogleOAuthProviderExchangeError";
+    this.details = readGoogleOAuthProviderExchangeFailureDetails(details) ?? { exchangeStage: "unknown" };
   }
 }
 export type GoogleOAuthCompletionFailurePhase =
@@ -85,14 +100,14 @@ export type GoogleOAuthCompletionFailurePhase =
   | "token-protection"
   | "connection-persistence";
 export type GoogleOAuthCompletionFailureDetails =
-  | Readonly<{ phase: "provider-exchange"; providerError: GoogleOAuthProviderErrorCategory }>
+  | Readonly<{ phase: "provider-exchange"; providerExchange: GoogleOAuthProviderExchangeFailureDetails }>
   | Readonly<{ phase: Exclude<GoogleOAuthCompletionFailurePhase, "provider-exchange"> }>;
 const GOOGLE_OAUTH_COMPLETION_ERROR_CODE = "GOOGLE_OAUTH_COMPLETION_FAILED";
 export class GoogleOAuthCompletionFailedError extends Error {
   readonly code = GOOGLE_OAUTH_COMPLETION_ERROR_CODE;
   constructor(
     readonly phase: GoogleOAuthCompletionFailurePhase,
-    readonly providerError?: GoogleOAuthProviderErrorCategory,
+    readonly providerExchange?: GoogleOAuthProviderExchangeFailureDetails,
   ) {
     super("Google OAuth completion failed");
     this.name = "GoogleOAuthCompletionFailedError";
@@ -178,8 +193,8 @@ export function createGoogleCalendarService(dependencies: Dependencies) {
       try {
         grant = await dependencies.provider.exchangeCode(code);
       } catch (error) {
-        const providerError = providerExchangeErrorCategory(error);
-        throw new GoogleOAuthCompletionFailedError("provider-exchange", providerError);
+        const providerExchange = readGoogleOAuthProviderExchangeFailure(error) ?? { exchangeStage: "unknown" };
+        throw new GoogleOAuthCompletionFailedError("provider-exchange", providerExchange);
       }
       const scopes = [...new Set(grant.grantedScopes)].sort();
       if (!grant.refreshToken || !scopes.includes(GOOGLE_CALENDAR_LIST_SCOPE)) throw new GoogleOAuthGrantIncompleteError();
@@ -260,7 +275,10 @@ export function readGoogleOAuthCompletionFailure(error: unknown): GoogleOAuthCom
     const candidate = error as Record<string, unknown>;
     if (candidate.code !== GOOGLE_OAUTH_COMPLETION_ERROR_CODE || !isGoogleOAuthCompletionFailurePhase(candidate.phase)) return null;
     if (candidate.phase === "provider-exchange") {
-      return { phase: candidate.phase, providerError: isGoogleOAuthProviderErrorCategory(candidate.providerError) ? candidate.providerError : "other" };
+      return {
+        phase: candidate.phase,
+        providerExchange: readGoogleOAuthProviderExchangeFailureDetails(candidate.providerExchange) ?? { exchangeStage: "unknown" },
+      };
     }
     return { phase: candidate.phase };
   } catch {
@@ -268,15 +286,60 @@ export function readGoogleOAuthCompletionFailure(error: unknown): GoogleOAuthCom
   }
 }
 
-function providerExchangeErrorCategory(error: unknown): GoogleOAuthProviderErrorCategory {
+export function readGoogleOAuthProviderExchangeFailure(error: unknown): GoogleOAuthProviderExchangeFailureDetails | null {
   try {
-    if (!error || typeof error !== "object") return "other";
+    if (!error || typeof error !== "object") return null;
     const candidate = error as Record<string, unknown>;
-    if (candidate.code !== GOOGLE_OAUTH_PROVIDER_EXCHANGE_ERROR_CODE) return "other";
-    return isGoogleOAuthProviderErrorCategory(candidate.category) ? candidate.category : "other";
+    if (candidate.code !== GOOGLE_OAUTH_PROVIDER_EXCHANGE_ERROR_CODE) return null;
+    return readGoogleOAuthProviderExchangeFailureDetails(candidate.details);
   } catch {
-    return "other";
+    return null;
   }
+}
+
+function readGoogleOAuthProviderExchangeFailureDetails(value: unknown): GoogleOAuthProviderExchangeFailureDetails | null {
+  try {
+    if (!value || typeof value !== "object") return null;
+    const candidate = value as Record<string, unknown>;
+    if (!isGoogleOAuthProviderExchangeStage(candidate.exchangeStage)) return null;
+    const status = safeProviderHttpStatus(candidate.httpStatus);
+    if (candidate.exchangeStage === "provider-error") {
+      if (!isGoogleOAuthProviderErrorCategory(candidate.providerError) || candidate.providerError === "other") {
+        return withProviderHttpStatus({ exchangeStage: "provider-error-other", providerError: "other" }, status);
+      }
+      return withProviderHttpStatus({ exchangeStage: candidate.exchangeStage, providerError: candidate.providerError }, status);
+    }
+    if (candidate.exchangeStage === "provider-error-other") {
+      return withProviderHttpStatus({ exchangeStage: candidate.exchangeStage, providerError: "other" }, status);
+    }
+    if (candidate.exchangeStage === "non-json-response" || candidate.exchangeStage === "malformed-json-payload") {
+      return withProviderHttpStatus({ exchangeStage: candidate.exchangeStage }, status);
+    }
+    return { exchangeStage: candidate.exchangeStage };
+  } catch {
+    return null;
+  }
+}
+
+function withProviderHttpStatus(
+  details: GoogleOAuthProviderExchangeFailureDetails,
+  status: number | undefined,
+): GoogleOAuthProviderExchangeFailureDetails {
+  return status === undefined ? details : { ...details, httpStatus: status };
+}
+
+function safeProviderHttpStatus(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) && value >= 400 && value <= 599 ? value : undefined;
+}
+
+function isGoogleOAuthProviderExchangeStage(value: unknown): value is GoogleOAuthProviderExchangeStage {
+  return value === "network"
+    || value === "non-json-response"
+    || value === "malformed-json-payload"
+    || value === "provider-error"
+    || value === "provider-error-other"
+    || value === "malformed-success-response"
+    || value === "unknown";
 }
 
 function isGoogleOAuthCompletionFailurePhase(value: unknown): value is GoogleOAuthCompletionFailurePhase {
