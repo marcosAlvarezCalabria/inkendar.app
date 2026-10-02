@@ -50,6 +50,28 @@ describe("SupabaseManualOnboardingAdapter", () => {
     );
   });
 
+  it("sends a modern secret key only as apikey", async () => {
+    const modernSecretKey = "sb_secret_test-modern-key";
+    const request = vi.fn(async () => jsonResponse({ id: "10000000-0000-4000-8000-000000000001" }));
+    const adapter = new SupabaseManualOnboardingAdapter({
+      supabaseUrl: "https://project.supabase.co",
+      serviceRoleKey: modernSecretKey,
+      fetch: request,
+    });
+
+    await adapter.createConfirmedUser({ email: "owner@example.com", password: "private-password" });
+
+    expect(request).toHaveBeenCalledWith(
+      "https://project.supabase.co/auth/v1/admin/users",
+      expect.objectContaining({
+        headers: {
+          apikey: modernSecretKey,
+          "content-type": "application/json",
+        },
+      }),
+    );
+  });
+
   it("maps a duplicate Auth response without exposing provider details", async () => {
     const request = vi.fn(async () =>
       jsonResponse({ message: "A user with this email address has already been registered" }, 422),
