@@ -1,12 +1,12 @@
 # Contrato técnico: agenda privada de solo lectura para ARTIST
 
-_Estado técnico: `DONE` en código integrado. El PR #25 pasó revisión y CI con la RPC tenant-safe y la UI SSR read-only; no se ejecutó una prueba live externa ni se añadieron mutaciones de agenda._
+_Estado técnico: `DONE` en código integrado. El PR #25 pasó revisión y CI con la RPC tenant-safe y la UI SSR read-only. El soporte correctivo para citas confirmadas `FREE_CHOICE` es un candidato local pendiente de revisión, PR y CI; no añade mutaciones de agenda._
 
 ## Necesidad y alcance
 
 Como artista autenticado quiero consultar mis próximas citas confirmadas y el contexto mínimo del tatuaje para prepararme sin acceder a datos operativos o privados ajenos.
 
-El slice sustituye el shell de `/app/artist` por una vista SSR privada de solo lectura. Une en Supabase la cita confirmada con su `booking_option`, `tattoo_case` y `customer`; no consulta Google, no duplica eventos y no añade formularios de agenda ni acciones de agenda, conversaciones, archivos, referencias, galería, respuestas, cancelación ni elección libre. El shell conserva como única excepción el formulario global `POST /logout`, necesario para cerrar la sesión de forma explícita.
+El slice sustituye el shell de `/app/artist` por una vista SSR privada de solo lectura. Une en Supabase la cita confirmada con el intervalo de su origen —`booking_option` para `BOOKING_OFFER` o `free_choice_pending_request` para `FREE_CHOICE`—, `tattoo_case` y `customer`; no consulta Google, no duplica eventos y no añade formularios ni acciones de agenda o elección libre, conversaciones, archivos, referencias, galería, respuestas o cancelación. El shell conserva como única excepción el formulario global `POST /logout`, necesario para cerrar la sesión de forma explícita.
 
 ## Contrato de aplicación y UI
 
@@ -14,7 +14,7 @@ El slice sustituye el shell de `/app/artist` por una vista SSR privada de solo l
 
 Cada elemento contiene exclusivamente:
 
-- `startUtc` y `endUtc` de la `booking_option` confirmada;
+- `startUtc` y `endUtc` de la fuente confirmada de la cita;
 - `customerDisplayName`;
 - `caseSummary`;
 - `bodyArea` y `size`, ambos opcionales;
@@ -26,7 +26,7 @@ No contiene IDs internos, email, teléfono, conversación o mensajes, correlaci�
 
 `get_artist_agenda(p_now, p_limit)` es una RPC `SECURITY DEFINER` con `search_path = ''`. Solo `authenticated` recibe `EXECUTE`; `public`, `anon` y `service_role` quedan revocados. La RPC resuelve `auth.uid()` y exige exactamente una membership total y exactamente una relación coherente `membership ARTIST → user_profile → artist_profile`, todas para la misma identidad y tenant. OWNER, anónimo, identidad sin perfil coherente o límite fuera de `1..50` fallan con un error genérico `42501`.
 
-La consulta conserva las relaciones compuestas entre `appointment`, la opción/oferta, el caso y el customer; exige estados `CONFIRMED` en cita y opción, filtra por el `artist_profile` resuelto y ordena por inicio. La frontera temporal es inclusiva: `end_at >= greatest(p_now, now())`. Así el reloj de aplicación es determinista en tests, pero un cliente autenticado no puede retroceder `p_now` para recuperar citas finalizadas. El slice no concede acceso general ni escritura a `appointment`, `booking_option`, `tattoo_case` o `customer`.
+La consulta conserva las relaciones compuestas entre `appointment`, su fuente temporal, el caso y el customer. Exige `appointment.status = CONFIRMED` y, según el origen, `booking_option.status = CONFIRMED` o `free_choice_pending_request.status = CONFIRMED`; filtra por el tenant y `artist_profile` resueltos y ordena por inicio sin duplicar citas. La frontera temporal es inclusiva para ambos orígenes: `end_at >= greatest(p_now, now())`. Así el reloj de aplicación es determinista en tests, pero un cliente autenticado no puede retroceder `p_now` para recuperar citas finalizadas. El slice no concede acceso general ni escritura a `appointment`, `booking_option`, `free_choice_pending_request`, `tattoo_case` o `customer`.
 
 ## Criterios de aceptación
 
@@ -74,6 +74,8 @@ And el único formulario y POST del shell es /logout para cerrar la sesión
 3. GREEN mínimo por capas y migración, seguido de refactor y validación acumulada.
 
 El RED Vitest falló en los cuatro límites previstos. El RED pgTAP abortó al no existir `get_artist_agenda`. Tras GREEN pasan 10 pruebas enfocadas —incluida la regresión de la ruta SSR completa que limita formularios y `POST` al logout global— y 27 aserciones pgTAP del slice después de `db:reset`. La suite acumulada pasa 522 aserciones pgTAP; `pnpm run check` pasa lint, tipos, 376 pruebas Vitest —más una omitida— y build cliente/SSR. `supabase db lint --local --level warning` no encuentra errores y `supabase db diff --local` no encuentra drift. El entorno local usa Node 25.2.0 y emite el warning de engine; revisión, CI con Node 24 y cualquier prueba live siguen pendientes.
+
+La corrección `FREE_CHOICE` del 2026-10-02 añadió primero una regresión pgTAP: 26 de 28 aserciones pasaban y fallaban únicamente las dos que exigían ambos orígenes. Tras la migración incremental pasan las 28, incluidas citas ajenas y pasadas; también pasan 14 pruebas enfocadas de aplicación/infraestructura/ruta/vista, 992 aserciones pgTAP acumuladas, lint, tipos, 806 pruebas Vitest —más una omitida—, build cliente/SSR y lint SQL. La ejecución local usa Node 25.2.0 y mantiene el warning de engine; revisión, PR y CI con Node 24 quedan pendientes.
 
 ## Fuera de alcance
 
