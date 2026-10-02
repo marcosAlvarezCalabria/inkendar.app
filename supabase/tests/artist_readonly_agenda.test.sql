@@ -1,6 +1,6 @@
 begin;
 
-select plan(27);
+select plan(28);
 
 select has_function('public', 'get_artist_agenda', array['timestamp with time zone', 'integer'], 'artist agenda RPC exists');
 select function_returns('public', 'get_artist_agenda', array['timestamp with time zone', 'integer'], 'setof record', 'artist agenda returns a bounded record set');
@@ -40,7 +40,8 @@ insert into public.customer(id,studio_id,name,email,phone,status) values
 insert into public.tattoo_case(id,studio_id,customer_id,summary,body_area,size,artist_profile_id,status) values
 ('70000000-0000-0000-0000-000000000090','20000000-0000-0000-0000-000000000001','60000000-0000-0000-0000-000000000090','Agenda case','Brazo','Mediana','50000000-0000-0000-0000-000000000001','OPEN'),
 ('70000000-0000-0000-0000-000000000091','20000000-0000-0000-0000-000000000001','60000000-0000-0000-0000-000000000091','Other artist case',null,null,'50000000-0000-0000-0000-000000000005','OPEN'),
-('70000000-0000-0000-0000-000000000092','20000000-0000-0000-0000-000000000002','60000000-0000-0000-0000-000000000092','Other tenant case',null,null,'50000000-0000-0000-0000-000000000006','OPEN');
+('70000000-0000-0000-0000-000000000092','20000000-0000-0000-0000-000000000002','60000000-0000-0000-0000-000000000092','Other tenant case',null,null,'50000000-0000-0000-0000-000000000006','OPEN'),
+('70000000-0000-0000-0000-000000000093','20000000-0000-0000-0000-000000000001','60000000-0000-0000-0000-000000000090','Past free-choice case','Brazo','Mediana','50000000-0000-0000-0000-000000000001','OPEN');
 insert into public.artist_availability_rule(artist_profile_id,studio_id,time_zone,slot_increment_minutes,buffer_before_minutes,buffer_after_minutes)
 values('50000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','Europe/Dublin',30,0,0);
 
@@ -80,10 +81,69 @@ insert into public.appointment(studio_id,tattoo_case_id,artist_profile_id,bookin
 ('20000000-0000-0000-0000-000000000001','70000000-0000-0000-0000-000000000091','50000000-0000-0000-0000-000000000005','71000000-0000-4000-8000-000000000091','72000000-0000-4000-8000-000000000091','CONFIRMED',now()),
 ('20000000-0000-0000-0000-000000000002','70000000-0000-0000-0000-000000000092','50000000-0000-0000-0000-000000000006','71000000-0000-4000-8000-000000000092','72000000-0000-4000-8000-000000000092','CONFIRMED',now());
 
+insert into public.free_choice_availability_access(
+  id,studio_id,tattoo_case_id,artist_profile_id,token_hash,range_start,range_end,duration_minutes,expires_at,issued_at,updated_at
+) values
+(
+  '73000000-0000-4000-8000-000000000090','20000000-0000-0000-0000-000000000001','70000000-0000-0000-0000-000000000090','50000000-0000-0000-0000-000000000001',
+  decode(repeat('a',64),'hex'),now(),now()+interval '1 day',30,now()+interval '1 hour',now()-interval '1 hour',now()
+),
+(
+  '73000000-0000-4000-8000-000000000091','20000000-0000-0000-0000-000000000001','70000000-0000-0000-0000-000000000091','50000000-0000-0000-0000-000000000005',
+  decode(repeat('c',64),'hex'),now(),now()+interval '1 day',60,now()+interval '1 hour',now()-interval '1 hour',now()
+),
+(
+  '73000000-0000-4000-8000-000000000092','20000000-0000-0000-0000-000000000002','70000000-0000-0000-0000-000000000092','50000000-0000-0000-0000-000000000006',
+  decode(repeat('d',64),'hex'),now(),now()+interval '1 day',60,now()+interval '1 hour',now()-interval '1 hour',now()
+),
+(
+  '73000000-0000-4000-8000-000000000093','20000000-0000-0000-0000-000000000001','70000000-0000-0000-0000-000000000093','50000000-0000-0000-0000-000000000001',
+  decode(repeat('e',64),'hex'),now()-interval '4 hours',now()+interval '1 day',60,now()-interval '1 hour',now()-interval '5 hours',now()
+);
+insert into public.free_choice_pending_request(
+  id,access_id,studio_id,tattoo_case_id,artist_profile_id,selector_hash,start_at,end_at,expires_at,status,created_at
+) values
+(
+  '74000000-0000-4000-8000-000000000090','73000000-0000-4000-8000-000000000090','20000000-0000-0000-0000-000000000001','70000000-0000-0000-0000-000000000090','50000000-0000-0000-0000-000000000001',
+  decode(repeat('b',64),'hex'),now()+interval '15 minutes',now()+interval '45 minutes',now()+interval '10 minutes','CONFIRMED',now()-interval '1 hour'
+),
+(
+  '74000000-0000-4000-8000-000000000091','73000000-0000-4000-8000-000000000091','20000000-0000-0000-0000-000000000001','70000000-0000-0000-0000-000000000091','50000000-0000-0000-0000-000000000005',
+  decode(repeat('c',64),'hex'),now()+interval '2 hours',now()+interval '3 hours',now()+interval '1 hour','CONFIRMED',now()-interval '1 hour'
+),
+(
+  '74000000-0000-4000-8000-000000000092','73000000-0000-4000-8000-000000000092','20000000-0000-0000-0000-000000000002','70000000-0000-0000-0000-000000000092','50000000-0000-0000-0000-000000000006',
+  decode(repeat('d',64),'hex'),now()+interval '2 hours',now()+interval '3 hours',now()+interval '1 hour','CONFIRMED',now()-interval '1 hour'
+),
+(
+  '74000000-0000-4000-8000-000000000093','73000000-0000-4000-8000-000000000093','20000000-0000-0000-0000-000000000001','70000000-0000-0000-0000-000000000093','50000000-0000-0000-0000-000000000001',
+  decode(repeat('e',64),'hex'),now()-interval '3 hours',now()-interval '2 hours',now()-interval '3 hours','CONFIRMED',now()-interval '4 hours'
+);
+insert into public.appointment(
+  studio_id,tattoo_case_id,artist_profile_id,source,free_choice_request_id,status,confirmed_at
+) values
+(
+  '20000000-0000-0000-0000-000000000001','70000000-0000-0000-0000-000000000090','50000000-0000-0000-0000-000000000001','FREE_CHOICE','74000000-0000-4000-8000-000000000090','CONFIRMED',now()
+),
+(
+  '20000000-0000-0000-0000-000000000001','70000000-0000-0000-0000-000000000091','50000000-0000-0000-0000-000000000005','FREE_CHOICE','74000000-0000-4000-8000-000000000091','CONFIRMED',now()
+),
+(
+  '20000000-0000-0000-0000-000000000002','70000000-0000-0000-0000-000000000092','50000000-0000-0000-0000-000000000006','FREE_CHOICE','74000000-0000-4000-8000-000000000092','CONFIRMED',now()
+),
+(
+  '20000000-0000-0000-0000-000000000001','70000000-0000-0000-0000-000000000093','50000000-0000-0000-0000-000000000001','FREE_CHOICE','74000000-0000-4000-8000-000000000093','CONFIRMED',now()-interval '4 hours'
+);
+
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000002', true);
 
 select is((select count(*) from public.get_artist_agenda(now(), 50)), 50::bigint, 'agenda is capped at the fixed maximum');
+select is(
+  (select count(*) from public.get_artist_agenda(now(), 50) where start_at in (now()+interval '15 minutes',now()+interval '1 hour')),
+  2::bigint,
+  'agenda includes confirmed BOOKING_OFFER and FREE_CHOICE appointments'
+);
 select is((select count(*) from public.get_artist_agenda(now(), 50) where end_at = now()), 1::bigint, 'exact end boundary is included');
 select is((select count(*) from public.get_artist_agenda(now() - interval '1 day', 50) where end_at < now()), 0::bigint, 'database now prevents callers from reading past appointments');
 select is((select count(*) from public.get_artist_agenda(now(), 50) where customer_display_name = 'Other artist private'), 0::bigint, 'artist never reads another artist appointment');
@@ -102,8 +162,8 @@ select results_eq($$ update public.customer set name = 'Forbidden' returning id 
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000005', true);
-select is((select count(*) from public.get_artist_agenda(now(), 50)), 1::bigint, 'second artist sees only their own appointment');
-select is((select time_zone from public.get_artist_agenda(now(), 50)), 'UTC'::text, 'missing availability configuration uses explicit UTC');
+select is((select count(*) from public.get_artist_agenda(now(), 50)), 2::bigint, 'second artist sees only their own appointments from both sources');
+select is((select bool_and(time_zone = 'UTC') from public.get_artist_agenda(now(), 50)), true, 'missing availability configuration uses explicit UTC');
 
 reset role;
 set local role authenticated;
