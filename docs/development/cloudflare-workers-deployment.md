@@ -71,7 +71,7 @@ Las migraciones siguen siendo las SQL versionadas en `supabase/migrations`. Ante
 4. ejecutar `supabase db push --linked` desde un runner autorizado;
 5. ejecutar los smoke tests Auth/RLS y solo entonces promocionar el Worker.
 
-Nunca ejecutar `supabase db reset` contra un proyecto Cloud. Las migraciones aplicadas no se revierten borrando archivos: un rollback de datos o esquema exige una migración compensatoria revisada y, si hay pérdida o corrupción, el procedimiento de restore de Supabase.
+No ejecutar `supabase db reset` contra producción ni usarlo como mecanismo de rollback. La única excepción aceptada es una reconstrucción extraordinaria de staging conforme a [DEC-053](../product/sellable-mvp-spec.md): target enlazado inequívoco, paridad y recuentos agregados verificados, punto de recuperación decidido o renuncia explícita, una sola ejecución con `--linked --no-seed --yes`, comprobación posterior en cero y reprovisión mediante el alta gestionada. Las migraciones aplicadas no se revierten borrando archivos: un rollback de datos o esquema exige una migración compensatoria revisada y, si hay pérdida o corrupción, el procedimiento de restore de Supabase.
 
 ## Construcción y validación
 

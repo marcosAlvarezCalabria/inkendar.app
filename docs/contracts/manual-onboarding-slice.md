@@ -81,7 +81,7 @@ But service_role puede ejecutarlas para el alta inicial
 - `AddArtistInput`: `studioId`, `email`, `password`, `displayName`.
 - Ninguna entrada contiene `role`; los casos de uso fijan `OWNER` o `ARTIST`.
 - El password se obtiene en el CLI exclusivamente de `INKENDAR_ONBOARDING_PASSWORD`; no se acepta como argumento ni se imprime.
-- La configuración usa `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` del entorno; el adaptador no registra cabeceras, cuerpos ni respuestas de Auth.
+- La configuración usa `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` del entorno; el adaptador no registra cabeceras, cuerpos ni respuestas de Auth. Las claves modernas `sb_secret_*` viajan solo en `apikey`; una clave JWT `service_role` heredada conserva además `Authorization: Bearer`.
 - `IdentityAdminPort` crea y elimina identidades confirmadas. `OnboardingRepositoryPort` ejecuta las operaciones atómicas de persistencia.
 - Las RPC serializan por `user_id`: repetir owner o artista con los mismos datos devuelve los mismos IDs; reutilizar la identidad con datos o rol distintos devuelve `DUPLICATE_IDENTITY`.
 - El adaptador reintenta una vez la misma RPC ante transporte, `5xx` o una respuesta exitosa ilegible o incompleta. Si no puede resolver el resultado, la aplicación conserva Auth y exige intervención con el `userId`.

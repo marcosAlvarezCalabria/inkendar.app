@@ -38,7 +38,9 @@ export class SupabaseManualOnboardingAdapter implements IdentityAdminPort, Onboa
     }
     this.#headers = {
       apikey: options.serviceRoleKey,
-      authorization: `Bearer ${options.serviceRoleKey}`,
+      ...(options.serviceRoleKey.startsWith("sb_secret_")
+        ? {}
+        : { authorization: `Bearer ${options.serviceRoleKey}` }),
       "content-type": "application/json",
     };
     this.#fetch = options.fetch ?? globalThis.fetch.bind(globalThis);
