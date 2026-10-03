@@ -3,9 +3,10 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { ConversationMessage, ConversationPage, ConversationThread, Customer, TattooCase } from "@inkendar/application";
+import { CONVERSATION_REFRESH_INTERVAL_MS } from "./conversation-auto-refresh.js";
 import {
   ConversationActivity,
   ConversationImage,
@@ -14,6 +15,7 @@ import {
   OwnerConversationsView,
   type OwnerConversationsData,
 } from "./routes/owner-conversations.js";
+import OwnerConversations from "./routes/owner-conversations.js";
 
 const customers = [{
   id: "customer-noa",
@@ -211,5 +213,34 @@ describe("owner conversations view", () => {
     expect(container.textContent).toContain("Adjunto no disponible");
     expect(container.querySelector("a")).toBeNull();
     root.unmount();
+  });
+
+  it("revalidates the active route and renders a new message exactly once without a manual reload", async () => {
+    vi.useFakeTimers();
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const refreshedThread = {
+      ...thread,
+      messages: [...thread.messages, { id: "87", direction: "incoming", content: "Mensaje nuevo", createdAt: "2026-09-14T10:03:00.000Z" }],
+    } satisfies ConversationThread;
+    let loads = 0;
+    const router = createMemoryRouter([{
+      path: "/app/owner/conversations",
+      loader: () => ++loads === 1 ? data() : data({ thread: refreshedThread }),
+      Component: OwnerConversations,
+    }], { initialEntries: ["/app/owner/conversations?conversation=42"] });
+
+    try {
+      await act(async () => root.render(<RouterProvider router={router} />));
+      expect(loads).toBe(1);
+      expect(container.textContent).not.toContain("Mensaje nuevo");
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(CONVERSATION_REFRESH_INTERVAL_MS); });
+      expect(loads).toBe(2);
+      expect(container.textContent?.match(/Mensaje nuevo/gu)).toHaveLength(1);
+    } finally {
+      await act(async () => root.unmount());
+      vi.useRealTimers();
+    }
   });
 });
