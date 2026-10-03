@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Form, isRouteErrorResponse, Link, useActionData, useLoaderData, useNavigation, useRouteError } from "react-router";
 import type { ConversationMessage, ConversationPage, ConversationThread, Customer, TattooCase } from "@inkendar/application";
 
+import { ConversationAutoRefresh } from "../conversation-auto-refresh.js";
 import { ownerConversationsHandlers } from "../owner-conversations.server.js";
 import { routeResponseOrThrow } from "../route-response.server.js";
 import { AccessDeniedPage, EmptyState, Notice, StatusBadge, StatusPage, type Tone } from "../ui/feedback.js";
@@ -25,7 +26,10 @@ export default function OwnerConversations() {
   const data = useLoaderData() as OwnerConversationsData;
   const actionResult = useActionData() as ActionResult | undefined;
   const navigation = useNavigation();
-  return <OwnerConversationsView data={data} actionResult={actionResult} pending={getPendingSubmission(navigation.state, navigation.formData)} />;
+  return <>
+    <ConversationAutoRefresh />
+    <OwnerConversationsView data={data} actionResult={actionResult} pending={getPendingSubmission(navigation.state, navigation.formData)} />
+  </>;
 }
 
 export function OwnerConversationsView({ data, actionResult, pending }: Readonly<{

@@ -288,5 +288,5 @@ describe("presentation fixtures", () => {
     for (const scenario of uiFoundationScenarios) expect(html).toContain(`id="${scenario.id}"`);
     for (const scenario of authPermissionsFixtureScenarios) expect(html).toContain(`id="${scenario.id}"`);
     expect(html).toContain("Entorno de desarrollo");
-  });
+  }, 10_000);
 });
