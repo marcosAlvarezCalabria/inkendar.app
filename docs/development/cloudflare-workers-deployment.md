@@ -32,13 +32,13 @@ Cloudflare Images Free permite hasta 5.000 transformaciones únicas por mes. Al 
 | staging | `https://inkendar-staging.calalva82.workers.dev` |
 | production | `https://inkendar.calalva82.workers.dev` |
 
-Staging tiene configurados `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` e `INKENDAR_CHATWOOT_CONNECTIONS_JSON`. Las credenciales Google y cualquier secreto del runner se añaden solo cuando se ejecute su recorrido live. Producción no tiene configuración operativa y debe permanecer así hasta aprobación explícita.
+Staging tiene configurados `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, las credenciales Google del recorrido Calendar y `INKENDAR_CHATWOOT_CONNECTIONS_JSON`. Desde el 2026-10-03 los dos bindings de clave Supabase contienen claves modernas `sb_publishable_*` y `sb_secret_*`; las claves JWT legacy `anon` y `service_role` están desactivadas en el proyecto staging tras revalidar OWNER y ARTIST. Los nombres de binding se conservan por compatibilidad interna y no indican el formato de la credencial. Cualquier secreto de un runner nuevo se añade únicamente al ejecutar su recorrido live. Producción no tiene configuración operativa y debe permanecer así hasta aprobación explícita.
 
 Los secretos pendientes o de nuevos entornos se configuran con `wrangler secret put` en el entorno correspondiente:
 
 - `SUPABASE_URL`;
-- `SUPABASE_PUBLISHABLE_KEY` (o temporalmente `SUPABASE_ANON_KEY` mientras el proyecto todavía la use);
-- `SUPABASE_SERVICE_ROLE_KEY`;
+- `SUPABASE_PUBLISHABLE_KEY` con una clave moderna `sb_publishable_*`;
+- `SUPABASE_SERVICE_ROLE_KEY` con una clave moderna `sb_secret_*` (el nombre se conserva por compatibilidad interna);
 - `GOOGLE_OAUTH_CLIENT_ID`;
 - `GOOGLE_OAUTH_CLIENT_SECRET`;
 - `GOOGLE_OAUTH_REDIRECT_URI`;
