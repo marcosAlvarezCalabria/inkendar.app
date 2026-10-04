@@ -1,10 +1,10 @@
 # Contrato del slice: conversaciones OWNER
 
-_Estado tecnico del slice original y la extension de imagenes entrantes: DONE. PR #52 integrado; run post-merge 36244018683 verde._
+_Estado tecnico del slice original y la extension de imagenes entrantes: DONE. Extension de actualizacion automatica OWNER: IN_PROGRESS._
 
 _Recorrido live con Chatwoot: PARTIAL; texto e Instagram bidireccionales verificados en staging, webhook e imagen live pendientes_
 
-_Ultima actualizacion: 2026-09-29_
+_Ultima actualizacion: 2026-10-03_
 
 ## Objetivo
 
@@ -14,7 +14,7 @@ Como owner de un estudio quiero consultar y responder conversaciones desde Inken
 
 Este slice incorpora una bandeja SSR exclusiva para OWNER con paginacion explicita de conversaciones, lectura de mensajes publicos de texto y de imagenes entrantes, respuesta publica de texto y un vinculo tenant-scoped con `customer` y `tattoo_case`. Chatwoot permanece como fuente de verdad de conversaciones, mensajes y adjuntos; Inkendar solo persiste identificadores externos, relaciones de dominio y estado tecnico de ingesta.
 
-El webhook acepta unicamente `message_created`, exige la firma oficial de Chatwoot y registra una recepcion idempotente sin copiar contenido. La extension de imagenes es solo lectura: no incorpora subida/envio de archivos, audio, video, documentos, asignacion, cambio de estado, notas privadas, busqueda, tiempo real en navegador, WhatsApp, booking, calendario, galeria ni acceso ARTIST.
+El webhook acepta unicamente `message_created`, exige la firma oficial de Chatwoot y registra una recepcion idempotente sin copiar contenido. La UI OWNER revalida de forma acotada la misma lectura SSR para reflejar cambios sin recarga manual y recuperar la verdad al volver de una desconexion o suspension de pestaña. La extension de imagenes es solo lectura: no incorpora subida/envio de archivos, audio, video, documentos, asignacion, cambio de estado, notas privadas, busqueda, push en navegador, WhatsApp, booking, calendario, galeria ni acceso ARTIST.
 
 ## Criterios de aceptacion
 
@@ -105,6 +105,24 @@ Then Inkendar falla cerrado antes de cualquier escritura
 And no registra el cuerpo, firma ni secreto
 ```
 
+### Actualizacion automatica OWNER
+
+```gherkin
+Given un OWNER autenticado con la bandeja o un detalle de conversacion visible
+When Inkendar acepta y persiste un evento `message_created` valido de Chatwoot
+Then la ruta SSR se revalida periodicamente y muestra la conversacion o mensaje sin recarga manual
+And conserva pagina, conversacion seleccionada y cursor de historial actuales
+And un delivery duplicado no materializa mensajes ni eventos visibles adicionales
+```
+
+```gherkin
+Given la bandeja o el detalle quedan sin red, ocultos o suspendidos
+When el navegador recupera conexion o visibilidad
+Then Inkendar revalida inmediatamente desde Chatwoot y Supabase como fuentes persistidas
+And no conserva mensajes ni payloads privados en Cache Storage o almacenamiento del navegador
+And si la revalidacion automatica falla, una recarga normal sigue consultando la misma verdad SSR
+```
+
 ### Autorizacion y privacidad
 
 ```gherkin
@@ -124,6 +142,13 @@ And las rutas OWNER mantienen Cache-Control private, no-store
 - `ConversationWebhookRepositoryPort`: registra atomicamente una entrega normalizada y devuelve `ACCEPTED | DUPLICATE`.
 - `ConversationOutboundRepositoryPort`: reclama y transiciona operaciones sin contenido mediante RPCs exclusivas de `service_role`.
 - La composicion resuelve una conexion por `studioId` para OWNER o por `connectionId` opaco para webhook. La configuracion y los secretos solo existen en variables de entorno de servidor.
+
+### Sincronizacion del navegador
+
+- La ruta `/app/owner/conversations` usa la revalidacion nativa de React Router contra su loader SSR cada 10 segundos mientras la pestaña esta visible, el navegador esta online y no existe otra revalidacion en curso. No se crea un endpoint publico nuevo.
+- Los eventos `online` y `visibilitychange` disparan una revalidacion inmediata al recuperar conectividad o visibilidad. Ocultar la pestaña o perder conexion pausa las solicitudes periodicas.
+- La revalidacion conserva la URL actual, incluidos `page`, `conversation` y `before`; por ello bandeja y detalle vuelven a consultar juntos el proveedor y los vinculos tenant-scoped.
+- Este corte no usa Supabase Realtime, SSE, WebSocket, Durable Objects ni persistencia cliente. Evita publicar `conversation_webhook_receipt`, ampliar RLS o mantener conexiones serverless duraderas para un unico panel OWNER.
 
 ### Modelo persistente
 
@@ -165,6 +190,7 @@ Cada formulario lleva una clave UUID. `SUCCEEDED` reutiliza el ID confirmado sin
 - El webhook es publico y falla cerrado: acepta como maximo 256 KiB reales, se firma sobre `timestamp.raw_body`, se compara en tiempo constante, se limita a cinco minutos y exige delivery ID antes de parsear o persistir.
 - La ruta webhook usa `service_role` solo despues de autenticar y normalizar el evento. Las rutas OWNER usan el cliente Supabase sujeto a cookies/RLS.
 - HTML y respuestas con datos privados usan `Cache-Control: private, no-store`; la imagen privada agrega `X-Content-Type-Options: nosniff` y `Referrer-Policy: no-referrer`. No se guardan mensajes, imagenes, PII, tokens, firmas ni cuerpos brutos en Postgres, URLs o memoria de agentes.
+- La revalidacion automatica pasa por el mismo guard OWNER, cookies SSR, aislamiento de estudio y respuesta `private, no-store` que una carga manual. ARTIST, anon y otro tenant no obtienen un canal alternativo.
 
 ## Plan RED-GREEN-REFACTOR
 
@@ -172,7 +198,8 @@ Cada formulario lleva una clave UUID. `SUCCEEDED` reutiliza el ID confirmado sin
 2. RED de adaptador Chatwoot y verificador HMAC con respuestas/payloads sinteticos.
 3. RED de persistencia, migracion y pgTAP para tenant, FKs compuestas, RLS, RPC y deduplicacion.
 4. RED de composicion, resource route webhook y UI/handlers OWNER.
-5. GREEN minimo por capa; despues REFACTOR, pruebas enfocadas, `pnpm run check`, prueba DB local si Docker esta disponible y revision del diff.
+5. RED de navegador para intervalo visible/online, pausa y recuperacion inmediata; GREEN con revalidacion del loader existente.
+6. GREEN minimo por capa; despues REFACTOR, pruebas enfocadas, `pnpm run check`, prueba DB local si Docker esta disponible y revision del diff.
 
 ## Referencias externas verificadas
 

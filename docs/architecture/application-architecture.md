@@ -2,7 +2,7 @@
 
 _Estado: aceptada_
 
-_Última actualización: 2026-09-29_
+_Última actualización: 2026-10-03_
 
 _La fuente de verdad del comportamiento y el alcance es [Especificación de Inkendar](../product/sellable-mvp-spec.md). Este documento explica cómo construirlo y debe actualizarse cuando cambie una frontera, dependencia o decisión técnica._
 
@@ -99,6 +99,8 @@ El adaptador Chatwoot proyecta cada adjunto entrante como handle de imagen o pla
 Supabase conserva `conversation_link` para customer/tattoo_case, `conversation_webhook_receipt` para entregas firmadas y `conversation_outbound_operation` sin contenido para idempotencia. Las RPC outbound son exclusivas de `service_role`, se componen lazy tras OWNER y serializan una clave UUID: `SUCCEEDED` reutiliza el resultado, `PENDING` bloquea concurrencia y `FAILED`/`UNKNOWN` son finales. Un reintento consciente despues de `FAILED` usa una clave nueva; `UNKNOWN` requiere intervencion manual.
 
 El webhook conserva HMAC-SHA256, frescura de cinco minutos, delivery ID, limite real de 256 KiB, account esperado y actualizacion monotona. RLS y FKs compuestas mantienen el vinculo tenant-safe; mensajes, secretos y payloads brutos no se persisten ni se serializan.
+
+La actualizacion automatica del navegador reutiliza la revalidacion de datos de React Router sobre el loader SSR actual cada 10 segundos, solo con pestaña visible, navegador online y revalidador inactivo. Al recuperar conexion o visibilidad revalida inmediatamente y conserva la URL de pagina, conversacion y cursor. Esta decision mantiene guard OWNER, cookies, aislamiento tenant y `private, no-store` en una sola frontera; no publica receipts, no amplia RLS, no guarda mensajes en cliente y no introduce Supabase Realtime, SSE, WebSocket ni Durable Objects. Chatwoot continua siendo la verdad de mensajes y una carga manual sigue siendo la recuperacion disponible si falla la actualizacion automatica.
 
 ### Conexión Google Calendar
 
@@ -391,6 +393,7 @@ La recomendación añade un backend propio delgado, pero concentra allí autoriz
 
 | Fecha | Cambio | Motivo |
 |---|---|---|
+| 2026-10-03 | Revalidacion OWNER acotada sobre el loader SSR de conversaciones | Reflejar mensajes sin recarga manual y resincronizar tras desconexion o suspension sin exponer receipts, secretos ni datos a un canal nuevo. |
 | 2026-09-29 | Evidencia live de texto e Instagram entre Chatwoot e Inkendar en staging | Registrar el recorrido realmente observado y conservar explícitos los gates de webhook, imagen y actualización automática. |
 | 2026-09-26 | Lectura local de imagenes entrantes de Chatwoot por proxy OWNER privado | Mostrar referencias visuales sin filtrar tokens/URLs externas ni persistir contenido; revision, CI y live siguen pendientes. |
 | 2026-09-26 | Shell offline estático con allowlist cerrada y guard de mutaciones en navegador | Ofrecer una salida segura cuando falla una navegación sin convertir la aplicación en offline-first ni persistir contenido privado o dinámico. |
