@@ -412,6 +412,13 @@ describe("Chatwoot conversation adapter", () => {
     expect(request).toHaveBeenCalledTimes(2);
   });
 
+  it("accepts a successful reply when Chatwoot omits account_id", async () => {
+    const request = vi.fn(async () => json({ id: 84, inbox_id: 7, conversation_id: 42 }));
+    const adapter = new ChatwootConversationAdapter(connection, request);
+
+    await expect(adapter.sendReply("42", "Hola")).resolves.toEqual({ externalMessageId: "84" });
+  });
+
   it("rejects a successful-looking reply attributed to another account", async () => {
     const request = vi.fn(async () => json({ id: 84, account_id: 4, conversation_id: 42 }));
     const adapter = new ChatwootConversationAdapter(connection, request);

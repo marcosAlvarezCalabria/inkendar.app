@@ -120,7 +120,8 @@ export class ChatwootConversationAdapter implements ConversationProviderPort, Co
     }
     const body = await json(response);
     const row = object(body);
-    if (id(row.account_id) !== this.#connection.accountId || id(row.conversation_id) !== normalizedId) throw new ConversationProviderUnavailableError();
+    if ((row.account_id !== undefined && id(row.account_id) !== this.#connection.accountId)
+      || id(row.conversation_id) !== normalizedId) throw new ConversationProviderUnavailableError();
     return { externalMessageId: id(row.id) };
   }
 
