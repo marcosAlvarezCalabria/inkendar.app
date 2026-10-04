@@ -1,6 +1,6 @@
 # Despliegue SSR en Cloudflare Workers
 
-_Última actualización: 2026-09-29_
+_Última actualización: 2026-10-04_
 
 Inkendar empaqueta React Router 8 SSR con el plugin oficial de Cloudflare para Vite. El Worker sirve el BFF y delega el resto de peticiones al manejador de React Router; los assets cliente se publican desde `apps/inkendar/build/client`. Supabase Cloud continúa siendo la fuente de Postgres, Auth y Storage: este despliegue no crea ni migra datos a Cloudflare.
 
@@ -13,6 +13,10 @@ Tras integrar el [PR #50](https://github.com/marcosAlvarezCalabria/inkendar.app/
 Tras integrar los [PR #52](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/52) y [#53](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/53), `main` `81ab2d713a12cc295479a078b8d5b55ed407458b` se desplegó en staging como versión `5ca5b753-0d26-49a2-80df-6ac2f478b5a9`. La construcción y el dry-run usaron Node 24.19.0, pnpm 10.22.0 y Wrangler 4.136.3; `/healthz`, `/readyz` y `/login` devolvieron `200`. El Worker conserva únicamente los secretos Supabase: `INKENDAR_CHATWOOT_CONNECTIONS_JSON` sigue ausente, por lo que no se atribuye un recorrido live de conversaciones o imágenes. Producción no se desplegó.
 
 Tras integrar el [PR #59](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/59) como squash `641579dcfa978293a200163c2da29e1099a24d1e`, el [run post-merge 36472666798](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36472666798) dejó `validate` y `database` verdes. `main` se desplegó exclusivamente en `inkendar-staging` como versión `c8fddbc1-cb2b-4f1b-bc49-bee4740427f1`; `/healthz` y `/readyz` devolvieron `200` dos veces. `INKENDAR_CHATWOOT_CONNECTIONS_JSON` quedó configurado como secreto cifrado y se verificaron listado, detalle, recepción y respuesta de texto con datos sintéticos, incluida una conversación Instagram bidireccional. El webhook firmado, una imagen entrante live y la actualización automática siguen pendientes. Producción no se desplegó.
+
+El 2026-10-04 se detectó que `pnpm run deploy:staging`, ejecutado sin un build previo, reutilizaba `apps/inkendar/build/server/wrangler.json` de otro entorno. Ese primer intento publicó accidentalmente el Worker no productivo `inkendar-local` como versión `0172c82b-5de4-4321-8f46-a7ab8cbb1694`; no tocó producción. Después de ejecutar `pnpm run build:staging`, el artefacto confirmó `name=inkendar-staging` y origen de staging, y el despliegue correcto publicó `inkendar-staging` como versión `e5b4a9cf-6f51-44cf-b45f-b96a46520d72`; `/healthz`, `/readyz` y `/login` devolvieron `200`. El wrapper queda corregido para reconstruir siempre el artefacto del entorno solicitado inmediatamente antes de `wrangler deploy`, abortando la publicación si falla el build. Producción continúa bloqueada y sin despliegue.
+
+Ese mismo `main` contiene el [PR #80](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/80), integrado como `c1e734d`, que permite la respuesta válida de Chatwoot cuando su `POST` exitoso omite `account_id`, sin relajar las demás comprobaciones. Un runner local autorizado con configuración temporal entregó exactamente un primer mensaje a Chatwoot/Instagram, pero la omisión dejó la intención en `UNKNOWN`, `attempt_count=1` y sin `external_message_id`. Tras el fix, una nueva solicitud sintética `REJECTED` produjo `{expired:0,claimed:1,sent:1,failed:0,unknown:0,noRoute:0}` y la segunda ejecución idempotente `{expired:0,claimed:0,sent:0,failed:0,unknown:0,noRoute:0}`. La conversación terminó con exactamente dos mensajes, uno por cada prueba y ningún duplicado adicional. Esta prueba acredita el runner local y el proveedor; no valida todavía la pantalla OWNER Conversaciones ni el secreto/configuración Chatwoot del Worker después del reset de staging.
 
 ## Prerrequisitos externos
 
@@ -111,7 +115,7 @@ pnpm run deploy:staging
 pnpm run deploy:production
 ```
 
-Producción desplegará el Worker `inkendar` en `https://inkendar.calalva82.workers.dev`; staging despliega `inkendar-staging` en `https://inkendar-staging.calalva82.workers.dev`. Ambos conservan `workers_dev=true`; producción desactiva preview URLs para que el único origen operativo sea estable. Antes de promocionar, verificar que Google OAuth y Supabase aceptan el origen/callback exactos. Un dominio personalizado es una mejora futura y requerirá una decisión y migración explícitas de origen, OAuth y cookies.
+Cada comando `deploy:*` vuelve a construir la galería y React Router con `CLOUDFLARE_ENV` e `INKENDAR_APP_ORIGIN` del destino antes de invocar `wrangler deploy`; no depende del contenido previo de `apps/inkendar/build`. Si cualquiera de esos pasos falla, Wrangler no se ejecuta. Producción desplegará el Worker `inkendar` en `https://inkendar.calalva82.workers.dev`; staging despliega `inkendar-staging` en `https://inkendar-staging.calalva82.workers.dev`. Ambos conservan `workers_dev=true`; producción desactiva preview URLs para que el único origen operativo sea estable. Antes de promocionar, verificar que Google OAuth y Supabase aceptan el origen/callback exactos. Un dominio personalizado es una mejora futura y requerirá una decisión y migración explícitas de origen, OAuth y cookies.
 
 ## Observabilidad y rollback
 
