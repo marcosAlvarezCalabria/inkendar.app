@@ -1,7 +1,7 @@
 import { createServerClient, parseCookieHeader } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-import type { ConversationLink, ConversationLinksRepositoryPort, ConversationOutboundRepositoryPort, ConversationWebhookEvent, ConversationWebhookRepositoryPort, OutboundClaim, WebhookIngestionResult } from "@inkendar/application";
+import type { ConversationLink, ConversationLinksRepositoryPort, ConversationOutboundRepositoryPort, ConversationWebhookAttemptOutcome, ConversationWebhookEvent, ConversationWebhookObservabilityPort, ConversationWebhookRepositoryPort, OutboundClaim, WebhookIngestionResult } from "@inkendar/application";
 import { loadSupabasePublicConfig } from "./supabase-auth.js";
 
 type DataResult = Readonly<{ data: unknown; error: unknown }>;
@@ -9,6 +9,7 @@ export interface ConversationsDataGateway {
   listLinks(filters: Readonly<Record<string, string>>): Promise<DataResult>;
   upsertLink(values: Readonly<Record<string, unknown>>): Promise<DataResult>;
   recordWebhook(parameters: Readonly<Record<string, string>>): Promise<DataResult>;
+  recordWebhookAttempt(parameters: Readonly<Record<string, string>>): Promise<DataResult>;
   claimOutbound?(parameters: Readonly<Record<string, string>>): Promise<DataResult>;
   transitionOutbound?(parameters: Readonly<Record<string, string | null>>): Promise<DataResult>;
 }
@@ -31,6 +32,10 @@ export class SupabaseConversationsGateway implements ConversationsDataGateway {
     const { data, error } = await this.client.rpc("ingest_conversation_webhook", parameters);
     return { data, error };
   }
+  async recordWebhookAttempt(parameters: Readonly<Record<string, string>>): Promise<DataResult> {
+    const { data, error } = await this.client.rpc("record_conversation_webhook_attempt", parameters);
+    return { data, error };
+  }
   async claimOutbound(parameters: Readonly<Record<string, string>>): Promise<DataResult> {
     const { data, error } = await this.serviceClient().rpc("claim_conversation_outbound_operation", parameters);
     return { data, error };
@@ -48,7 +53,7 @@ export class SupabaseConversationsAdapterError extends Error {
 
 const COLUMNS = "id,studio_id,external_account_id,external_inbox_id,external_conversation_id,customer_id,tattoo_case_id,last_external_message_id,last_activity_at";
 
-export class SupabaseConversationsAdapter implements ConversationLinksRepositoryPort, ConversationOutboundRepositoryPort, ConversationWebhookRepositoryPort {
+export class SupabaseConversationsAdapter implements ConversationLinksRepositoryPort, ConversationOutboundRepositoryPort, ConversationWebhookRepositoryPort, ConversationWebhookObservabilityPort {
   constructor(private readonly data: ConversationsDataGateway) {}
 
   async listLinks(studioId: string, externalAccountId: string): Promise<readonly ConversationLink[]> {
@@ -69,6 +74,10 @@ export class SupabaseConversationsAdapter implements ConversationLinksRepository
     const result = await this.data.recordWebhook({ p_studio_id: studioId, p_provider: "chatwoot", p_delivery_id: event.deliveryId, p_event_name: "message_created", p_external_account_id: event.externalAccountId, p_external_inbox_id: event.externalInboxId, p_external_conversation_id: event.externalConversationId, p_external_message_id: event.externalMessageId, p_occurred_at: event.occurredAt });
     if (result.error || (result.data !== "ACCEPTED" && result.data !== "DUPLICATE")) throw new SupabaseConversationsAdapterError();
     return result.data;
+  }
+  async recordAttempt(studioId: string, outcome: ConversationWebhookAttemptOutcome): Promise<void> {
+    const result = await this.data.recordWebhookAttempt({ p_studio_id: studioId, p_provider: "chatwoot", p_outcome: outcome });
+    if (result.error) throw new SupabaseConversationsAdapterError();
   }
   async claim(studioId: string, externalAccountId: string, externalConversationId: string, idempotencyKey: string): Promise<OutboundClaim> {
     if (!this.data.claimOutbound) throw new SupabaseConversationsAdapterError();

@@ -16,6 +16,7 @@ import {
   type ConversationSummary,
   type ConversationThread,
   type ConversationWebhookEvent,
+  type ConversationWebhookInvalidReason,
 } from "@inkendar/application";
 import { normalizeExternalConversationId, normalizeResourceId } from "@inkendar/domain";
 
@@ -209,28 +210,29 @@ function reportConversationFailure(phase: "configuration" | "transport" | "http"
 }
 
 export function verifyChatwootWebhook(input: Readonly<{ connection: ChatwootConnection; rawBody: string; headers: Headers; now?: Date }>): ConversationWebhookEvent {
-  const signature = input.headers.get("X-Chatwoot-Signature") ?? "";
-  const timestamp = input.headers.get("X-Chatwoot-Timestamp") ?? "";
-  const deliveryId = input.headers.get("X-Chatwoot-Delivery") ?? "";
-  if (Buffer.byteLength(input.rawBody, "utf8") > 262_144 || !/^[0-9]{1,12}$/.test(timestamp) || !/^[A-Za-z0-9._:-]{1,200}$/.test(deliveryId) || !/^sha256=[a-f0-9]{64}$/.test(signature)) invalidWebhook();
+  const signature = input.headers.get("X-Chatwoot-Signature");
+  const timestamp = input.headers.get("X-Chatwoot-Timestamp");
+  const deliveryId = input.headers.get("X-Chatwoot-Delivery");
+  if (!signature?.trim() || !timestamp?.trim() || !deliveryId?.trim()) invalidWebhook("AUTH_HEADERS_MISSING");
+  if (Buffer.byteLength(input.rawBody, "utf8") > 262_144 || !/^[0-9]{1,12}$/.test(timestamp) || !/^[A-Za-z0-9._:-]{1,200}$/.test(deliveryId) || !/^sha256=[a-f0-9]{64}$/.test(signature)) invalidWebhook("AUTH_INVALID");
 
   const signedAt = Number(timestamp);
   const nowSeconds = Math.floor((input.now ?? new Date()).getTime() / 1_000);
-  if (!Number.isSafeInteger(signedAt) || Math.abs(nowSeconds - signedAt) > 300) invalidWebhook();
+  if (!Number.isSafeInteger(signedAt) || Math.abs(nowSeconds - signedAt) > 300) invalidWebhook("AUTH_INVALID");
   const expected = `sha256=${createHmac("sha256", input.connection.webhookSecret).update(`${timestamp}.${input.rawBody}`).digest("hex")}`;
   const receivedBuffer = Buffer.from(signature);
   const expectedBuffer = Buffer.from(expected);
-  if (receivedBuffer.length !== expectedBuffer.length || !timingSafeEqual(receivedBuffer, expectedBuffer)) invalidWebhook();
+  if (receivedBuffer.length !== expectedBuffer.length || !timingSafeEqual(receivedBuffer, expectedBuffer)) invalidWebhook("SIGNATURE_INVALID");
 
   try {
     const payload = object(JSON.parse(input.rawBody));
-    if (payload.event !== "message_created") invalidWebhook();
+    if (payload.event !== "message_created") invalidWebhook("SCHEMA_INVALID");
     const externalAccountId = id(object(payload.account).id);
-    if (externalAccountId !== input.connection.accountId) invalidWebhook();
+    if (externalAccountId !== input.connection.accountId) invalidWebhook("SCHEMA_INVALID");
     const inbox = object(payload.inbox);
     const conversation = object(payload.conversation);
     const externalInboxId = id(inbox.id);
-    if (id(conversation.account_id) !== externalAccountId || id(conversation.inbox_id) !== externalInboxId) invalidWebhook();
+    if (id(conversation.account_id) !== externalAccountId || id(conversation.inbox_id) !== externalInboxId) invalidWebhook("SCHEMA_INVALID");
     return {
       deliveryId,
       externalAccountId,
@@ -241,7 +243,7 @@ export function verifyChatwootWebhook(input: Readonly<{ connection: ChatwootConn
     };
   } catch (error) {
     if (error instanceof InvalidConversationWebhookError) throw error;
-    throw new InvalidConversationWebhookError();
+    throw new InvalidConversationWebhookError("SCHEMA_INVALID");
   }
 }
 
@@ -535,6 +537,6 @@ async function json(response: Response): Promise<unknown> {
   try { return await response.json(); } catch { throw new ConversationProviderUnavailableError(); }
 }
 
-function invalidWebhook(): never {
-  throw new InvalidConversationWebhookError();
+function invalidWebhook(reason: ConversationWebhookInvalidReason): never {
+  throw new InvalidConversationWebhookError(reason);
 }
