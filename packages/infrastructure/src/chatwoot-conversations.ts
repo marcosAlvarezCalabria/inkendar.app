@@ -455,11 +455,40 @@ function id(value: unknown): string {
 }
 
 function timestampIso(value: unknown): string {
-  const numeric = typeof value === "number" ? value : Number.NaN;
-  if (!Number.isSafeInteger(numeric) || numeric < 0) throw new ConversationProviderUnavailableError();
-  const result = new Date(numeric * 1_000);
+  const milliseconds = typeof value === "number" ? unixTimestampMilliseconds(value) : textualTimestampMilliseconds(value);
+  const result = new Date(milliseconds);
   if (Number.isNaN(result.getTime())) throw new ConversationProviderUnavailableError();
   return result.toISOString();
+}
+
+function unixTimestampMilliseconds(value: number): number {
+  if (!Number.isSafeInteger(value) || value < 0) throw new ConversationProviderUnavailableError();
+  return value * 1_000;
+}
+
+function textualTimestampMilliseconds(value: unknown): number {
+  if (typeof value !== "string") throw new ConversationProviderUnavailableError();
+  const rails = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))? UTC$/.exec(value);
+  if (rails) return timestampPartsMilliseconds(rails, 0);
+  const iso = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?(?:Z|([+-])(\d{2}):(\d{2}))$/.exec(value);
+  if (!iso) throw new ConversationProviderUnavailableError();
+  const offsetHours = Number(iso[9] ?? 0);
+  const offsetMinutes = Number(iso[10] ?? 0);
+  if (offsetHours > 23 || offsetMinutes > 59) throw new ConversationProviderUnavailableError();
+  const offset = (offsetHours * 60 + offsetMinutes) * (iso[8] === "-" ? -1 : 1);
+  return timestampPartsMilliseconds(iso, offset);
+}
+
+function timestampPartsMilliseconds(parts: RegExpExecArray, offsetMinutes: number): number {
+  const [year, month, day, hour, minute, second] = parts.slice(1, 7).map(Number) as [number, number, number, number, number, number];
+  const millisecond = Number((parts[7] ?? "").padEnd(3, "0").slice(0, 3));
+  const local = Date.UTC(year, month - 1, day, hour, minute, second, millisecond);
+  const calendar = new Date(local);
+  if (calendar.getUTCFullYear() !== year || calendar.getUTCMonth() !== month - 1 || calendar.getUTCDate() !== day
+    || calendar.getUTCHours() !== hour || calendar.getUTCMinutes() !== minute || calendar.getUTCSeconds() !== second) throw new ConversationProviderUnavailableError();
+  const timestamp = local - offsetMinutes * 60_000;
+  if (!Number.isFinite(timestamp) || timestamp < 0) throw new ConversationProviderUnavailableError();
+  return timestamp;
 }
 
 function status(value: unknown): ConversationStatus {
