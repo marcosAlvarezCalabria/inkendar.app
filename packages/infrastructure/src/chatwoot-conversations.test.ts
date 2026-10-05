@@ -457,6 +457,38 @@ describe("Chatwoot webhook verifier", () => {
     });
   });
 
+  it.each([
+    { name: "Rails UTC", createdAt: "2026-10-05 12:34:56 UTC" },
+    { name: "ISO 8601 with offset", createdAt: "2026-10-05T14:34:56+02:00" },
+  ])("normalizes a signed message_created event with a $name timestamp", ({ createdAt }) => {
+    const body = JSON.stringify({ event: "message_created", id: 84, created_at: createdAt, account: { id: 3 }, inbox: { id: 7 }, conversation: { id: 42, account_id: 3, inbox_id: 7 } });
+    const timestamp = "1791203696";
+    const signature = `sha256=${createHmac("sha256", connection.webhookSecret).update(`${timestamp}.${body}`).digest("hex")}`;
+
+    expect(verifyChatwootWebhook({ connection, rawBody: body, headers: new Headers({
+      "X-Chatwoot-Signature": signature, "X-Chatwoot-Timestamp": timestamp, "X-Chatwoot-Delivery": "delivery-1",
+    }), now: new Date("2026-10-05T12:36:00.000Z") })).toEqual({
+      deliveryId: "delivery-1", externalAccountId: "3", externalInboxId: "7", externalConversationId: "42",
+      externalMessageId: "84", occurredAt: "2026-10-05T12:34:56.000Z",
+    });
+  });
+
+  it.each([
+    { name: "invalid text", createdAtJson: '"not-a-date"' },
+    { name: "impossible calendar date", createdAtJson: '"2026-02-30 12:34:56 UTC"' },
+    { name: "pre-Unix date", createdAtJson: '"1969-12-31T23:59:59Z"' },
+    { name: "non-finite number", createdAtJson: "1e309" },
+    { name: "out-of-range Unix seconds", createdAtJson: String(Number.MAX_SAFE_INTEGER) },
+  ])("rejects a signed event with a $name created_at", ({ createdAtJson }) => {
+    const body = `{"event":"message_created","id":84,"created_at":${createdAtJson},"account":{"id":3},"inbox":{"id":7},"conversation":{"id":42,"account_id":3,"inbox_id":7}}`;
+    const timestamp = "1791203696";
+    const signature = `sha256=${createHmac("sha256", connection.webhookSecret).update(`${timestamp}.${body}`).digest("hex")}`;
+
+    expect(() => verifyChatwootWebhook({ connection, rawBody: body, headers: new Headers({
+      "X-Chatwoot-Signature": signature, "X-Chatwoot-Timestamp": timestamp, "X-Chatwoot-Delivery": "delivery-1",
+    }), now: new Date("2026-10-05T12:36:00.000Z") })).toThrow(InvalidConversationWebhookError);
+  });
+
   it("rejects inconsistent account and inbox identifiers inside a signed event", () => {
     const body = JSON.stringify({ event: "message_created", id: 84, created_at: 1_757_841_600, account: { id: 3 }, inbox: { id: 7 }, conversation: { id: 42, account_id: 4, inbox_id: 8 } });
     const timestamp = "1757841600";
