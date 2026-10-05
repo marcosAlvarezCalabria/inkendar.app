@@ -1,6 +1,6 @@
 # Despliegue SSR en Cloudflare Workers
 
-_Última actualización: 2026-10-04_
+_Última actualización: 2026-10-05_
 
 Inkendar empaqueta React Router 8 SSR con el plugin oficial de Cloudflare para Vite. El Worker sirve el BFF y delega el resto de peticiones al manejador de React Router; los assets cliente se publican desde `apps/inkendar/build/client`. Supabase Cloud continúa siendo la fuente de Postgres, Auth y Storage: este despliegue no crea ni migra datos a Cloudflare.
 
@@ -17,6 +17,8 @@ Tras integrar el [PR #59](https://github.com/marcosAlvarezCalabria/inkendar.app/
 El 2026-10-04 se detectó que `pnpm run deploy:staging`, ejecutado sin un build previo, reutilizaba `apps/inkendar/build/server/wrangler.json` de otro entorno. Ese primer intento publicó accidentalmente el Worker no productivo `inkendar-local` como versión `0172c82b-5de4-4321-8f46-a7ab8cbb1694`; no tocó producción. Después de ejecutar `pnpm run build:staging`, el artefacto confirmó `name=inkendar-staging` y origen de staging, y el despliegue correcto publicó `inkendar-staging` como versión `e5b4a9cf-6f51-44cf-b45f-b96a46520d72`; `/healthz`, `/readyz` y `/login` devolvieron `200`. El wrapper queda corregido para reconstruir siempre el artefacto del entorno solicitado inmediatamente antes de `wrangler deploy`, abortando la publicación si falla el build. Producción continúa bloqueada y sin despliegue.
 
 Ese mismo `main` contiene el [PR #80](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/80), integrado como `c1e734d`, que permite la respuesta válida de Chatwoot cuando su `POST` exitoso omite `account_id`, sin relajar las demás comprobaciones. Un runner local autorizado con configuración temporal entregó exactamente un primer mensaje a Chatwoot/Instagram, pero la omisión dejó la intención en `UNKNOWN`, `attempt_count=1` y sin `external_message_id`. Tras el fix, una nueva solicitud sintética `REJECTED` produjo `{expired:0,claimed:1,sent:1,failed:0,unknown:0,noRoute:0}` y la segunda ejecución idempotente `{expired:0,claimed:0,sent:0,failed:0,unknown:0,noRoute:0}`. La conversación terminó con exactamente dos mensajes, uno por cada prueba y ningún duplicado adicional. Esta prueba acredita el runner local y el proveedor; no valida todavía la pantalla OWNER Conversaciones ni el secreto/configuración Chatwoot del Worker después del reset de staging.
+
+El [PR #84](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/84) se integró como `92242fc` después de que la observabilidad del PR #83 aislara un rechazo `schema_invalid` de una entrega real con firma válida. El fix admite `conversation.account.id` y conserva la forma legada `conversation.account_id`, verificando toda forma presente contra la cuenta configurada. No añadió migraciones. `main` `92242fc741f731036018ce111dbd3c8f3c7da729` se desplegó solo en `inkendar-staging` como versión Worker `573a34cc-9eee-4bcd-9cfb-d3c385e9d07d`; `/healthz`, `/readyz` y `/login` devolvieron `200`. Una única entrega real posterior creó un intento `accepted` y elevó el total de receipts de uno a dos; el intento histórico `schema_invalid` permanece. Esto valida la recepción firmada y la persistencia en staging, sin acreditar una imagen live ni la actualización visual de OWNER. Producción no se desplegó.
 
 ## Prerrequisitos externos
 

@@ -2,7 +2,7 @@
 
 _Estado: aceptada_
 
-_Última actualización: 2026-10-03_
+_Última actualización: 2026-10-05_
 
 _La fuente de verdad del comportamiento y el alcance es [Especificación de Inkendar](../product/sellable-mvp-spec.md). Este documento explica cómo construirlo y debe actualizarse cuando cambie una frontera, dependencia o decisión técnica._
 
@@ -90,7 +90,7 @@ El modelo evita borrado y workflows anticipados: clientes usan ACTIVE / ARCHIVED
 
 ### Conversaciones OWNER
 
-_Estado tecnico del slice original y la extension de imagenes entrantes: `DONE`. El PR #52 integró la extension como `c62c9e0`. El 2026-09-28 staging verificó listado, detalle y texto bidireccional con Chatwoot, incluida una conversación Instagram; webhook e imagen live permanecen pendientes._
+_Estado tecnico del slice original y la extension de imagenes entrantes: `DONE`. El PR #52 integró la extension como `c62c9e0`. Staging verificó listado, detalle y texto bidireccional con Chatwoot, incluida una conversación Instagram; el 2026-10-05 verificó una entrega real del webhook firmado y persistido. La imagen live y el recorrido visual de actualización automática siguen pendientes._
 
 La bandeja SSR OWNER resuelve la conexion por `studioId` despues del guard. Si el estudio no tiene conexion devuelve una pagina vacia `private, no-store` sin cargar proveedor, credenciales ni `service_role`. Las conversaciones recorren paginas 1..1000 de 25 filas con `all_count`; el detalle carga hasta 20 mensajes publicos de texto e imagenes entrantes y usa un cursor positivo `before`.
 
@@ -354,7 +354,7 @@ El mecanismo concreto puede comenzar con funciones programadas sobre la platafor
 
 El alojamiento inicial usa Cloudflare Workers y `workers.dev`; los runners programados continúan fuera de este despliegue hasta elegir su scheduler. El dominio y los puertos mantienen aisladas las capacidades exclusivas del proveedor.
 
-_Estado operativo a 2026-09-29:_ staging está desplegado sobre el proyecto Supabase Cloud `inkendar-staging`; la versión Worker `c8fddbc1-cb2b-4f1b-bc49-bee4740427f1` respondió `200` en `/healthz` y `/readyz`, y la conexión Chatwoot cifrada completó el recorrido sintético de texto e Instagram. Producción no está desplegada. Google, webhook Chatwoot, imagen live, Storage/Images, notificaciones y piloto conservan sus gates independientes.
+_Estado operativo a 2026-10-05:_ staging está desplegado sobre el proyecto Supabase Cloud `inkendar-staging`; la versión Worker `573a34cc-9eee-4bcd-9cfb-d3c385e9d07d` respondió `200` en `/healthz`, `/readyz` y `/login`. Una entrega real de Chatwoot quedó aceptada y elevó el total de receipts de uno a dos tras el fix de cuenta anidada del PR #84. Producción no está desplegada. La imagen live, el recorrido visual de actualización automática, Storage/Images, notificaciones restantes y piloto conservan sus gates independientes.
 
 ## 10. TDD, calidad y observabilidad
 
