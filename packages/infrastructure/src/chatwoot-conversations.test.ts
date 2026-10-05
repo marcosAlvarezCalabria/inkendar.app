@@ -444,6 +444,31 @@ describe("Chatwoot conversation adapter", () => {
 });
 
 describe("Chatwoot webhook verifier", () => {
+  it("classifies missing authentication headers without exposing their values", () => {
+    try {
+      verifyChatwootWebhook({ connection, rawBody: "{}", headers: new Headers(), now: new Date("2025-09-14T09:22:00.000Z") });
+      expect.fail("expected invalid webhook");
+    } catch (error) {
+      expect(error).toBeInstanceOf(InvalidConversationWebhookError);
+      expect((error as InvalidConversationWebhookError).reason).toBe("AUTH_HEADERS_MISSING");
+      expect((error as Error).message).not.toContain("header");
+    }
+  });
+
+  it("distinguishes an invalid signature from a validly signed invalid schema", () => {
+    const timestamp = "1757841600";
+    const invalidBody = "{}";
+    const validSignature = `sha256=${createHmac("sha256", connection.webhookSecret).update(`${timestamp}.${invalidBody}`).digest("hex")}`;
+
+    expect(() => verifyChatwootWebhook({ connection, rawBody: invalidBody, headers: new Headers({
+      "X-Chatwoot-Signature": "sha256=" + "0".repeat(64), "X-Chatwoot-Timestamp": timestamp, "X-Chatwoot-Delivery": "delivery-1",
+    }), now: new Date("2025-09-14T09:22:00.000Z") })).toThrow(expect.objectContaining({ reason: "SIGNATURE_INVALID" }));
+
+    expect(() => verifyChatwootWebhook({ connection, rawBody: invalidBody, headers: new Headers({
+      "X-Chatwoot-Signature": validSignature, "X-Chatwoot-Timestamp": timestamp, "X-Chatwoot-Delivery": "delivery-1",
+    }), now: new Date("2025-09-14T09:22:00.000Z") })).toThrow(expect.objectContaining({ reason: "SCHEMA_INVALID" }));
+  });
+
   it("authenticates the raw body and normalizes a recent message_created event", () => {
     const body = JSON.stringify({ event: "message_created", id: 84, created_at: 1_757_841_600, account: { id: 3 }, inbox: { id: 7 }, conversation: { id: 42, account_id: 3, inbox_id: 7 } });
     const timestamp = "1757841600";

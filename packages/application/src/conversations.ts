@@ -22,6 +22,8 @@ export type ConversationPage = Readonly<{ items: readonly LinkedConversationSumm
 export type ConversationLink = Readonly<{ id: string; studioId: string; externalAccountId: string; externalInboxId: string; externalConversationId: string; customerId: string; tattooCaseId: string | null; lastExternalMessageId: string | null; lastActivityAt: string | null }>;
 export type LinkedConversationSummary = ConversationSummary & Readonly<{ link: ConversationLink | null }>;
 export type ConversationWebhookEvent = Readonly<{ deliveryId: string; externalAccountId: string; externalInboxId: string; externalConversationId: string; externalMessageId: string; occurredAt: string }>;
+export type ConversationWebhookInvalidReason = "AUTH_HEADERS_MISSING" | "AUTH_INVALID" | "SIGNATURE_INVALID" | "SCHEMA_INVALID";
+export type ConversationWebhookAttemptOutcome = "request_invalid" | "auth_headers_missing" | "auth_invalid" | "signature_invalid" | "schema_invalid" | "persistence_failed";
 
 export type OutboundClaim =
   | Readonly<{ kind: "CLAIMED"; operationId: string }>
@@ -55,6 +57,9 @@ export interface CustomerCaseLookupPort {
 export type WebhookIngestionResult = "ACCEPTED" | "DUPLICATE";
 export interface ConversationWebhookRepositoryPort {
   record(studioId: string, event: ConversationWebhookEvent): Promise<WebhookIngestionResult>;
+}
+export interface ConversationWebhookObservabilityPort {
+  recordAttempt(studioId: string, outcome: ConversationWebhookAttemptOutcome): Promise<void>;
 }
 
 export class ConversationNotFoundError extends Error {
@@ -99,7 +104,7 @@ export class ReplyPreviouslyFailedError extends Error {
 }
 export class InvalidConversationWebhookError extends Error {
   readonly code = "INVALID_CONVERSATION_WEBHOOK";
-  constructor() { super("The conversation webhook is invalid"); this.name = "InvalidConversationWebhookError"; }
+  constructor(readonly reason: ConversationWebhookInvalidReason = "SCHEMA_INVALID") { super("The conversation webhook is invalid"); this.name = "InvalidConversationWebhookError"; }
 }
 
 type Dependencies = Readonly<{

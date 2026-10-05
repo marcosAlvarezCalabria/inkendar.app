@@ -1,10 +1,11 @@
-import { ConversationProviderUnavailableError, InvalidConversationWebhookError, createConversationWebhookService, type ConversationWebhookEvent, type ConversationWebhookRepositoryPort } from "@inkendar/application";
+import { InvalidConversationWebhookError, createConversationWebhookService, type ConversationWebhookAttemptOutcome, type ConversationWebhookEvent, type ConversationWebhookObservabilityPort, type ConversationWebhookRepositoryPort } from "@inkendar/application";
 import { ChatwootConnections, createSupabaseConversationsWebhookAdapter, verifyChatwootWebhook, type ChatwootConnection } from "@inkendar/infrastructure";
 
 type Dependencies = Readonly<{
   connection(connectionId: string): ChatwootConnection;
   verify(input: Readonly<{ connection: ChatwootConnection; rawBody: string; headers: Headers }>): ConversationWebhookEvent;
   repository(): ConversationWebhookRepositoryPort;
+  observability(): ConversationWebhookObservabilityPort;
 }>;
 
 const MAX_BODY_BYTES = 262_144;
@@ -13,6 +14,7 @@ const defaults: Dependencies = {
   connection: (connectionId) => new ChatwootConnections(process.env.INKENDAR_CHATWOOT_CONNECTIONS_JSON).forWebhook(connectionId),
   verify: verifyChatwootWebhook,
   repository: () => createSupabaseConversationsWebhookAdapter(process.env),
+  observability: () => createSupabaseConversationsWebhookAdapter(process.env),
 };
 
 export function createConversationWebhookHandler(dependencies: Dependencies = defaults) {
@@ -32,17 +34,20 @@ export function createConversationWebhookHandler(dependencies: Dependencies = de
     let connection: ChatwootConnection;
     try {
       connection = dependencies.connection(connectionId);
-    } catch (error) {
-      if (error instanceof ConversationProviderUnavailableError) return Response.json({ error: "Recurso no encontrado." }, { status: 404, headers });
-      return Response.json({ error: "Recurso no encontrado." }, { status: 404, headers });
+    } catch {
+      return Response.json({ error: "Solicitud no autorizada." }, { status: 401, headers });
     }
 
     const rawBody = await readLimitedBody(request);
-    if (rawBody === null) return Response.json({ error: "Solicitud no válida." }, { status: 413, headers });
+    if (rawBody === null) {
+      await recordAttemptBestEffort(dependencies, connection.studioId, "request_invalid");
+      return Response.json({ error: "Solicitud no válida." }, { status: 413, headers });
+    }
     let event: ConversationWebhookEvent;
     try {
       event = dependencies.verify({ connection, rawBody, headers: request.headers });
     } catch (error) {
+      await recordAttemptBestEffort(dependencies, connection.studioId, invalidOutcome(error));
       if (error instanceof InvalidConversationWebhookError) return Response.json({ error: "Solicitud no autorizada." }, { status: 401, headers });
       return Response.json({ error: "Solicitud no autorizada." }, { status: 401, headers });
     }
@@ -52,9 +57,22 @@ export function createConversationWebhookHandler(dependencies: Dependencies = de
       const result = await service.ingest(connection.studioId, event);
       return Response.json({ status: result === "ACCEPTED" ? "accepted" : "duplicate" }, { status: result === "ACCEPTED" ? 202 : 200, headers });
     } catch {
+      await recordAttemptBestEffort(dependencies, connection.studioId, "persistence_failed");
       return Response.json({ error: "No se pudo registrar la entrega." }, { status: 503, headers });
     }
   };
+}
+
+function invalidOutcome(error: unknown): ConversationWebhookAttemptOutcome {
+  if (!(error instanceof InvalidConversationWebhookError)) return "schema_invalid";
+  if (error.reason === "AUTH_HEADERS_MISSING") return "auth_headers_missing";
+  if (error.reason === "AUTH_INVALID") return "auth_invalid";
+  if (error.reason === "SIGNATURE_INVALID") return "signature_invalid";
+  return "schema_invalid";
+}
+
+async function recordAttemptBestEffort(dependencies: Dependencies, studioId: string, outcome: ConversationWebhookAttemptOutcome): Promise<void> {
+  try { await dependencies.observability().recordAttempt(studioId, outcome); } catch { /* Observability must not alter the public webhook contract. */ }
 }
 
 async function readLimitedBody(request: Request): Promise<string | null> {

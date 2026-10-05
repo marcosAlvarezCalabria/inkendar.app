@@ -1,10 +1,10 @@
 # Contrato del slice: conversaciones OWNER
 
-_Estado tecnico del slice original y la extension de imagenes entrantes: DONE. Extension de actualizacion automatica OWNER: IN_PROGRESS._
+_Estado tecnico del slice original y la extension de imagenes entrantes: DONE. Extensiones de actualizacion automatica OWNER y observabilidad privada del webhook: IN_PROGRESS._
 
 _Recorrido live con Chatwoot: PARTIAL; texto e Instagram bidireccionales verificados en staging, webhook e imagen live pendientes_
 
-_Ultima actualizacion: 2026-10-03_
+_Ultima actualizacion: 2026-10-05_
 
 ## Objetivo
 
@@ -101,8 +101,19 @@ And cada reintento valido responde duplicate sin error
 ```gherkin
 Given una firma ausente o invalida, un timestamp fuera de cinco minutos, un delivery ID ausente, una conexion desconocida, un account distinto o un payload invalido
 When se invoca el webhook
-Then Inkendar falla cerrado antes de cualquier escritura
-And no registra el cuerpo, firma ni secreto
+Then Inkendar falla cerrado antes de escribir receipts o estado de dominio
+And para una conexion conocida registra solo un intento tecnico sanitizado con outcome fijo y timestamp del servidor
+And una conexion desconocida no persiste el identificador recibido
+And no registra el cuerpo, contenido, cabeceras, firma, secreto, URL, IDs externos ni PII
+```
+
+```gherkin
+Given cualquier POST que resuelve una conexion conocida
+When termina como peticion invalida, cabeceras auth ausentes, auth invalida, firma invalida, esquema invalido, fallo de persistencia, aceptado o duplicado
+Then Supabase conserva evidencia privada suficiente para distinguir el outcome de la ausencia total de intentos en la ventana consultada
+And `accepted` y `duplicate` se registran atomicamente con la ingesta
+And `persistence_failed` se intenta registrar best-effort sin sustituir el status 503
+And `anon` y `authenticated` no pueden leer ni escribir el historial ni ejecutar sus RPCs
 ```
 
 ### Actualizacion automatica OWNER
@@ -140,6 +151,7 @@ And las rutas OWNER mantienen Cache-Control private, no-store
 - `ConversationImageProviderPort`: recupera solo una imagen entrante publica por IDs de conversacion, mensaje y adjunto; devuelve bytes y tipo/dimensiones validados. No serializa URL del proveedor.
 - `ConversationLinksRepositoryPort`: lista y guarda vinculos del estudio, comprueba cliente/caso y conserva el estado de ingesta.
 - `ConversationWebhookRepositoryPort`: registra atomicamente una entrega normalizada y devuelve `ACCEPTED | DUPLICATE`.
+- `ConversationWebhookObservabilityPort`: registra para un estudio conocido un outcome fijo sin aceptar payload, cabeceras ni identificadores del proveedor.
 - `ConversationOutboundRepositoryPort`: reclama y transiciona operaciones sin contenido mediante RPCs exclusivas de `service_role`.
 - La composicion resuelve una conexion por `studioId` para OWNER o por `connectionId` opaco para webhook. La configuracion y los secretos solo existen en variables de entorno de servidor.
 
@@ -158,8 +170,10 @@ And las rutas OWNER mantienen Cache-Control private, no-store
 - `conversation_webhook_receipt`: `studio_id`, `provider`, `delivery_id`, `event_name`, IDs externos y `received_at`; no almacena contenido ni payload bruto.
 - La unicidad `(studio_id, provider, delivery_id)` deduplica reintentos. Una funcion transaccional exclusiva de `service_role` inserta la recepcion y actualiza el vinculo ya existente.
 - La actualizacion del vinculo es monotona por fecha e ID de mensaje: una entrega autentica retrasada conserva su recepcion, pero no puede hacer retroceder la ultima actividad conocida.
+- `conversation_webhook_attempt`: `id` tecnico, `studio_id`, proveedor fijo, outcome fijo y `received_at` generado por Postgres. No contiene delivery, account, inbox, conversation, message o connection IDs, payload, contenido, firma, secreto, URL ni PII.
+- Outcomes persistidos: `request_invalid`, `auth_headers_missing`, `auth_invalid`, `signature_invalid`, `schema_invalid`, `persistence_failed`, `accepted` y `duplicate`. Los dos ultimos forman parte de la misma transaccion que el receipt; el resto usa una RPC best-effort separada.
 - `conversation_outbound_operation` conserva cuenta/conversacion, clave UUID, estado y message ID confirmado; `PENDING` solo transiciona una vez a `SUCCEEDED`, `FAILED` o `UNKNOWN`.
-- RLS de `conversation_link` concede `select`, `insert` y `update` solo a OWNER del mismo estudio; no hay `delete`. La tabla de recepciones y su RPC no conceden acceso a `anon` o `authenticated`.
+- RLS de `conversation_link` concede `select`, `insert` y `update` solo a OWNER del mismo estudio; no hay `delete`. Las tablas de recepciones e intentos y sus RPCs no conceden acceso a `anon` o `authenticated`.
 
 ### Normalizacion
 
@@ -177,7 +191,7 @@ And las rutas OWNER mantienen Cache-Control private, no-store
 - `ConversationCannotReplyError`: el proveedor declara que no puede responderse.
 - `ConversationCustomerNotFoundError`, `ConversationCaseNotFoundError` y `ConversationCaseCustomerMismatchError`: relacion local invalida sin revelar otro tenant.
 - `ConversationProviderUnavailableError`: fallo de red, configuracion o contrato externo; no incluye respuesta, URL ni token.
-- `InvalidConversationWebhookError`: autenticacion, frescura, delivery, account, evento o cuerpo invalidos; el transporte lo traduce sin detalles sensibles.
+- `InvalidConversationWebhookError`: autenticacion, frescura, delivery, account, evento o cuerpo invalidos; conserva un motivo interno de baja cardinalidad para observabilidad y el transporte lo traduce sin detalles sensibles.
 
 Cada formulario lleva una clave UUID. `SUCCEEDED` reutiliza el ID confirmado sin proveedor; `PENDING`, `FAILED` y `UNKNOWN` no reenvian. `FAILED` requiere refrescar para obtener una clave nueva y `UNKNOWN` queda para intervencion manual porque Chatwoot no ofrece idempotencia documentada en esta operacion.
 
@@ -187,8 +201,8 @@ Cada formulario lleva una clave UUID. `SUCCEEDED` reutiliza el ID confirmado sin
 - La configuracion de conexion no es publica: URL base HTTPS, account ID, token, webhook secret y connection ID se validan al componer, y una misma cuenta del mismo origen Chatwoot no puede asignarse a dos estudios; estos valores nunca se serializan al cliente ni se escriben en logs.
 - Chatwoot es externo y sus respuestas son no confiables: infraestructura valida status HTTP, JSON y campos antes de normalizarlos.
 - Si falla la configuracion Chatwoot o el listado, el servidor registra solo la fase fija (configuracion, transporte, HTTP, JSON o esquema) y, en la fase HTTP, el codigo de estado. Nunca registra URL, cuenta, estudio, token, cuerpo ni campos del proveedor.
-- El webhook es publico y falla cerrado: acepta como maximo 256 KiB reales, se firma sobre `timestamp.raw_body`, se compara en tiempo constante, se limita a cinco minutos y exige delivery ID antes de parsear o persistir.
-- La ruta webhook usa `service_role` solo despues de autenticar y normalizar el evento. Las rutas OWNER usan el cliente Supabase sujeto a cookies/RLS.
+- El webhook es publico y falla cerrado: acepta como maximo 256 KiB reales, se firma sobre `timestamp.raw_body`, se compara en tiempo constante, se limita a cinco minutos y exige delivery ID antes de parsear el evento o persistir un receipt.
+- Tras resolver una conexion conocida, la ruta puede usar `service_role` antes de autenticar exclusivamente para persistir el outcome sanitizado; la escritura no acepta ni conserva el `connectionId` recibido ni datos del request. La ingesta completa sigue componiendose solo despues de autenticar y normalizar. Una conexion desconocida no crea el adaptador privilegiado. Las rutas OWNER usan el cliente Supabase sujeto a cookies/RLS.
 - HTML y respuestas con datos privados usan `Cache-Control: private, no-store`; la imagen privada agrega `X-Content-Type-Options: nosniff` y `Referrer-Policy: no-referrer`. No se guardan mensajes, imagenes, PII, tokens, firmas ni cuerpos brutos en Postgres, URLs o memoria de agentes.
 - La revalidacion automatica pasa por el mismo guard OWNER, cookies SSR, aislamiento de estudio y respuesta `private, no-store` que una carga manual. ARTIST, anon y otro tenant no obtienen un canal alternativo.
 
@@ -219,3 +233,5 @@ Esta evidencia cierra el contrato tecnico. El 2026-09-28 se configuró una conex
 La extension de imagenes entrantes se integró mediante el [PR #52](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/52) como squash `c62c9e0a95150093026396d4126c933842a53994`. El [run post-merge 36244018683](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36244018683) pasó `validate` y `database`; una imagen entrante live continúa pendiente.
 
 El [PR #59](https://github.com/marcosAlvarezCalabria/inkendar.app/pull/59), squash `641579dcfa978293a200163c2da29e1099a24d1e`, añadió diagnóstico sanitizado por fase de configuración, transporte, HTTP, JSON o esquema. `validate` y `database` quedaron verdes en el [run post-merge 36472666798](https://github.com/marcosAlvarezCalabria/inkendar.app/actions/runs/36472666798). Staging desplegó esa revisión como versión `c8fddbc1-cb2b-4f1b-bc49-bee4740427f1`. El webhook firmado e idempotente sigue sin prueba live.
+
+La observabilidad persistente y sanitizada del webhook se implementó localmente el 2026-10-05. Las pruebas enfocadas pasaron 70/70 y `pnpm run check` quedó verde con 830 pruebas y 1 omitida bajo Node 25.2.0. La prueba pgTAP está escrita, pero no se ejecutó porque Supabase/Postgres local no estaba activo; revisión independiente, migración limpia, CI y toda revalidación live siguen pendientes.
