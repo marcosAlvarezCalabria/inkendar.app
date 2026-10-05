@@ -482,6 +482,26 @@ describe("Chatwoot webhook verifier", () => {
     });
   });
 
+  it("accepts Chatwoot's nested conversation account with a textual timestamp", () => {
+    const body = JSON.stringify({
+      event: "message_created",
+      id: 84,
+      created_at: "2026-10-05 12:34:56 UTC",
+      account: { id: 3 },
+      inbox: { id: 7 },
+      conversation: { id: 42, inbox_id: 7, account: { id: 3 } },
+    });
+    const timestamp = "1791203696";
+    const signature = `sha256=${createHmac("sha256", connection.webhookSecret).update(`${timestamp}.${body}`).digest("hex")}`;
+
+    expect(verifyChatwootWebhook({ connection, rawBody: body, headers: new Headers({
+      "X-Chatwoot-Signature": signature, "X-Chatwoot-Timestamp": timestamp, "X-Chatwoot-Delivery": "delivery-1",
+    }), now: new Date("2026-10-05T12:36:00.000Z") })).toEqual({
+      deliveryId: "delivery-1", externalAccountId: "3", externalInboxId: "7", externalConversationId: "42",
+      externalMessageId: "84", occurredAt: "2026-10-05T12:34:56.000Z",
+    });
+  });
+
   it.each([
     { name: "Rails UTC", createdAt: "2026-10-05 12:34:56 UTC" },
     { name: "ISO 8601 with offset", createdAt: "2026-10-05T14:34:56+02:00" },
@@ -522,6 +542,27 @@ describe("Chatwoot webhook verifier", () => {
     expect(() => verifyChatwootWebhook({ connection, rawBody: body, headers: new Headers({
       "X-Chatwoot-Signature": signature, "X-Chatwoot-Timestamp": timestamp, "X-Chatwoot-Delivery": "delivery-1",
     }), now: new Date("2025-09-14T09:22:00.000Z") })).toThrow(InvalidConversationWebhookError);
+  });
+
+  it.each([
+    { name: "a mismatched nested account", conversationAccount: { account: { id: 4 } } },
+    { name: "conflicting legacy and nested accounts", conversationAccount: { account_id: 3, account: { id: 4 } } },
+    { name: "no conversation account", conversationAccount: {} },
+  ])("rejects $name inside a signed event", ({ conversationAccount }) => {
+    const body = JSON.stringify({
+      event: "message_created",
+      id: 84,
+      created_at: 1_757_841_600,
+      account: { id: 3 },
+      inbox: { id: 7 },
+      conversation: { id: 42, inbox_id: 7, ...conversationAccount },
+    });
+    const timestamp = "1757841600";
+    const signature = `sha256=${createHmac("sha256", connection.webhookSecret).update(`${timestamp}.${body}`).digest("hex")}`;
+
+    expect(() => verifyChatwootWebhook({ connection, rawBody: body, headers: new Headers({
+      "X-Chatwoot-Signature": signature, "X-Chatwoot-Timestamp": timestamp, "X-Chatwoot-Delivery": "delivery-1",
+    }), now: new Date("2025-09-14T09:22:00.000Z") })).toThrow(expect.objectContaining({ reason: "SCHEMA_INVALID" }));
   });
 
   it.each([

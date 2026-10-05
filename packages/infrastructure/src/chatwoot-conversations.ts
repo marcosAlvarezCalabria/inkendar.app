@@ -232,7 +232,15 @@ export function verifyChatwootWebhook(input: Readonly<{ connection: ChatwootConn
     const inbox = object(payload.inbox);
     const conversation = object(payload.conversation);
     const externalInboxId = id(inbox.id);
-    if (id(conversation.account_id) !== externalAccountId || id(conversation.inbox_id) !== externalInboxId) invalidWebhook("SCHEMA_INVALID");
+    const conversationAccountIds = [
+      ...(conversation.account_id === undefined ? [] : [id(conversation.account_id)]),
+      ...(conversation.account === undefined ? [] : [id(object(conversation.account).id)]),
+    ];
+    if (
+      conversationAccountIds.length === 0
+      || conversationAccountIds.some((accountId) => accountId !== externalAccountId)
+      || id(conversation.inbox_id) !== externalInboxId
+    ) invalidWebhook("SCHEMA_INVALID");
     return {
       deliveryId,
       externalAccountId,
